@@ -1,0 +1,6 @@
+/.claude/settings.local.json
+/.env
+/CLAUDE.local.md
+/generated-images/
+/generated-videos/
+__pycache__

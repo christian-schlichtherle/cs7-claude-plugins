@@ -1,0 +1,11 @@
+{
+  "name": "gemini-media",
+  "version": "0.1.0",
+  "description": "Image and video generation with the Nano Banana and Veo models from Google Gemini",
+  "author": {
+    "name": "Christian Schlichtherle"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/christian-schlichtherle/cs7-claude-plugins",
+  "keywords": ["image-generation", "video-generation", "gemini", "nano-banana", "veo"]
+}
