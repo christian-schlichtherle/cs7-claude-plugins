@@ -1,4 +1,4 @@
-# claude-plugins
+# cs7-claude-plugins
 
 A [Claude Code](https://claude.ai/code) plugin marketplace providing AI-powered image and video generation using Google's Gemini API.
 
@@ -47,13 +47,13 @@ Generate and edit images and videos directly from Claude Code using Google's Gem
 ### Add the marketplace
 
 ```bash
-claude plugin marketplace add christian-schlichtherle/claude-plugins
+claude plugin marketplace add christian-schlichtherle/cs7-claude-plugins
 ```
 
 ### Install the plugin
 
 ```bash
-claude plugin install gemini-media@claude-plugins
+claude plugin install gemini-media@cs7-claude-plugins
 ```
 
 ### Set your API key
