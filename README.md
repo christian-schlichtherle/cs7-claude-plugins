@@ -42,7 +42,7 @@ Generate and edit images and videos directly from Claude Code using Google's Gem
 
 - [Claude Code](https://claude.ai/code) v1.0.33+
 - Python 3.7+ (scripts use only stdlib — no pip install needed)
-- A [Google AI Studio](https://aistudio.google.com/) API key with Gemini access
+- A [Gemini API Key](https://aistudio.google.com/api-keys) from Google's AI Studio
 
 ### Add the marketplace
 
