@@ -13,7 +13,7 @@ Generate and edit images and videos directly from Claude Code using Google's Gem
 | Skill | Trigger | Models |
 |---|---|---|
 | `generate-image` | "generate an image", "edit this image", "refine the image" | Nano Banana (Gemini 3.1 Flash, Gemini 3 Pro, Gemini 2.5 Flash) |
-| `generate-video` | "generate a video", "animate this image", "extend the video" | Veo 3.1, Veo 3.0 |
+| `generate-video` | "generate a video", "animate this image", "extend the video" | Veo 3.1, Veo 3 |
 
 #### Image Generation
 

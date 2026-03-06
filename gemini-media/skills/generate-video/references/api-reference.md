@@ -16,20 +16,21 @@ POST https://generativelanguage.googleapis.com/v1beta/models/{model}:predictLong
 |---|---|---|
 | `veo-3.1-generate-preview` | Preview | Full-quality. Native audio, reference images, video extension, frame interpolation. |
 | `veo-3.1-fast-generate-preview` | Preview | Faster generation, slightly lower quality. Same feature set as 3.1. |
-| `veo-3.0-generate-preview` | Preview | Previous generation. Native audio, no reference images or extension. |
-| `veo-3.0-fast-generate-001` | Stable | Production-ready fast variant of Veo 3. |
+| `veo-3-generate-preview` | Stable | Previous generation. Native audio, frame interpolation. No reference images or extension. |
+| `veo-3-fast-generate-preview` | Stable | Fast variant of Veo 3. Same feature set as Veo 3. |
 
 ### Model Compatibility Matrix
 
-| Feature | Veo 3.0 | Veo 3.1 |
+| Feature | Veo 3 | Veo 3.1 |
 |---|---|---|
 | Text-to-video | Yes | Yes |
 | Image-to-video | Yes | Yes |
-| Frame interpolation (lastFrame) | No | Yes |
+| Frame interpolation (lastFrame) | Yes | Yes |
 | Video extension | No | Yes |
 | Reference images | No | Yes (up to 3 asset) |
 | Native audio (generateAudio) | Yes | Yes |
-| Resolution control | Yes | Yes (incl. 4k) |
+| Resolution control | 720p, 1080p | 720p, 1080p, 4k |
+| Duration options | 8s only | 4, 6, 8s |
 | Seed for determinism | Yes | Yes |
 
 ## Request Body Schemas
@@ -151,8 +152,8 @@ POST https://generativelanguage.googleapis.com/v1beta/models/{model}:predictLong
 | Field | Type | Default | Values | Description |
 |---|---|---|---|---|
 | `aspectRatio` | string | `"16:9"` | `"16:9"`, `"9:16"` | Video aspect ratio |
-| `resolution` | string | `"720p"` | `"720p"`, `"1080p"`, `"4k"` | Output resolution (Veo 3+ only; 4k on Veo 3.1 preview only) |
-| `durationSeconds` | int | `8` | `4`, `6`, `8` | Video duration in seconds |
+| `resolution` | string | `"720p"` | `"720p"`, `"1080p"`, `"4k"` | Output resolution (4k on Veo 3.1 only) |
+| `durationSeconds` | int | `8` | `4`, `6`, `8` | Video duration in seconds (Veo 3 supports 8s only; 4/6s on Veo 3.1) |
 | `negativePrompt` | string | — | free text | Content to exclude |
 | `personGeneration` | string | `"allow_adult"` | `"allow_all"`, `"allow_adult"`, `"dont_allow"` | People generation control |
 | `generateAudio` | bool | — | `true`, `false` | Enable/disable native audio synthesis (Veo 3+ only) |
@@ -168,7 +169,7 @@ POST https://generativelanguage.googleapis.com/v1beta/models/{model}:predictLong
 | Constraint | Rule |
 |---|---|
 | High resolution (1080p/4k) | Duration must be 8 seconds |
-| 4k resolution | Veo 3.1 preview models only |
+| 4k resolution | Veo 3.1 models only |
 | Video extension | Resolution locked to 720p; duration locked to 8s |
 | Reference images | Maximum 3 asset images; Veo 3.1 only; duration must be 8s |
 | Frame interpolation | Requires both `image` (first frame) and `lastFrame`; Veo 3.1 only |

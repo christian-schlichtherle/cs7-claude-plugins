@@ -6,10 +6,10 @@
 |---|---|---|---|
 | `veo-3.1-generate-preview` | Slower | Highest | Final deliverables, complex scenes, reference images |
 | `veo-3.1-fast-generate-preview` | Fast | High | Iteration, drafts, programmatic generation (default) |
-| `veo-3.0-generate-preview` | Slower | High | Text-to-video and image-to-video without advanced features |
-| `veo-3.0-fast-generate-001` | Fastest | Good | Production workloads, high-volume generation |
+| `veo-3-generate-preview` | Slower | High | Text-to-video, image-to-video, frame interpolation (no extension or references) |
+| `veo-3-fast-generate-preview` | Fast | Good | Fast generation without Veo 3.1 advanced features |
 
-**Recommendation:** Use `veo-3.1-fast-generate-preview` (default) for iteration. Switch to `veo-3.1-generate-preview` for final quality. Use Veo 3.0 variants only if you don't need reference images, frame interpolation, or video extension.
+**Recommendation:** Use `veo-3.1-fast-generate-preview` (default) for iteration. Switch to `veo-3.1-generate-preview` for final quality. Use Veo 3 variants only if you don't need reference images, video extension, or 4K resolution.
 
 ## Generation Modes
 

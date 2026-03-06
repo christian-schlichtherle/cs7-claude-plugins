@@ -1,6 +1,6 @@
 {
   "name": "gemini-media",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Image and video generation with the Nano Banana and Veo models from Google Gemini",
   "author": {
     "name": "Christian Schlichtherle"

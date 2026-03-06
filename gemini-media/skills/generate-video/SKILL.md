@@ -40,7 +40,7 @@ Restate the user's request as a clear generation prompt. If the request is vague
 Use API defaults unless the user explicitly requests specific settings. Only pass flags when the user asks for them.
 
 If the user asks about available options:
-- **Models:** `veo-3.1-fast-generate-preview` (default, fast), `veo-3.1-generate-preview` (highest quality), `veo-3.0-generate-preview`, `veo-3.0-fast-generate-001`
+- **Models:** `veo-3.1-fast-generate-preview` (default, fast), `veo-3.1-generate-preview` (highest quality), `veo-3-fast-generate-preview`, `veo-3-generate-preview`
 - **Aspect ratios:** 16:9 (landscape, default), 9:16 (portrait/vertical)
 - **Resolutions:** 720p (default, fastest), 1080p, 4k (1080p and 4k require 8s duration)
 - **Durations:** 4, 6, or 8 seconds (default: 8)
