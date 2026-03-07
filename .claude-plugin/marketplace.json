@@ -4,13 +4,13 @@
     "name": "Christian Schlichtherle"
   },
   "metadata": {
-    "description": "AI-powered image and video generation using Google Gemini"
+    "description": "AI-powered image and video generation using Google Gemini."
   },
   "plugins": [
     {
       "name": "gemini-media",
       "source": "./gemini-media",
-      "description": "Image and video generation with the Nano Banana and Veo models from Google Gemini"
+      "description": "Image and video generation with the Nano Banana and Veo models from Google Gemini."
     }
   ]
 }
