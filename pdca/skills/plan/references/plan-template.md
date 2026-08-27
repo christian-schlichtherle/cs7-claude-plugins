@@ -17,7 +17,7 @@ silently omitting it, so a reader can tell the difference between "not needed" a
 | | |
 |---|---|
 | **Created** | 2026-08-27 |
-| **Executor** | Opus 5, high effort |
+| **Executor** | Opus 5, high effort, permission mode auto |
 | **Ticket** | ACME-123 |
 | **Branch** | current branch — do not create a new one |
 | **Plan file** | docs/plans/2026-08-27-cache-ttl.md |
@@ -47,6 +47,40 @@ out of scope; standards that apply.>
 - Do not touch the production values file — this change is staging only.
 - No new dependencies.
 - Out of scope: the cache invalidation path, tracked separately.
+
+## Pre-Flight
+
+<Run in the first turn, before task 1. Each check is one command with one expected
+result, and any failure stops the run: write the blocked report named in step 9 of
+the Execution Protocol and do not start the tasks. Model, effort and permission mode
+are spelled out literally here so the comparison is a string match, not a judgement.>
+
+1. **Executing model, effort and permission mode.**
+
+   ```bash
+   T=$(ls -t "$HOME"/.claude/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl | head -1)
+   grep '"type":"assistant"' "$T" | tail -1 | grep -o '"model":"[^"]*"' | head -1
+   grep -o '"permissionMode":"[^"]*"' "$T" | tail -1
+   echo "effort=$CLAUDE_EFFORT"
+   ```
+
+   Expected: `"model":"claude-opus-5"`, `"permissionMode":"auto"`, `effort=high`.
+
+2. **Privileges** — skip this group only if the mode above is `bypassPermissions`,
+   and say in the Run Log that you skipped it.
+   - `kubectl auth can-i update configmap -n staging` prints `yes`.
+   - `helm -n staging upgrade api charts/api -f charts/api/values-staging.yaml --dry-run`
+     exits 0. If it is denied rather than failing, that is a pre-flight failure.
+   - `echo test | gpg --clearsign --batch --pinentry-mode error` exits 0 — commits
+     here are signed, and a cold agent hangs rather than failing.
+
+3. **Ground.**
+   - This file exists at `docs/plans/2026-08-27-cache-ttl.md`.
+   - `git remote -v` names the `api` repository, and `git status --porcelain` is empty.
+
+4. **Preconditions from the Verified Context.** Re-run the facts the tasks turn on:
+   `grep -n 'ttlSeconds' charts/api/values.yaml` still shows `300`, and the staging
+   cluster answers `kubectl -n staging get configmap api-config -o name`.
 
 ## Tasks
 
@@ -90,22 +124,29 @@ You are implementing this plan autonomously. There is nobody to ask, so decide f
 what is written here plus the repository, and record what you decided.
 
 1. Read this file completely before starting.
-2. Work the tasks in order. After finishing each one, tick its checkbox in this file
+2. Run the **Pre-Flight** section first, in your first turn, before changing
+   anything. Show each check and its real output. If any check fails, stop there:
+   write the blocked report described in step 9, naming the failed check, what was
+   expected, what was actually there, and what has to change about the launch. Do not
+   start the tasks, do not substitute a different model or mode, and do not proceed
+   at a lower spec — a mismatch discovered here costs a relaunch, and the same
+   mismatch discovered at task 5 costs the whole run.
+3. Work the tasks in order. After finishing each one, tick its checkbox in this file
    and append a line to the Run Log. Do this as you go, not at the end — if this run
    is interrupted, the ticked boxes are how the next one knows where to resume.
-3. Run each task's verification and the Acceptance Criteria for real, and show their
+4. Run each task's verification and the Acceptance Criteria for real, and show their
    output. A summary is not evidence.
-4. Immediately before the final commit and the removal of this file, re-run the full
+5. Immediately before the final commit and the removal of this file, re-run the full
    Acceptance Criteria and show every command and result again. The evaluator judging
    whether you are done reads the condition text and the recent conversation — a
    result proved twenty turns ago may no longer be visible to it, and this file is
    about to stop existing.
-5. If reality contradicts the Verified Context, stop and record the contradiction in
+6. If reality contradicts the Verified Context, stop and record the contradiction in
    the Run Log before deciding anything. Then proceed only if the plan's Goal still
    makes sense; otherwise treat it as blocked.
-6. Commit on the current branch with the ticket prefix and signing convention above.
+7. Commit on the current branch with the ticket prefix and signing convention above.
    Do not create a branch.
-7. When every acceptance criterion passes, remove this plan file. How depends on
+8. When every acceptance criterion passes, remove this plan file. How depends on
    where it lives, so check rather than assume:
    - **Tracked in the repository being changed** — delete it as part of the final
      commit, so the plan and the work that fulfilled it land together.
@@ -114,7 +155,7 @@ what is written here plus the repository, and record what you decided.
      the final commit message body instead.
    - **In a different repository than the work** — `rm` it after the final commit.
      It cannot be part of a commit in the repository you are changing.
-8. If a criterion cannot be made to pass: write the blocked report at **exactly the
+9. If a criterion cannot be made to pass: write the blocked report at **exactly the
    path named in the goal condition** — the plan path with `.md` replaced by
    `.BLOCKED.md`, so `2026-08-27-cache-ttl.md` becomes
    `2026-08-27-cache-ttl.BLOCKED.md`. Name the failing check, what you tried,

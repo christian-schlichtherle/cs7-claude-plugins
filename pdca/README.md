@@ -9,7 +9,7 @@ This is the Deming PDCA cycle with a session boundary in the middle.
 | Phase | Session | What happens |
 |-------|---------|--------------|
 | **Plan** | interactive, with you | Explore, verify every assumption by running commands, and iterate on a plan file until you are satisfied |
-| **Do / Check / Act** | fresh, unattended | A new `claude` process implements the plan under `/goal`, and cannot stop until an evaluator agrees the work is done |
+| **Do / Check / Act** | fresh, unattended | A new `claude` process checks it is the session the plan was written for, implements the plan under `/goal`, and cannot stop until an evaluator agrees the work is done |
 
 The plan file is the entire interface between them. Phase 2 has no memory of your
 conversation — so the plan has to be good enough that nobody needs to babysit it.
@@ -37,9 +37,16 @@ claude --model opus --effort high --permission-mode auto '/goal Execute the plan
 ```
 
 Run that in the work repository's directory — usually the same one you planned in —
-and the autonomous phase begins. It ticks off tasks
-in the plan file as it goes, so you can watch progress by reading the file — and an
-interrupted run resumes from where it stopped. When every acceptance check passes,
+and the autonomous phase begins with a pre-flight check. Before it changes anything,
+it confirms it is running on the model, effort level and permission mode the plan was
+written for, that every privilege the plan needs is actually available — a passwordless
+sudo, a warm signing key, a cluster role — and that it is in the right repository on
+the right branch. If any of that is wrong it writes a `.BLOCKED.md` naming the
+mismatch and stops immediately, rather than producing plausible-looking work on the
+wrong model and going wrong somewhere nobody is watching.
+
+Past the gate, it ticks off tasks in the plan file as it goes, so you can watch
+progress by reading the file — and an interrupted run resumes from where it stopped. When every acceptance check passes,
 it commits the work on the current branch and deletes the plan file in the same
 commit.
 

@@ -20,13 +20,15 @@ surviving. Reference the plan file *and* inline what the evaluator has to check.
 
 ## Shape
 
-Four parts, in order:
+Five parts, in order:
 
 1. **Directive** — execute the plan at `<path>` to completion.
-2. **Completion** — the acceptance criteria, inlined with their expected results.
-3. **Boundaries** — commit on the current branch with the ticket prefix, do not
+2. **Gate** — run the Pre-Flight section of that plan first, before any change, and
+   stop with the blocked report if any of it fails.
+3. **Completion** — the acceptance criteria, inlined with their expected results.
+4. **Boundaries** — commit on the current branch with the ticket prefix, do not
    create a branch, delete the plan file.
-4. **Escape hatch** — or the blocked report exists, explaining why a check cannot
+5. **Escape hatch** — or the blocked report exists, explaining why a check cannot
    pass.
 
 ## Rules
@@ -55,6 +57,17 @@ single-quoted shell argument. Write "the plan file" rather than "the plan's file
 and name commands without backticks. Double quotes are fine. If a command genuinely
 requires a single quote (a jsonpath, say), do not fight it — emit the two-step form
 from the SKILL instead.
+
+**Name the gate, and let it terminate the run.** Two sentences buy the whole
+pre-flight: one telling the session to run the Pre-Flight section of the plan before
+anything else, one saying that a pre-flight failure is written up as the blocked
+report and ends the run. Both are needed, and for different readers. The executing
+session needs the first, or it starts with task 1 on whatever model it happens to be —
+the directive it receives is this condition, not the plan, and it reads the plan
+because the condition told it to. The evaluator needs the second, or a session that
+correctly aborts in turn 1 is judged not-done and pushed back into work it already
+established it cannot do. Under a Stop hook there is no quiet exit, so the escape
+hatch has to cover the gate as well as the finish.
 
 **Only require what is actually possible.** Before writing a completion clause,
 check that it can be satisfied from the state the run will start in. The failure
@@ -92,20 +105,26 @@ at high effort.
 
 ```
 Execute the plan at docs/plans/2026-08-27-cache-ttl.md to completion.
-Done when all of the following hold: every task checkbox in that file was ticked
-before the file was removed; mvn -q verify was run in this session and exited 0;
+Before changing anything, run the Pre-Flight section of that plan and show the output
+of every check: the model must be claude-opus-5, the effort high, the permission mode
+auto, and every privilege probe must pass. If any pre-flight check fails, write the
+blocked report named below and stop - do not start the tasks and do not continue on a
+different model or mode.
+Done when all of the following hold: the Pre-Flight checks were run first in this
+session and passed; every task checkbox in that file was ticked before the file was
+removed; mvn -q verify was run in this session and exited 0;
 kubectl -n staging get configmap api-config -o "jsonpath={.data.cacheTtlSeconds}"
 was run and printed 3600; git status --porcelain is empty; and the plan file
 has been deleted, with all work committed on the current branch, each commit
 prefixed ACME-123 and GPG-signed. Do not create a branch. Do not relax, skip, or
 declare passed any check that was not actually run, and do not route around a
-permission denial - a refused command is a blocked-report situation. If a check
-cannot be made to pass, write
+permission denial - a refused command is a blocked-report situation. If a pre-flight
+or acceptance check cannot be made to pass, write
 docs/plans/2026-08-27-cache-ttl.BLOCKED.md naming the failing check, what
 was tried, and why it cannot pass, then stop - that also satisfies this goal.
 ```
 
-Roughly 800 characters, well inside budget, single-quotes cleanly, and every clause
+Roughly 1350 characters, comfortably inside budget, single-quotes cleanly, and every clause
 is something an evaluator can actually look for.
 
 ## Emitting the handoff

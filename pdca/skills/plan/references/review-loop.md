@@ -102,6 +102,9 @@ Include here:
 - Acceptance criteria that are not runnable commands with unambiguous expected
   results, that would pass without the work being done, or that cannot run in
   this environment.
+- A Pre-Flight section that would not stop you: a model, effort or permission mode
+  that is not named literally enough to compare against, a privilege the tasks
+  need that nothing probes, or a check whose failure you could talk yourself past.
 - Ambiguity you could resolve two ways, where the two ways differ materially.
 - Ordering that matters but is not stated.
 - Anything the plan asks for that you could not actually carry out.

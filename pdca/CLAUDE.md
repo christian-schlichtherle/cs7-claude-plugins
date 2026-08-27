@@ -21,7 +21,7 @@ hard on verified facts and inlined acceptance criteria.
   its human-facing description, once for the skill with its triggering description.
 - **The skill is the single source of truth.** The command is a thin entry point: a
   description, an argument hint, examples, and a pointer. Argument parsing, the
-  pre-flight checks, the plan template and the goal-condition rules live in the skill
+  verification rules, the plan template and the goal-condition rules live in the skill
   only. They were duplicated in both files once, and a review found the same two
   defects had to be fixed twice — hence the split.
 - The skill stays model-invocable, which is what makes it trigger on intent
@@ -34,10 +34,19 @@ hard on verified facts and inlined acceptance criteria.
 - Phase 1 never enters plan mode. Not because plan mode blocks read-only probes (it
   does not — `kubectl get` and `grep` run fine there), but because the phase writes
   the plan file and spike files and runs verification that touches state.
-- Phase 2 always runs with `--permission-mode auto`; an autonomous session cannot
-  answer permission prompts. Auto decides without asking in *both* directions,
-  though — it also denies silently — so phase 1 must run every prescribed command
-  under that mode before prescribing it.
+- Phase 2 always runs with `--permission-mode auto` unless the user deliberately
+  escalates; an autonomous session cannot answer permission prompts. Auto decides
+  without asking in *both* directions, though — it also denies silently — so phase 1
+  must run every prescribed command under that mode before prescribing it.
+- Phase 2 opens with a pre-flight gate, and the gate is the reason model, effort and
+  permission mode are settled in phase 1 step 2 rather than at handoff. The plan names
+  all three literally; phase 2 reads its own back and compares. A failure there is a
+  blocked report in turn 1 — never an adaptation, never a run that starts anyway,
+  because a wrong-model run looks fine for a while and a Stop hook offers no quiet way
+  out later. The gate is instructed twice on purpose: the plan's Execution Protocol
+  tells the executing session to run it, and the goal condition repeats it, because
+  the condition is the directive the session actually receives and the evaluator has
+  to accept a turn-1 abort as terminal.
 - The goal condition is capped at 4000 characters, is single-quoted into a shell
   argument (so: no apostrophes, no backticks), and always carries a blocked-report
   escape hatch so an impossible check terminates instead of looping.
@@ -57,6 +66,34 @@ hard on verified facts and inlined acceptance criteria.
 - The `/goal` condition never makes a present-tense claim about the plan file, since
   the same condition orders that file deleted. Claims are phrased as what happened in
   the session, which is what the evaluator can still see.
+
+## Facts About Session Introspection This Plugin Depends On
+
+Verified against Claude Code 2.1.247. Most of it from a fresh session's first turn —
+`claude -p --model sonnet --effort low --permission-mode auto`, asked to report these
+back — and the rest as each bullet says:
+
+- `CLAUDE_EFFORT` holds the session effort level; `CLAUDE_CODE_SESSION_ID` holds the
+  session id.
+- The session transcript is `~/.claude/projects/<cwd-slug>/<session-id>.jsonl`. It
+  carries one `{"type":"permission-mode","permissionMode":"…"}` record per turn, and
+  every `{"type":"assistant"}` record has `message.model` as its first key — which is
+  why grepping the last assistant line for the first `"model":"…"` match is safe.
+- There is no environment variable for the model, so the transcript (or the session's
+  own context) is the only source.
+- A `permission-mode` record is written every turn and reflects the mode *now*, so a
+  session switched mid-run records the new value from that turn on — which is why the
+  check reads the last record rather than the first.
+- `--permission-mode` accepts `acceptEdits`, `auto`, `bypassPermissions`, `manual`,
+  `dontAsk`, `plan`. Two recorded spellings are observed directly: `auto`, and
+  `bypassPermissions` after a session was switched into bypass mode. That
+  `--dangerously-skip-permissions` selects that same mode is from the CLI help, not
+  from a transcript.
+
+These are internal formats, not public API. If a release moves the transcript, the
+identity check degrades to self-report — which `references/preflight.md` already
+tells the executing session to fall back to. The snippet itself is in two places:
+that file and `skills/plan/references/plan-template.md`.
 
 ## Facts About `/goal` This Plugin Depends On
 

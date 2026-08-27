@@ -86,6 +86,10 @@ it is the thing you ask questions about.
 Ask for anything missing **now**, in one batch:
 
 - **Model and effort for phase 2.** Propose `opus` at `high` when unspecified.
+- **Permission mode for phase 2.** `auto` unless the user asks for something else.
+  Settle it now rather than at handoff: the mode decides what phase 1 has to prove
+  can run unattended, and it is written into the plan literally so phase 2 can check
+  it before starting.
 - **Ticket key** (e.g. `ACME-123`), if the repository prefixes commits with one.
   Check `git log --oneline -20` to see whether it does.
 
@@ -97,6 +101,10 @@ cannot write at the right altitude without knowing the audience.
 
 The ticket key ends up in the handoff command, so it can also be supplied at
 paste time — but ask now, because it is cheap now and awkward later.
+
+All three of model, effort and mode are also what phase 2 checks itself against
+before it touches anything, so settling them here is what makes that gate possible
+at all. See `references/preflight.md`.
 
 ### 3. Explore and verify
 
@@ -122,6 +130,16 @@ prescribe needed manual approval or was denied here, that is a defect in the pla
 a footnote. Substitute a command that runs cleanly, or record an explicit,
 user-approved mode escalation in the plan. A prescribed command phase 2 cannot run
 makes its acceptance criterion unreachable.
+
+**Enumerate the privileges the tasks need, and probe each one.** Read back through
+what the plan will prescribe: every command that signs, pushes, writes outside the
+repository, touches a cluster, or reaches the network needs something this session
+happens to have and phase 2 may not — a warm signing agent, a cluster role, a live
+token, passwordless sudo. For each, find the cheapest command that proves the right
+exists without exercising it (`sudo -n true`, `kubectl auth can-i …`, a `--dry-run`
+form), run it here, and record it as a pre-flight check in the plan. Those probes are
+what turns a silent refusal at task 5 into a clean abort in turn 1;
+`references/preflight.md` has the catalogue and the reasoning.
 
 You may prototype throwaway spikes to de-risk an assumption — a scratch script, a
 quick patch to see whether something compiles. Restore the working tree before the
@@ -244,8 +262,10 @@ where you left off.
 
 **Coming back to it later** — the plan has been sitting, and the repository has
 moved on. Re-verify before doing anything else. This is cheap, because the Verified
-Context section records the command behind every fact: re-run them, and report
-which still hold and which have drifted. Then bring the plan back to true — update
+Context section records the command behind every fact: re-run them, along with the
+pre-flight probes, and report which still hold and which have drifted — an access
+token or a signing key that has expired since the plan was written shows up here as
+readily as a changed config value. Then bring the plan back to true — update
 the drifted facts, adjust the tasks and acceptance criteria that depended on them —
 and reprint the handoff.
 
@@ -280,10 +300,16 @@ claude --model opus --effort high --permission-mode auto '/goal <condition>'
   unreachable, and the correct exit is then the blocked report — which is why phase 1
   runs every prescribed command under this mode before prescribing it.
 
-  `dontAsk` and `bypassPermissions` remove the denials too. Treat them as the user's
-  explicit, risk-acknowledged choice, never as a recommended escalation: an
+  `dontAsk` and `bypassPermissions` (the latter is what
+  `--dangerously-skip-permissions` selects) remove the denials too. Treat them as the
+  user's explicit, risk-acknowledged choice, never as a recommended escalation: an
   unattended run that touches production with the permission layer switched off is a
   decision for a human to make deliberately, not a default this skill hands out.
+
+  Whichever mode is settled, it is named literally in the plan's Pre-Flight section
+  and checked by phase 2 before it starts — so a plan that assumed the permission
+  layer was off, launched under `auto`, stops in turn 1 rather than discovering the
+  difference halfway through.
 - The positional prompt runs as the session's first turn, so `/goal` activates
   immediately.
 
@@ -322,6 +348,15 @@ plan's own Execution Protocol section tells the reader how to behave. That secti
 is not boilerplate you may drop — it is what makes the file self-sufficient. It
 instructs the executing session to:
 
+- Run the plan's **Pre-Flight** section before anything else, in its first turn: that
+  the model, effort and permission mode are the ones the plan was written for, that
+  every privilege the tasks need is actually available, and that the working
+  directory, branch and plan path are what the plan expects. Any failure ends the run
+  right there, as a blocked report naming the mismatch — not as an adaptation, and not
+  as a run that starts anyway. A wrong-model run is expensive precisely because it
+  looks fine for a while, and under a Stop hook there is no way to quietly abandon it
+  later. `references/preflight.md` covers what the gate checks and how phase 1 writes
+  it.
 - Work through the tasks in order, ticking each checkbox in the plan file as it
   completes and appending notable decisions to the run log. This makes the file a
   live progress record: an interrupted run resumes from it, and the user can watch
@@ -349,6 +384,10 @@ with one impossible check turns into a session that cannot stop, retrying foreve
 
 - `references/plan-template.md` — the plan file template, section by section, with
   what each section is for. Read before writing a plan.
+- `references/preflight.md` — the pre-flight gate phase 2 runs before task 1: how a
+  session checks its own model, effort and permission mode, which privileges to probe
+  and how, and why a failure there is written up rather than worked around. Read
+  before filling in a plan's Pre-Flight section.
 - `references/goal-condition.md` — how to construct the `/goal` condition: the
   character budget, shell safety, the escape hatch, worked examples. Read before
   writing a handoff.
