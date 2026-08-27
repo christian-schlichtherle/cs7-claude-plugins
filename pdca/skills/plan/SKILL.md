@@ -154,10 +154,14 @@ bookkeeping: without it, phase 2 reads the ticket, sees a requirement the plan d
 not cover, and helpfully implements it — which is the exact failure the interactive
 phase exists to prevent.
 
-The ticket also brings a second obligation, so settle it now while the user is here:
-phase 2 ends by attaching the finished plan to the ticket and commenting the outcome,
-and that needs a channel this environment may not have. Step 4 probes it, and
-`references/jira.md` says what to do when there is none.
+Naming the ticket also settles, by itself, what happens to the plan at the end:
+phase 2 attaches the finished plan to the ticket and comments the outcome. That is a
+standing consequence of the answer given in step 2, not a further decision — do not
+ask the user, now or at handoff, what should be done with the plan or the ticket when
+the work is finished. What is *not* settled yet is the channel: attaching needs one
+this environment may not have. Step 4 probes it, and `references/jira.md` says what to
+do when there is none — the single case where a closeout question is warranted, and it
+is a question about the channel, never about whether the closeout happens.
 
 ### 4. Explore and verify
 
@@ -276,6 +280,14 @@ the reviewer prompt, and how to handle a verdict you disagree with.
 The order below is not arbitrary. The commit decision has to be *asked* first
 because the condition depends on it, but the commit itself has to *happen* last,
 because the plan is still being written until the handoff is in it.
+
+The commit decision is also the **only** question this step asks. In particular, when
+a ticket was named, do not ask what should happen to the finished plan or the ticket
+at the end of phase 2 — the user answered that by naming the ticket: the plan is
+attached and the outcome is commented, exactly as the plan's Ticket Closeout section
+already prescribes. Re-asking a settled decision reads as the workflow not trusting
+its own record, and invites an answer that contradicts what the plan and the goal
+condition were built on.
 
 1. **Ask whether to commit the plan — decision only, no commit yet.** Whether the
    plan ends up tracked decides how it can be removed at the end, so the condition

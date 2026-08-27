@@ -129,6 +129,14 @@ the outcome is commented. The plan file is the record of the whole run — every
 checkbox, every Run Log entry, every deviation — and it is about to cease to exist.
 The attachment is what turns a disappearing file into the ticket's history.
 
+The closeout is a standing consequence of naming the ticket, not a decision anyone
+revisits. Neither phase asks the user what to do with the finished plan or the
+ticket — not phase 1 at handoff, not phase 2 at the end of the run. The user made
+that decision in the step-2 interview, by naming the ticket. The one question the
+workflow may still raise is the fallback choice below, when phase 1 finds no working
+attachment channel — and that is a question about the channel, never about whether
+the closeout happens.
+
 ### Sequence
 
 Order matters, and the reason is always the same: nothing is deleted before its

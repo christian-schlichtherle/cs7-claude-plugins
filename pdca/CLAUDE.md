@@ -86,6 +86,15 @@ hard on verified facts and inlined acceptance criteria.
   field edits, no worklog; and a blocked run says nothing on the ticket by default,
   because an unattended failure is for the developer to triage before it notifies
   everyone watching the work item.
+- **The closeout is never re-asked.** Naming the ticket in the step-2 interview *is*
+  the decision about what happens to the finished plan: attach it, comment the
+  outcome. Neither phase may end by asking the user what to do with the plan or the
+  ticket — phase 1 not at handoff (its only question there is whether to commit the
+  plan), phase 2 not at the end of the run (its only alternative is the blocked
+  report). The one legitimate closeout question is phase 1's channel fallback when no
+  attachment channel probes clean, and it is about the channel, not about whether to
+  close out. This rule exists because a planning session ended by asking exactly
+  that question with the ticket named from the start — a settled decision re-asked.
 - The goal condition is capped at 4000 characters, is single-quoted into a shell
   argument (so: no apostrophes, no backticks), and always carries a blocked-report
   escape hatch so an impossible check terminates instead of looping.

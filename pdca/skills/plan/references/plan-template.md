@@ -149,8 +149,12 @@ this under pressure.>
 
 <Run after the work is committed and the Acceptance Criteria have been re-run, and
 before this file is removed. Exact commands, verified in phase 1 — the executing session
-runs them, it does not work out how to talk to Jira. Omit only when there is no ticket,
-or when the user decided against a closeout, and then say which in one line.>
+runs them, it does not work out how to talk to Jira. This section is not a decision
+point: do not ask what should be done with this file or the ticket — that was decided
+in the planning session, and this section is the decision. Run the recorded commands;
+if they cannot complete, the answer is the blocked report, not a question. Omit only
+when there is no ticket, or when the user decided against a closeout, and then say
+which in one line.>
 
 1. Bring this file to its final state: every task checkbox ticked, the Run Log
    complete, the outcome recorded.

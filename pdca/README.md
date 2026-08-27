@@ -69,7 +69,8 @@ stays where it is and the run stops with a blocked report — nothing is deleted
 replacement exists.
 
 The closeout attaches and comments, and does nothing else: it will not transition your
-ticket, reassign it, or edit its fields.
+ticket, reassign it, or edit its fields. And it happens without asking — naming the
+ticket at the start was the decision, and neither phase brings it back to you.
 
 If a check turns out to be impossible, it writes a `.BLOCKED.md` post-mortem and
 stops, rather than retrying forever.
