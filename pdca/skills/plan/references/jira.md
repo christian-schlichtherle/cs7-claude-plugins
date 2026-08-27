@@ -10,8 +10,8 @@ the ticket.
 
 ## Why the ticket is asked for every time
 
-Because the cost is asymmetric. Asking costs one line in a batch of questions the
-session is already asking. Not asking costs a plan that reads well, executes cleanly,
+Because the cost is asymmetric. Asking costs one question in the interview the
+session is already running, answered with a keystroke. Not asking costs a plan that reads well, executes cleanly,
 and misses the two acceptance criteria nobody mentioned — discovered at review, after
 an unattended run has already happened.
 
@@ -19,7 +19,8 @@ So the question is unconditional, and the answer is one of: a key (`ACME-123`), 
 ticket URL, or an explicit "none". Three ways to get this wrong:
 
 - **Inferring it.** A branch called `feature/ACME-123-cache` is a hint, not an answer;
-  branches get reused and renamed. Ask, and offer the inferred key as the default.
+  branches get reused and renamed. Ask, and offer the inferred key as one of the
+  interview's options — chosen by the user, never assumed.
 - **Skipping it because the goal is small.** A one-line config change is exactly the
   kind of work whose ticket carries the one constraint that matters.
 - **Accepting silence.** No answer is not "none". "None" is a thing the user says.

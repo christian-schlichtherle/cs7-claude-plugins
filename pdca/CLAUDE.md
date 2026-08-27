@@ -47,6 +47,14 @@ hard on verified facts and inlined acceptance criteria.
   tells the executing session to run it, and the goal condition repeats it, because
   the condition is the directive the session actually receives and the evaluator has
   to accept a turn-1 abort as terminal.
+- **The step-2 questions are an interview, not a free-form prompt.** The missing
+  handoff parameters are collected in a single `AskUserQuestion` call — one question
+  per missing parameter (model, effort, permission mode, ticket: at most four, the
+  tool's exact capacity), recommended option first and marked. Options are answered
+  in a keystroke where a composed reply invites the partial answer that leaves a
+  parameter unsettled; the tool's "Other" field still takes a ticket key, URL, or
+  full model ID as free text. Parameters already on the command line are not
+  re-asked.
 - **The ticket is asked for on every run**, unconditionally, and the answer may be
   "none". Given one, phase 1 reads it and turns it into a requirements conversation
   whose outcome is the plan's `## Ticket Requirements` table. That table records every

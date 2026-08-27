@@ -21,10 +21,11 @@ conversation — so the plan has to be good enough that nobody needs to babysit 
 ```
 
 The leading `opus high` sets the model and effort level for the *second* phase.
-Both are optional — if omitted you will be asked, before planning starts, because
-how much the plan must spell out depends on who will be reading it.
+Both are optional — if omitted you will be asked, in a short interview of
+pick-an-option questions before planning starts, because how much the plan must
+spell out depends on who will be reading it.
 
-You are also asked for a Jira ticket, every time — a key, a URL, or "none". Given one,
+The interview also asks for a Jira ticket, every time — a key, a URL, or "none". Given one,
 the session reads it before it plans anything and puts its requirements to you as a
 list: this one is in scope, this one looks like a separate ticket, this acceptance
 criterion is not testable as written — here is what I propose instead. Every decision is

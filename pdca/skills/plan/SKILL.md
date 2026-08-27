@@ -89,7 +89,17 @@ it is the thing you ask questions about.
 
 ### 2. Settle the handoff parameters before planning, not after
 
-Ask for anything missing **now**, in one batch:
+Ask for anything missing **now**, as an interview: one `AskUserQuestion` call with
+one question per missing parameter — model, effort, permission mode, ticket is at
+most four, which is exactly what the tool holds. The user steps through them picking
+options instead of composing a free-form reply, which is what makes asking cheap
+enough to do unconditionally: a marked recommendation is one keystroke to accept, and
+a composed reply invites the partial answer that leaves a parameter unsettled. Put
+your recommended choice first, labelled "(Recommended)"; anything the options cannot
+express — a ticket key, a full model ID — arrives through the interview's free-text
+"Other" field. Do not re-ask what the invocation already supplied.
+
+The parameters:
 
 - **Model and effort for phase 2.** Propose `opus` at `high` when unspecified.
 - **Permission mode for phase 2.** `auto` unless the user asks for something else.
@@ -97,11 +107,13 @@ Ask for anything missing **now**, in one batch:
   can run unattended, and it is written into the plan literally so phase 2 can check
   it before starting.
 - **Jira ticket.** Always ask, every time — the answer is a key like `ACME-123`, a
-  ticket URL, or an explicit "none". Do not infer it from the branch name or the goal
-  text and do not skip the question because the goal looks self-explanatory; a ticket
-  the user forgot to mention is the commonest source of a plan that satisfies its
-  author and not the work item. Check `git log --oneline -20` for the commit prefix
-  convention while you are at it. If a ticket is named, step 3 reads it before
+  ticket URL, or an explicit "none". In the interview that means: "None" is an
+  option, a key inferred from the branch name is another when there is one, and a
+  typed key or URL comes in as "Other". Never adopt the inferred key without the
+  user picking it, and never skip the question because the goal looks
+  self-explanatory; a ticket the user forgot to mention is the commonest source of a
+  plan that satisfies its author and not the work item. Check
+  `git log --oneline -20` for the commit prefix convention while you are at it. If a ticket is named, step 3 reads it before
   anything else happens.
 
 These are not administrative details you can collect at the end. How much the plan
