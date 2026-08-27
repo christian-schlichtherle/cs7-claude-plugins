@@ -73,6 +73,14 @@ whole session.
 If the remainder is a path to an existing plan file, reopen that plan instead of
 starting a new one — see "Reopening a plan" below.
 
+**With no goal at all, interview for one.** `/pdca:plan` on its own, or with only a
+model and effort, is a request to start the conversation, not a request to guess.
+Ask what the work is.
+
+And when a goal *is* supplied, treat it as an opening statement rather than a
+specification. One line of intent is never enough to plan an unattended run from —
+it is the thing you ask questions about.
+
 ### 2. Settle the handoff parameters before planning, not after
 
 Ask for anything missing **now**, in one batch:
@@ -145,6 +153,23 @@ apply to staging too, or dev only?" is answerable in three seconds; "any other
 requirements?" is not.
 
 Iterate until the user is satisfied. They decide when planning is done, not you.
+
+**Never reach the handoff in the same turn as the first draft.** Write the plan, then
+stop and hand control back — always, even when the plan looks finished and the goal
+was clear. This is not politeness; it is what makes the phase mean anything. The exit
+condition of this loop is that the user is satisfied, and satisfaction is something
+they state, not something you infer from a one-line goal and your own confidence. A
+plan nobody reviewed has skipped the only step the interactive phase exists for.
+
+So: at least one full round-trip before step 6, and the user's go-ahead is an actual
+go-ahead. Silence is not one. Nor is the absence of objections to a plan they have not
+been given a chance to read.
+
+There is no exception and no non-interactive mode. If someone wants a plan handed
+straight to an autonomous run without review, they do not need this workflow at all —
+they can set a `/goal` directly and skip the planning session entirely. Choosing
+`/pdca:plan` *is* choosing the interactive phase, so treat any pressure to skip it as
+a sign the wrong tool was reached for, not as licence to hurry.
 
 ### 6. Adversarial review by the executing model
 

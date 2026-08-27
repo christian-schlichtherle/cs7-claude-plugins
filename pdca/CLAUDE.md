@@ -26,6 +26,11 @@ hard on verified facts and inlined acceptance criteria.
   defects had to be fixed twice — hence the split.
 - The skill stays model-invocable, which is what makes it trigger on intent
   ("write me a plan I can run later") without the command being typed.
+- Planning never reaches the handoff in the turn that drafts the plan. The
+  interactive loop's exit condition is that the user is satisfied, which they have to
+  state — so the first draft always ends the turn. There is no waiver and no
+  non-interactive mode: anyone who does not want the interactive phase can set a
+  `/goal` directly instead of using this workflow.
 - Phase 1 never enters plan mode. Not because plan mode blocks read-only probes (it
   does not — `kubectl get` and `grep` run fine there), but because the phase writes
   the plan file and spike files and runs verification that touches state.
