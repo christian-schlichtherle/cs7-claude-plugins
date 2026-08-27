@@ -24,6 +24,14 @@ The leading `opus high` sets the model and effort level for the *second* phase.
 Both are optional — if omitted you will be asked, before planning starts, because
 how much the plan must spell out depends on who will be reading it.
 
+You are also asked for a Jira ticket, every time — a key, a URL, or "none". Given one,
+the session reads it before it plans anything and puts its requirements to you as a
+list: this one is in scope, this one looks like a separate ticket, this acceptance
+criterion is not testable as written — here is what I propose instead. Every decision is
+yours; the ticket is an input, not an authority. What you decide goes into the plan as a
+requirements table, including the requirements you dropped, so the autonomous phase does
+not helpfully implement them behind your back.
+
 Planning then proceeds interactively. Each turn updates
 `docs/plans/<date>-<slug>.md` and reports only what changed; you read the file when
 you want the whole picture. When you are satisfied, the plan is handed to a fresh
@@ -49,6 +57,18 @@ Past the gate, it ticks off tasks in the plan file as it goes, so you can watch
 progress by reading the file — and an interrupted run resumes from where it stopped. When every acceptance check passes,
 it commits the work on the current branch and deletes the plan file in the same
 commit.
+
+If the plan names a ticket, one thing happens first. The plan file is the record of the
+whole run — every ticked box, every decision the session made alone — and it is about to
+be deleted, so it is attached to the ticket, the attachment is confirmed to be there,
+and a comment goes up summarizing the outcome: what was done, the commits, each
+acceptance check with its result, and which ticket requirements this run deliberately
+did not cover. Only then is the file removed. If the attachment cannot be made, the plan
+stays where it is and the run stops with a blocked report — nothing is deleted before its
+replacement exists.
+
+The closeout attaches and comments, and does nothing else: it will not transition your
+ticket, reassign it, or edit its fields.
 
 If a check turns out to be impossible, it writes a `.BLOCKED.md` post-mortem and
 stops, rather than retrying forever.
@@ -78,3 +98,11 @@ if the ground has moved.
 
 `/goal` needs a trusted workspace and working hooks — it is unavailable when
 `disableAllHooks` or `allowManagedHooksOnly` is set.
+
+The ticket side is optional and degrades cleanly. Reading a ticket needs an Atlassian
+MCP server, a CLI, or you pasting it. Attaching the plan at the end needs more than
+that — the MCP server can comment but cannot upload attachments — so the planning
+session probes for a channel and, if there is none, tells you before the handoff and
+asks which fallback you want: supply an API token, inline the plan in the comment, or
+skip the closeout. What it will not do is promise an attachment the autonomous run
+cannot deliver.

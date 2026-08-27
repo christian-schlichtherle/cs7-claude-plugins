@@ -146,9 +146,22 @@ command has a rehearsal form, that is the probe:
 | Cloud API access | `aws sts get-caller-identity`, or the provider equivalent |
 | Dependency installation | the actual fetch against the real registry |
 | A write outside the repository | `touch` the target path and remove it |
+| A Jira attachment or comment at closeout | `GET /rest/api/3/mypermissions?issueKey=<key>&permissions=CREATE_ATTACHMENTS,ADD_COMMENTS` returns `havePermission` for both — it writes nothing, so the ticket collects no test attachments |
 
 A probe that needed manual approval, or came back denied, is a failed pre-flight — not
 a note to keep in mind.
+
+Two of those rows are worth a word on why they are fatal rather than cosmetic. A cold
+signing key does not fail, it *hangs*. And a closeout that cannot run means the plan
+file — the record of the entire run, including everything the run is about to append to
+it — has nowhere to go before it is deleted. Both are cheaper to catch here than
+anywhere else in the workflow.
+
+MCP tool calls are probed the same way as shell commands, and for the same reason: a
+server that needs interactive authentication, or a token that expired between the two
+phases, refuses at the moment of use. `auto` can also decline an MCP write outright. If
+the plan prescribes a tool call, phase 1 makes one — a read against the same server is
+usually enough — under phase 2's permission mode.
 
 ### 3. Ground — that this is the right place
 

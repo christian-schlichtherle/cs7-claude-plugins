@@ -1,11 +1,11 @@
 {
   "name": "pdca",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Two-phase PDCA development: an interactive planning session that produces a self-sufficient plan file, handed off to a fresh autonomous session driven by /goal.",
   "author": {
     "name": "Christian Schlichtherle"
   },
   "license": "MIT",
   "repository": "https://github.com/christian-schlichtherle/cs7-claude-plugins",
-  "keywords": ["pdca", "deming", "planning", "autonomous", "goal", "workflow"]
+  "keywords": ["pdca", "deming", "planning", "autonomous", "goal", "workflow", "jira"]
 }

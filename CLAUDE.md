@@ -19,7 +19,7 @@ pdca/
   commands/plan.md                 # /pdca:plan — the P phase
   skills/plan/
     SKILL.md                       # The PDCA method
-    references/                    # plan template, goal condition rules, review loop
+    references/                    # plan template, pre-flight gate, goal condition rules, review loop, Jira ticket handling
 gemini-media/
   .claude-plugin/plugin.json       # Plugin manifest (name, version, keywords)
   skills/

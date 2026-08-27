@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Split a piece of work into an interactive planning phase that produces a self-sufficient plan file, and an autonomous implementation phase run by a fresh `/goal` session. Use this skill whenever the user wants to plan before implementing, wants a plan another session or another model can execute unattended, says the work is too big for one session, asks to "hand this off", "write a plan I can run later", "set this up so it can run autonomously", mentions PDCA, or types /pdca:plan. Also use it when the user is about to set a `/goal` by hand — a goal grounded in a verified plan beats one grounded in assumptions.
+description: Split a piece of work into an interactive planning phase that produces a self-sufficient plan file, and an autonomous implementation phase run by a fresh `/goal` session. Use this skill whenever the user wants to plan before implementing, wants a plan another session or another model can execute unattended, says the work is too big for one session, asks to "hand this off", "write a plan I can run later", "set this up so it can run autonomously", mentions PDCA, names a Jira ticket to implement, or types /pdca:plan. Also use it when the user is about to set a `/goal` by hand — a goal grounded in a verified plan beats one grounded in assumptions.
 user-invocable: false
 ---
 
@@ -42,7 +42,7 @@ Claude Code's `/plan` mode is the wrong tool here, for two concrete reasons:
 Work in the session's normal permission mode. If the session is currently in plan
 mode, say so and ask the user to exit before continuing.
 
-Plan mode does have a place in this workflow, just not here: the reviewer in step 6
+Plan mode does have a place in this workflow, just not here: the reviewer in step 7
 needs read-only exploration and must not touch the repository, which is exactly what
 plan mode enforces.
 
@@ -73,6 +73,12 @@ whole session.
 If the remainder is a path to an existing plan file, reopen that plan instead of
 starting a new one — see "Reopening a plan" below.
 
+If the remainder is a bare ticket key or ticket URL — `/pdca:plan opus high ACME-123` —
+that is the ticket, not the goal. Do not treat the key as a one-line goal and start
+planning from it: read the ticket in step 3 and derive the goal with the user from what
+it says. A key embedded in a longer goal is both — the ticket and an opening statement
+about what the user actually wants from it.
+
 **With no goal at all, interview for one.** `/pdca:plan` on its own, or with only a
 model and effort, is a request to start the conversation, not a request to guess.
 Ask what the work is.
@@ -90,8 +96,13 @@ Ask for anything missing **now**, in one batch:
   Settle it now rather than at handoff: the mode decides what phase 1 has to prove
   can run unattended, and it is written into the plan literally so phase 2 can check
   it before starting.
-- **Ticket key** (e.g. `ACME-123`), if the repository prefixes commits with one.
-  Check `git log --oneline -20` to see whether it does.
+- **Jira ticket.** Always ask, every time — the answer is a key like `ACME-123`, a
+  ticket URL, or an explicit "none". Do not infer it from the branch name or the goal
+  text and do not skip the question because the goal looks self-explanatory; a ticket
+  the user forgot to mention is the commonest source of a plan that satisfies its
+  author and not the work item. Check `git log --oneline -20` for the commit prefix
+  convention while you are at it. If a ticket is named, step 3 reads it before
+  anything else happens.
 
 These are not administrative details you can collect at the end. How much the plan
 has to spell out depends on who is reading it: a plan for `haiku` at `low` effort
@@ -99,14 +110,44 @@ needs exact file paths, exact snippets, and no inference; a plan for `opus` at `
 can state intent and constraints and trust the reader to work out the details. You
 cannot write at the right altitude without knowing the audience.
 
-The ticket key ends up in the handoff command, so it can also be supplied at
-paste time — but ask now, because it is cheap now and awkward later.
+The ticket key ends up in the handoff command, in the commit prefix, and in the
+closeout that ends phase 2 — so ask now. Supplied at paste time it is merely a
+prefix; supplied now it is also requirements to plan against.
 
 All three of model, effort and mode are also what phase 2 checks itself against
 before it touches anything, so settling them here is what makes that gate possible
 at all. See `references/preflight.md`.
 
-### 3. Explore and verify
+### 3. Read the ticket and discuss its requirements
+
+Only when a ticket was named in step 2. Skip to step 4 when the user said "none",
+and note in the plan that there is no ticket.
+
+Fetch the ticket and read it properly — description, acceptance criteria, comments,
+linked issues — then put its requirements to the user as a numbered list and settle
+each one before planning. `references/jira.md` has how to fetch it, what to read, and
+the exact shape of the conversation.
+
+Two rules govern the whole exchange, and both matter enough to state here:
+
+**The ticket is always considered, never authoritative.** Every requirement in it
+gets raised with the user explicitly — none is quietly dropped because it looks
+tangential, and none is quietly adopted because it is written down. What the ticket
+says is input to a decision; the decision is the user's.
+
+**Where the plan and the ticket disagree, record the disagreement.** A requirement
+the user descopes, defers, or reverses is written into the plan's Ticket Requirements
+section *as* descoped, deferred or reversed, with the reason. That section is not
+bookkeeping: without it, phase 2 reads the ticket, sees a requirement the plan does
+not cover, and helpfully implements it — which is the exact failure the interactive
+phase exists to prevent.
+
+The ticket also brings a second obligation, so settle it now while the user is here:
+phase 2 ends by attaching the finished plan to the ticket and commenting the outcome,
+and that needs a channel this environment may not have. Step 4 probes it, and
+`references/jira.md` says what to do when there is none.
+
+### 4. Explore and verify
 
 This is the substance of the phase. For every claim the plan will rest on, run
 something that proves it, and record both the command and what it returned.
@@ -141,6 +182,14 @@ form), run it here, and record it as a pre-flight check in the plan. Those probe
 what turns a silent refusal at task 5 into a clean abort in turn 1;
 `references/preflight.md` has the catalogue and the reasoning.
 
+**The ticket closeout is one of those privileges.** If a ticket was named, phase 2
+finishes by attaching the plan to it and posting a comment, and neither is guaranteed
+to work: an MCP server that needs interactive authentication, a token this session
+happens to hold and the next one does not, an `auto` classifier that refuses the
+upload command. Probe the exact channel you are about to prescribe, record the
+verified commands and identifiers in the plan, and if there is no working channel,
+say so now and let the user choose the fallback — see `references/jira.md`.
+
 You may prototype throwaway spikes to de-risk an assumption — a scratch script, a
 quick patch to see whether something compiles. Restore the working tree before the
 handoff; phase 2 must start from a state you understand. Apart from spikes, the plan
@@ -150,7 +199,7 @@ tree, under `mktemp -d` or `/tmp`. A stray scratch file in the repository leaves
 phase 2 starting from a dirty tree, which breaks the one signal it has for
 recognizing its own work.
 
-### 4. Write the plan file
+### 5. Write the plan file
 
 Path: `docs/plans/<YYYY-MM-DD>-<slug>.md`, slug derived from the goal. If the
 repository already has a `docs/` directory, create `docs/plans/` under it as needed.
@@ -161,7 +210,7 @@ Follow `references/plan-template.md` — it is a fixed template, and its section
 exist to force out the gaps that make a plan unexecutable. Read it before writing
 your first draft.
 
-### 5. Iterate with delta reports
+### 6. Iterate with delta reports
 
 Each turn: update the file, then report **only what changed** and what is still
 open. A few lines. Do not reprint the plan — the user reads the file, or its diff.
@@ -179,7 +228,7 @@ condition of this loop is that the user is satisfied, and satisfaction is someth
 they state, not something you infer from a one-line goal and your own confidence. A
 plan nobody reviewed has skipped the only step the interactive phase exists for.
 
-So: at least one full round-trip before step 6, and the user's go-ahead is an actual
+So: at least one full round-trip before step 7, and the user's go-ahead is an actual
 go-ahead. Silence is not one. Nor is the absence of objections to a plan they have not
 been given a chance to read.
 
@@ -189,7 +238,7 @@ they can set a `/goal` directly and skip the planning session entirely. Choosing
 `/pdca:plan` *is* choosing the interactive phase, so treat any pressure to skip it as
 a sign the wrong tool was reached for, not as licence to hurry.
 
-### 6. Adversarial review by the executing model
+### 7. Adversarial review by the executing model
 
 When the user signals they are happy, the plan is reviewed — not by you, but by a
 fresh `claude -p` process running **phase 2's model at phase 2's effort level**,
@@ -210,7 +259,7 @@ executor is a finding in itself, and it is the user's to settle.
 Read `references/review-loop.md` before the first round; it has the exact command,
 the reviewer prompt, and how to handle a verdict you disagree with.
 
-### 7. Hand off
+### 8. Hand off
 
 The order below is not arbitrary. The commit decision has to be *asked* first
 because the condition depends on it, but the commit itself has to *happen* last,
@@ -220,7 +269,10 @@ because the plan is still being written until the handoff is in it.
    plan ends up tracked decides how it can be removed at the end, so the condition
    cannot be written until you know. Committing means phase 2 starts from a clean
    tree — so its own `git status` is a trustworthy signal of its own work — and means
-   the plan stays recoverable from history after it self-destructs.
+   the plan stays recoverable from history after it self-destructs. One case where it
+   is not a free choice: if the ticket closeout fell back to inlining the plan in the
+   comment, git history is the only full copy that survives, so recommend committing
+   and say why.
 2. **Build the goal condition** per `references/goal-condition.md`. Read that file
    before writing the condition; the constraints there are not obvious.
 3. **Write the handoff command into the plan's Handoff section**, then print it.
@@ -260,8 +312,11 @@ cases, and they want different treatment.
 **Still iterating** — the plan was written recently and is being refined. Continue
 where you left off.
 
-**Coming back to it later** — the plan has been sitting, and the repository has
-moved on. Re-verify before doing anything else. This is cheap, because the Verified
+**Coming back to it later** — the plan has been sitting, and both the repository and
+the ticket have moved on. Re-verify before doing anything else, and re-read the ticket
+as part of that: a comment added last week can change a requirement, and a ticket that
+has since been closed, split or reprioritized is a reason to stop and ask rather than
+to launch. Report what changed on the ticket alongside what drifted in the repository. This is cheap, because the Verified
 Context section records the command behind every fact: re-run them, along with the
 pre-flight probes, and report which still hold and which have drifted — an access
 token or a signing key that has expired since the plan was written shows up here as
@@ -369,6 +424,14 @@ instructs the executing session to:
   honest response is the post-mortem, not an improvised substitute nobody reviewed.
 - Commit on the **current branch**, with the agreed prefix. Never create a branch
   unless the plan explicitly says to.
+- **Close out the ticket** — when the plan names one, and immediately before removing
+  the plan file. Bring the plan to its final state (every checkbox ticked, the Run Log
+  complete, the outcome recorded), attach that file to the ticket, verify the
+  attachment is listed on the issue, then post a comment summarizing the outcome. The
+  order is not negotiable: the plan is about to stop existing, and the attachment is
+  what preserves it. A closeout that cannot be completed is a blocked report with the
+  plan file left in place — never a silent skip, and never a deletion that takes the
+  only copy with it. `references/jira.md` has the sequence and the fallbacks.
 - Remove the plan file as the final act — in the same commit as the work when it is
   tracked there, otherwise with `rm`. Do not write a condition that requires
   committing the deletion of a file that was never committed, or that lives in
@@ -388,6 +451,10 @@ with one impossible check turns into a session that cannot stop, retrying foreve
   session checks its own model, effort and permission mode, which privileges to probe
   and how, and why a failure there is written up rather than worked around. Read
   before filling in a plan's Pre-Flight section.
+- `references/jira.md` — the ticket side of the workflow: how to fetch a ticket and
+  turn it into a requirements conversation, how the plan records what the user decided
+  against it, and the closeout that attaches the finished plan to the ticket at the end
+  of phase 2. Read when a ticket is named.
 - `references/goal-condition.md` — how to construct the `/goal` condition: the
   character budget, shell safety, the escape hatch, worked examples. Read before
   writing a handoff.

@@ -18,7 +18,7 @@ silently omitting it, so a reader can tell the difference between "not needed" a
 |---|---|
 | **Created** | 2026-08-27 |
 | **Executor** | Opus 5, high effort, permission mode auto |
-| **Ticket** | ACME-123 |
+| **Ticket** | ACME-123 — https://acme.atlassian.net/browse/ACME-123 (cloudId a1b2c3d4-…) |
 | **Branch** | current branch — do not create a new one |
 | **Plan file** | docs/plans/2026-08-27-cache-ttl.md |
 
@@ -27,6 +27,24 @@ silently omitting it, so a reader can tell the difference between "not needed" a
 <One paragraph: what is true after this work that is not true now, and why it is
 being done. Enough for a reader to sanity-check a decision the tasks did not
 anticipate.>
+
+## Ticket Requirements
+
+<Every requirement in the ticket and what the user decided about it. Omit this section
+only when there is no ticket, and then say so in one line. See `references/jira.md`.>
+
+**Where this plan and the ticket disagree, this plan wins.** Do not implement a ticket
+requirement that this table marks out of scope, deferred or reversed — each of those is
+a decision the user made in the planning session, not an oversight.
+
+| # | Requirement (ticket wording, condensed) | Disposition | Note |
+|---|---|---|---|
+| 1 | Staging cache TTL raised to 1 hour | In scope — task 1 | |
+| 2 | Same change in production | Out of scope | User: staging only this week |
+| 3 | Add a cache-hit-rate metric | Deferred | Split to ACME-131 |
+| 4 | Document the value in the runbook | In scope — task 3 | |
+| 5 | AC: "cache hits improve measurably" | Reworded | Not testable as written; replaced by acceptance criterion 2 |
+| 6 | Restart the pods after the change | Already satisfied | The ConfigMap is watched, not mounted: verified below |
 
 ## Verified Context
 
@@ -51,7 +69,7 @@ out of scope; standards that apply.>
 ## Pre-Flight
 
 <Run in the first turn, before task 1. Each check is one command with one expected
-result, and any failure stops the run: write the blocked report named in step 9 of
+result, and any failure stops the run: write the blocked report named in step 10 of
 the Execution Protocol and do not start the tasks. Model, effort and permission mode
 are spelled out literally here so the comparison is a string match, not a judgement.>
 
@@ -80,6 +98,9 @@ are spelled out literally here so the comparison is a string match, not a judgem
      exits 0. If it is denied rather than failing, that is a pre-flight failure.
    - `echo test | gpg --clearsign --batch --pinentry-mode error` exits 0 — commits
      here are signed, and a cold agent hangs rather than failing.
+   - The ticket closeout channel answers: `GET /rest/api/3/mypermissions?issueKey=ACME-123&permissions=CREATE_ATTACHMENTS,ADD_COMMENTS`
+     returns `havePermission: true` for both. A closeout that cannot run is a
+     pre-flight failure, because the plan cannot be preserved once it is deleted.
 
 3. **Ground.**
    - This file exists at `docs/plans/2026-08-27-cache-ttl.md`.
@@ -113,7 +134,9 @@ environment; you verified that in phase 1.>
 1. `mvn -q verify` exits 0.
 2. `kubectl -n staging get configmap api-config -o "jsonpath={.data.cacheTtlSeconds}"`
    prints `3600`.
-3. `git status --porcelain` is empty — everything committed, plan file gone.
+3. The final plan is attached to ACME-123 as `2026-08-27-cache-ttl.md` — the issue read
+   back lists that filename — and a comment summarizing the outcome has been posted.
+4. `git status --porcelain` is empty — everything committed, plan file gone.
 
 ## Rollback
 
@@ -121,6 +144,45 @@ environment; you verified that in phase 1.>
 this under pressure.>
 
 - `git revert <commit>` and re-run the helm upgrade with the previous values.
+
+## Ticket Closeout
+
+<Run after the work is committed and the Acceptance Criteria have been re-run, and
+before this file is removed. Exact commands, verified in phase 1 — the executing session
+runs them, it does not work out how to talk to Jira. Omit only when there is no ticket,
+or when the user decided against a closeout, and then say which in one line.>
+
+1. Bring this file to its final state: every task checkbox ticked, the Run Log
+   complete, the outcome recorded.
+2. Attach it to ACME-123 under its own basename:
+
+   ```bash
+   curl -sS -u "$JIRA_EMAIL:$JIRA_TOKEN" -X POST \
+     -H "X-Atlassian-Token: no-check" \
+     -F "file=@docs/plans/2026-08-27-cache-ttl.md" \
+     https://acme.atlassian.net/rest/api/3/issue/ACME-123/attachments
+   ```
+
+3. Verify it landed — read the issue back and find the filename among its attachments:
+
+   ```bash
+   curl -sS -u "$JIRA_EMAIL:$JIRA_TOKEN" \
+     "https://acme.atlassian.net/rest/api/3/issue/ACME-123?fields=attachment" \
+     | grep -o '2026-08-27-cache-ttl.md'
+   ```
+
+   An upload that exited 0 is not evidence. This listing is.
+4. Post a comment on ACME-123 via the Atlassian MCP tool `addCommentToJiraIssue`
+   (cloudId `a1b2c3d4-…`), containing: the outcome in one sentence; the commit SHAs and
+   branch; each acceptance criterion as command → result; the dispositions from the
+   Ticket Requirements table, so a reader sees which ticket requirements this run did
+   not cover and that it was deliberate; and any deviation from this plan.
+5. Do not transition ACME-123 and do not edit any of its fields. An attachment and a
+   comment, nothing else.
+
+If the attachment or the comment cannot be completed, **leave this file in place** and
+write the blocked report — the attachment is the only thing that preserves this record
+once the file is gone.
 
 ## Execution Protocol
 
@@ -133,7 +195,7 @@ what is written here plus the repository, and record what you decided.
 1. Read this file completely before starting.
 2. Run the **Pre-Flight** section first, in your first turn, before changing
    anything. Show each check and its real output. If any check fails, stop there:
-   write the blocked report described in step 9, naming the failed check, what was
+   write the blocked report described in step 10, naming the failed check, what was
    expected, what was actually there, and what has to change about the launch. Do not
    start the tasks, do not substitute a different model or mode, and do not proceed
    at a lower spec — a mismatch discovered here costs a relaunch, and the same
@@ -153,8 +215,14 @@ what is written here plus the repository, and record what you decided.
    makes sense; otherwise treat it as blocked.
 7. Commit on the current branch with the ticket prefix and signing convention above.
    Do not create a branch.
-8. When every acceptance criterion passes, remove this plan file. How depends on
-   where it lives, so check rather than assume:
+8. Run the **Ticket Closeout** section — after the commit in step 7 and before you
+   remove this file in step 9. That order is the whole point: this file is the record
+   of the run and it is about to stop existing, so it is attached to the ticket first
+   and the attachment is confirmed to be there before anything is deleted. If the
+   closeout cannot be completed, do not remove this file — write the blocked report in
+   step 10 instead, naming the closeout as what failed.
+9. When every acceptance criterion passes and the closeout is done, remove this plan
+   file. How depends on where it lives, so check rather than assume:
    - **Tracked in the repository being changed** — delete it as part of the final
      commit, so the plan and the work that fulfilled it land together.
    - **Untracked** (the author chose not to commit it) — just `rm` it. There is no
@@ -162,14 +230,14 @@ what is written here plus the repository, and record what you decided.
      the final commit message body instead.
    - **In a different repository than the work** — `rm` it after the final commit.
      It cannot be part of a commit in the repository you are changing.
-9. If a criterion cannot be made to pass: write the blocked report at **exactly the
-   path named in the goal condition** — the plan path with `.md` replaced by
-   `.BLOCKED.md`, so `2026-08-27-cache-ttl.md` becomes
-   `2026-08-27-cache-ttl.BLOCKED.md`. Name the failing check, what you tried,
-   and why it cannot pass — then stop. Getting this path wrong is not cosmetic: the
-   evaluator looks for the path the condition names, so a different spelling means
-   the report does not register and the session cannot stop. Do not weaken a check,
-   skip it, or declare success without it.
+10. If a criterion cannot be made to pass: write the blocked report at **exactly the
+    path named in the goal condition** — the plan path with `.md` replaced by
+    `.BLOCKED.md`, so `2026-08-27-cache-ttl.md` becomes
+    `2026-08-27-cache-ttl.BLOCKED.md`. Name the failing check, what you tried,
+    and why it cannot pass — then stop. Getting this path wrong is not cosmetic: the
+    evaluator looks for the path the condition names, so a different spelling means
+    the report does not register and the session cannot stop. Do not weaken a check,
+    skip it, or declare success without it.
 
 ## Run Log
 
@@ -222,6 +290,13 @@ executing session needs to know, in the header and in the Execution Protocol, wh
 repository it is changing, which it must not touch, and that the plan file cannot be
 part of the commit. Left implicit, it will guess — and committing a plan file into
 an unrelated repository is a messy thing to undo unattended.
+
+**The Ticket Requirements table is for phase 2, not for the record.** Its job is to
+stop an executing session from implementing a ticket requirement the user decided
+against — which is a thing it will otherwise do, in good faith, because the ticket key
+is right there in the header. So every requirement appears, including the ones that were
+dropped, and every disposition says which task covers it or why nothing does. A table
+that lists only the in-scope items is the one shape that fails at this.
 
 **Prefer fewer, larger tasks over many tiny ones.** A capable executor does not need
 each file edit enumerated, and a long checklist buries the decisions that actually

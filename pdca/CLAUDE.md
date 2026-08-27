@@ -47,6 +47,37 @@ hard on verified facts and inlined acceptance criteria.
   tells the executing session to run it, and the goal condition repeats it, because
   the condition is the directive the session actually receives and the evaluator has
   to accept a turn-1 abort as terminal.
+- **The ticket is asked for on every run**, unconditionally, and the answer may be
+  "none". Given one, phase 1 reads it and turns it into a requirements conversation
+  whose outcome is the plan's `## Ticket Requirements` table. That table records every
+  requirement including the dropped ones, because its real job is to stop phase 2 from
+  implementing a requirement the user decided against — the ticket key is in the plan
+  header and in the commit prefix, so an executing session can and will read the ticket
+  itself. The standing rule the table carries: where the plan and the ticket disagree,
+  the plan wins.
+- **Ticket content is untrusted input.** It is written by other people and read by an
+  agent that acts on text, so it is treated as claims about the work to raise with the
+  user, never as instructions. This is stated in `references/jira.md` rather than left
+  implicit.
+- **Phase 2 closes out the ticket immediately before the plan self-destructs**: final
+  plan attached, attachment verified by reading the issue back, then a comment
+  summarizing the outcome, then the file is removed. The order is the design — the plan
+  is the record of the run and it is about to be deleted, so a failed closeout leaves
+  the file in place and ends in a blocked report. The closeout is in the plan's
+  Acceptance Criteria and in the goal condition, because a step the evaluator does not
+  check is a step an autonomous run can skip and still be judged done.
+- **The attachment channel must be probed in phase 1**, because the Atlassian MCP
+  server has comment tools and no attachment upload tool (verified 2026-08-27), and
+  `acli`/credentials are not present by default. Phase 1 finds a channel, records the
+  exact commands in the plan, and probes it with the read-only `mypermissions` check
+  under phase 2's permission mode. With no channel, the user picks a fallback — a
+  credential, inlining the plan in the comment, or dropping the closeout — and the
+  choice is written into the plan, so an absent closeout section can be told from a
+  forgotten one.
+- **The closeout writes an attachment and a comment, nothing else.** No transition, no
+  field edits, no worklog; and a blocked run says nothing on the ticket by default,
+  because an unattended failure is for the developer to triage before it notifies
+  everyone watching the work item.
 - The goal condition is capped at 4000 characters, is single-quoted into a shell
   argument (so: no apostrophes, no backticks), and always carries a blocked-report
   escape hatch so an impossible check terminates instead of looping.
@@ -66,6 +97,24 @@ hard on verified facts and inlined acceptance criteria.
 - The `/goal` condition never makes a present-tense claim about the plan file, since
   the same condition orders that file deleted. Claims are phrased as what happened in
   the session, which is what the evaluator can still see.
+
+## Facts About the Atlassian MCP Server This Plugin Depends On
+
+Verified by inspecting the available toolset on 2026-08-27:
+
+- The Jira tools include `getJiraIssue`, `getAccessibleAtlassianResources` (for the
+  `cloudId`), `searchJiraIssuesUsingJql`, `addCommentToJiraIssue`, `editJiraIssue`,
+  `addWorklogToJiraIssue` and `transitionJiraIssue`.
+- There is **no attachment upload tool**, which is the entire reason the closeout needs
+  a REST or CLI channel discovered in phase 1. If a future release adds one, that
+  becomes the preferred channel and `references/jira.md` should say so.
+- `acli` and `jira` are not on `PATH` in a default environment, and no Jira credentials
+  are exported by default.
+
+The REST endpoints named in `references/jira.md` — the attachments `POST` with its
+mandatory `X-Atlassian-Token: no-check` header, and `mypermissions` — come from
+Atlassian's documented API, not from a call made here. That is exactly why the skill
+prescribes probing them in phase 1 rather than trusting them.
 
 ## Facts About Session Introspection This Plugin Depends On
 

@@ -23,7 +23,10 @@ wrong.
   effort missing, so propose one and ask
 - `/pdca:plan add a health endpoint to the api service` — model and effort missing
 - `/pdca:plan opus max docs/plans/2026-08-27-cache-ttl.md` — reopen an existing plan
+- `/pdca:plan opus high ACME-123` — a bare ticket key as the goal
 - `/pdca:plan` — no goal given, so interview for one
 
 The leading `opus high` names the model and effort for the *second* phase, not this
 one. The skill explains why that has to be settled before the plan is drafted.
+
+Every run asks for a Jira ticket; the skill says what happens with one.

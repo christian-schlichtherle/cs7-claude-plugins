@@ -105,6 +105,12 @@ Include here:
 - A Pre-Flight section that would not stop you: a model, effort or permission mode
   that is not named literally enough to compare against, a privilege the tasks
   need that nothing probes, or a check whose failure you could talk yourself past.
+- A ticket whose requirements are not accounted for: a Ticket Requirements table
+  that omits something the ticket asks for, or a disposition you would feel entitled
+  to overrule by reading the ticket yourself.
+- A Ticket Closeout section you could not execute: an unprobed channel, an attach
+  command with no verification that it landed, or an order that removes the plan file
+  before the attachment is confirmed.
 - Ambiguity you could resolve two ways, where the two ways differ materially.
 - Ordering that matters but is not stated.
 - Anything the plan asks for that you could not actually carry out.

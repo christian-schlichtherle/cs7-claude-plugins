@@ -20,15 +20,17 @@ surviving. Reference the plan file *and* inline what the evaluator has to check.
 
 ## Shape
 
-Five parts, in order:
+Six parts, in order:
 
 1. **Directive** — execute the plan at `<path>` to completion.
 2. **Gate** — run the Pre-Flight section of that plan first, before any change, and
    stop with the blocked report if any of it fails.
 3. **Completion** — the acceptance criteria, inlined with their expected results.
-4. **Boundaries** — commit on the current branch with the ticket prefix, do not
+4. **Closeout** — when the plan names a ticket: the finished plan was attached to it
+   and the outcome was commented, both before the plan file was removed.
+5. **Boundaries** — commit on the current branch with the ticket prefix, do not
    create a branch, delete the plan file.
-5. **Escape hatch** — or the blocked report exists, explaining why a check cannot
+6. **Escape hatch** — or the blocked report exists, explaining why a check cannot
    pass.
 
 ## Rules
@@ -68,6 +70,19 @@ because the condition told it to. The evaluator needs the second, or a session t
 correctly aborts in turn 1 is judged not-done and pushed back into work it already
 established it cannot do. Under a Stop hook there is no quiet exit, so the escape
 hatch has to cover the gate as well as the finish.
+
+**The closeout earns its own clause.** When the plan has a Ticket Closeout section,
+the condition must require it — that the finished plan was attached to the ticket, that
+the attachment was verified by reading the issue back, and that a comment summarizing
+the outcome was posted, all of it before the plan file was removed. Leave it out and the
+evaluator will happily accept a run that deleted the plan without attaching it, which is
+the one outcome that destroys the record of the whole run rather than merely being
+incomplete. Phrase it, like every other clause, as what happened in the session:
+the plan file no longer exists at evaluation time, so a claim about the file is
+unjudgeable, while "was attached in this session and the issue read back listed it" is
+exactly what the transcript shows. And when there is no ticket, or the user decided
+against a closeout, the clause must be absent — a condition requiring an attachment
+nobody can produce is unsatisfiable, and a Stop hook has no way out of that.
 
 **Only require what is actually possible.** Before writing a completion clause,
 check that it can be satisfied from the state the run will start in. The failure
@@ -114,7 +129,10 @@ Done when all of the following hold: the Pre-Flight checks were run first in thi
 session and passed; every task checkbox in that file was ticked before the file was
 removed; mvn -q verify was run in this session and exited 0;
 kubectl -n staging get configmap api-config -o "jsonpath={.data.cacheTtlSeconds}"
-was run and printed 3600; git status --porcelain is empty; and the plan file
+was run and printed 3600; the final plan file was attached to ACME-123 in this session
+and the issue read back listed the attachment 2026-08-27-cache-ttl.md, and a comment
+summarizing the outcome was posted to ACME-123, both before the plan file was removed;
+git status --porcelain is empty; and the plan file
 has been deleted, with all work committed on the current branch, each commit
 prefixed ACME-123 and GPG-signed. Do not create a branch. Do not relax, skip, or
 declare passed any check that was not actually run, and do not route around a
@@ -124,7 +142,7 @@ docs/plans/2026-08-27-cache-ttl.BLOCKED.md naming the failing check, what
 was tried, and why it cannot pass, then stop - that also satisfies this goal.
 ```
 
-Roughly 1350 characters, comfortably inside budget, single-quotes cleanly, and every clause
+Roughly 1600 characters, comfortably inside budget, single-quotes cleanly, and every clause
 is something an evaluator can actually look for.
 
 ## Emitting the handoff
