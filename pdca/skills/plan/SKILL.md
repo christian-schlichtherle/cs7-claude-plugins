@@ -1,6 +1,7 @@
 ---
 name: plan
 description: Split a piece of work into an interactive planning phase that produces a self-sufficient plan file, and an autonomous implementation phase run by a fresh `/goal` session. Use this skill whenever the user wants to plan before implementing, wants a plan another session or another model can execute unattended, says the work is too big for one session, asks to "hand this off", "write a plan I can run later", "set this up so it can run autonomously", mentions PDCA, or types /pdca:plan. Also use it when the user is about to set a `/goal` by hand — a goal grounded in a verified plan beats one grounded in assumptions.
+user-invocable: false
 ---
 
 # PDCA: two-phase development

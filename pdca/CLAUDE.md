@@ -15,7 +15,17 @@ hard on verified facts and inlined acceptance criteria.
 
 ## Conventions
 
-- The skill is model-invocable; the command is one entry point, not the only one.
+- **One palette entry, two files.** `/pdca:plan` is the command; the skill is
+  `user-invocable: false` so it does not also appear in the slash-command list.
+  Without that flag Claude Code shows `/pdca:plan` twice — once for the command with
+  its human-facing description, once for the skill with its triggering description.
+- **The skill is the single source of truth.** The command is a thin entry point: a
+  description, an argument hint, examples, and a pointer. Argument parsing, the
+  pre-flight checks, the plan template and the goal-condition rules live in the skill
+  only. They were duplicated in both files once, and a review found the same two
+  defects had to be fixed twice — hence the split.
+- The skill stays model-invocable, which is what makes it trigger on intent
+  ("write me a plan I can run later") without the command being typed.
 - Phase 1 never enters plan mode. Not because plan mode blocks read-only probes (it
   does not — `kubectl get` and `grep` run fine there), but because the phase writes
   the plan file and spike files and runs verification that touches state.
