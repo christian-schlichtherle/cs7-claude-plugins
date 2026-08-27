@@ -1,8 +1,31 @@
 # cs7-claude-plugins
 
-A [Claude Code](https://claude.ai/code) plugin marketplace providing AI-powered image and video generation using Google's Gemini API.
+A [Claude Code](https://claude.ai/code) plugin marketplace providing two-phase PDCA development, and AI-powered image and video generation using Google's Gemini API.
 
 ## Plugins
+
+### pdca
+
+Two-phase development, the Deming PDCA cycle with a session boundary in the middle. **Plan** is an interactive session that verifies its assumptions by running commands and produces a self-sufficient plan file. **Do / Check / Act** is a *fresh* session — optionally a different model at a different effort level — that implements that plan unattended under Claude Code's `/goal`.
+
+The plan file is the only interface between the phases, which is why the skill pushes on facts recorded with the command that verified them, acceptance criteria that are runnable commands, and an execution protocol the executing session can follow alone.
+
+**Commands:**
+
+| Command | Purpose |
+|---|---|
+| `/pdca:plan [model] [effort] <goal or plan path>` | Plan interactively, then hand off to an autonomous run |
+
+**Skills:**
+
+| Skill | Trigger | Capabilities |
+|---|---|---|
+| `plan` | "plan before implementing", "write a plan I can run later", "too big for one session", "hand this off", "PDCA" | Verified-context planning, adversarial review by the executing model, `/goal` condition construction, resumable plan files |
+
+- Before handoff, the plan is reviewed by a fresh `claude -p` at phase 2's model and effort — it sees the plan and the repo and nothing else — looping until both models agree or three rounds pass
+- The goal condition inlines the acceptance criteria, stays inside the 4000-character cap, is shell-safe, and always carries a blocked-report escape hatch so an impossible check terminates instead of looping
+- The handoff command is written into the plan itself, so it survives weeks between the two phases
+- The plan file self-destructs when the work is done
 
 ### gemini-media
 
@@ -38,25 +61,26 @@ Generate and edit images and videos directly from Claude Code using Google's Gem
 
 ## Installation
 
-### Prerequisites
-
-- [Claude Code](https://claude.ai/code) v1.0.33+
-- Python 3.7+ (scripts use only stdlib — no pip install needed)
-- A [Gemini API Key](https://aistudio.google.com/api-keys) from Google's AI Studio
-
-### Add the marketplace
+Both plugins need [Claude Code](https://claude.ai/code) v1.0.33+. Add the marketplace once:
 
 ```bash
 claude plugin marketplace add christian-schlichtherle/cs7-claude-plugins
 ```
 
-### Install the plugin
+Then install whichever plugins you want:
 
 ```bash
+claude plugin install pdca@cs7-claude-plugins
 claude plugin install gemini-media@cs7-claude-plugins
 ```
 
-### Set your API key
+### pdca
+
+Nothing to configure, but `/goal` needs a trusted workspace with hooks enabled — it is unavailable when `disableAllHooks` or `allowManagedHooksOnly` is set in your settings.
+
+### gemini-media
+
+Needs Python 3.7+ (the scripts use only stdlib, so no `pip install`) and a [Gemini API Key](https://aistudio.google.com/api-keys) from Google's AI Studio:
 
 ```bash
 export GEMINI_API_KEY='your-key-here'
@@ -70,7 +94,19 @@ GEMINI_API_KEY=your-key-here
 
 ## Usage
 
-Once installed, the skills activate automatically when you ask Claude Code to generate media:
+### pdca
+
+Start the interactive planning phase, naming the model and effort level for the autonomous phase that follows:
+
+```
+/pdca:plan opus high raise the staging cache TTL from five minutes to an hour
+```
+
+Each turn updates a plan file and reports only what changed. When you are satisfied, the plan is reviewed by a fresh session at the executing model's level, then you get a command to run the implementation unattended.
+
+### gemini-media
+
+The skills activate automatically when you ask Claude Code to generate media:
 
 ```
 > Generate an image of a steampunk cityscape at sunset in 16:9
@@ -84,13 +120,14 @@ The skills handle model selection, prompt optimization, and output management. G
 
 ## Local Development
 
-To test the plugin locally without installing from a marketplace:
+To test a plugin locally without installing it from the marketplace:
 
 ```bash
+claude --plugin-dir ./pdca
 claude --plugin-dir ./gemini-media
 ```
 
-Or run the scripts directly:
+The `gemini-media` scripts also run standalone:
 
 ```bash
 # Image generation

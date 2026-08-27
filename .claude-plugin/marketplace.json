@@ -4,13 +4,18 @@
     "name": "Christian Schlichtherle"
   },
   "metadata": {
-    "description": "AI-powered image and video generation using Google Gemini."
+    "description": "AI-powered media generation with Google Gemini, and two-phase PDCA development with pdca."
   },
   "plugins": [
     {
       "name": "gemini-media",
       "source": "./gemini-media",
       "description": "Image and video generation with the Nano Banana and Veo models from Google Gemini."
+    },
+    {
+      "name": "pdca",
+      "source": "./pdca",
+      "description": "Two-phase PDCA development — plan interactively into a self-sufficient plan file, then implement it autonomously in a fresh /goal session."
     }
   ]
 }

@@ -4,12 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A Claude plugin repository providing AI-powered image and video generation using Google's Gemini API. Published as a plugin marketplace with one plugin (`gemini-media`) containing two skills: `generate-image` and `generate-video`.
+A Claude plugin repository published as a marketplace with two plugins:
+
+- `pdca` — two-phase PDCA development: one command (`/pdca:plan`) and one skill (`plan`) that split work into an interactive planning session and a fresh autonomous session driven by `/goal`. Pure Markdown, no scripts.
+- `gemini-media` — AI-powered image and video generation using Google's Gemini API, containing two skills: `generate-image` and `generate-video`.
 
 ## Architecture
 
 ```
 .claude-plugin/marketplace.json    # Marketplace manifest listing plugins
+pdca/
+  .claude-plugin/plugin.json       # Plugin manifest
+  CLAUDE.md                        # Plugin-specific developer guide
+  commands/plan.md                 # /pdca:plan — the P phase
+  skills/plan/
+    SKILL.md                       # The PDCA method
+    references/                    # plan template, goal condition rules, review loop
 gemini-media/
   .claude-plugin/plugin.json       # Plugin manifest (name, version, keywords)
   skills/
