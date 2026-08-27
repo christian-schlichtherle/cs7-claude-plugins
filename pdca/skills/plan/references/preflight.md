@@ -70,6 +70,42 @@ Verified against Claude Code 2.1.247, from a fresh session's first turn:
 effort=low
 ```
 
+That gate was then exercised end to end in real `/goal` sessions on 2026-08-27, against
+Claude Code 2.1.247, in four cases: a wrong-model launch (A) and a wrong-branch launch
+(D) each aborted in the first turn with a blocked report naming the specific mismatch
+and no work done; a launch whose privilege probe was denied (C) aborted the same way and
+did not route around the denial, though passwordless sudo was within reach; and a
+matching launch (B) passed the gate and completed the work, checking its identity before
+writing anything. In all four the evaluator accepted the outcome at `iterations=1`, so a
+correct abort ends the run rather than spinning under the Stop hook.
+
+**One correction from that run.** The `permissionMode` line above prints nothing when
+the session was started with a **slash command** as its prompt — which is precisely what
+a phase 2 handoff launches: `claude -p … "/goal …"`. The mode check was therefore dead
+in the one kind of session the gate exists to guard.
+
+It is the slash-command prompt that does it, not headless-ness. A headless session with
+a plain prompt does carry `"permissionMode":"…"` on its prompt record, next to
+`"promptSource":"sdk"`; an interactive session writes standalone `permission-mode`
+records; a `/goal`-prompt session writes neither.
+
+When the transcript is silent, try the launch flags — walking up from `$PPID` until the
+argv starts with `claude`, since the immediate parent is usually a shell:
+
+```bash
+ps -o args= -p "$PPID" | grep -o -- '--permission-mode [a-zA-Z]*\|--dangerously-skip-permissions'
+```
+
+This is not a general answer either, and it fails quietly. It reports only what was
+passed on the command line: a session started without an explicit mode flag, or one
+switched at runtime, shows nothing or shows a stale value. Prefer the transcript wherever
+it answers, since it tracks runtime changes.
+
+**If neither source answers, the mode is unverifiable.** Say so in the run log and treat
+it under the degradation rule below — a self-reported or unavailable identity fact is a
+warning to record, not a check to wave through. Do not infer the mode from what the
+session appears to be allowed to do.
+
 Compare each against the values the plan's Pre-Flight section names. A mismatch on any
 of the three is fatal — including a *higher* model than planned, which is cheap to
 relaunch correctly and not worth guessing about.

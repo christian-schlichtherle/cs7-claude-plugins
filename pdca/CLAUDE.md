@@ -71,19 +71,41 @@ hard on verified facts and inlined acceptance criteria.
 
 Verified against Claude Code 2.1.247. Most of it from a fresh session's first turn —
 `claude -p --model sonnet --effort low --permission-mode auto`, asked to report these
-back — and the rest as each bullet says:
+back — and the rest as each bullet says. The pre-flight gate these facts support was
+exercised end to end in real `/goal` sessions on 2026-08-27 in four cases — a wrong-model
+launch, a wrong-branch launch, a denied privilege probe, and a matching launch — which
+confirmed the model and effort checks and corrected the permission-mode one below.
 
 - `CLAUDE_EFFORT` holds the session effort level; `CLAUDE_CODE_SESSION_ID` holds the
   session id.
 - The session transcript is `~/.claude/projects/<cwd-slug>/<session-id>.jsonl`. It
-  carries one `{"type":"permission-mode","permissionMode":"…"}` record per turn, and
-  every `{"type":"assistant"}` record has `message.model` as its first key — which is
-  why grepping the last assistant line for the first `"model":"…"` match is safe.
+  records the permission mode in one of two shapes, and in one case neither: an
+  interactive session writes a standalone `{"type":"permission-mode","permissionMode":"…"}`
+  record per turn; a headless session started with a *plain* prompt carries
+  `"permissionMode":"…"` as a field on its prompt record, beside `"promptSource":"sdk"`;
+  and a headless session whose prompt is a **slash command** records neither. That last
+  case is the one that matters, because it is exactly what a phase 2 handoff launches —
+  `claude -p … "/goal …"`. Verified on 2026-08-27: two plain-prompt headless sessions
+  carry the field, while the six `/goal`-prompt sessions of the end-to-end run carry no
+  trace of it. The distinction is the slash-command prompt, not headless-ness.
+- When the transcript is silent, the launch flags are the next source —
+  `ps -o args= -p "$PPID"`, walking up the ancestry until the argv starts with `claude`,
+  and matching `--permission-mode <mode>` or `--dangerously-skip-permissions`. This
+  answers only when the mode came from an explicit flag: a session started without one,
+  or switched at runtime, shows nothing or shows something stale. (In the session that
+  wrote this, the parent argv is `claude --allow-dangerously-skip-permissions -c` while
+  the mode is `bypassPermissions` — set at runtime, and absent from argv.) When neither
+  source answers, the mode is **unverifiable**: record it as such and treat it under the
+  degradation rule in `preflight.md`. Never infer a value and never pass the check
+  silently.
+- The model check is unaffected by all of this: every `{"type":"assistant"}` record has
+  `message.model` as its first key — which is why grepping the last assistant line for
+  the first `"model":"…"` match is safe, and it worked in every session tested.
 - There is no environment variable for the model, so the transcript (or the session's
   own context) is the only source.
-- A `permission-mode` record is written every turn and reflects the mode *now*, so a
-  session switched mid-run records the new value from that turn on — which is why the
-  check reads the last record rather than the first.
+- In an interactive session a `permission-mode` record is written every turn and
+  reflects the mode *now*, so a session switched mid-run records the new value from that
+  turn on — which is why the check reads the last record rather than the first.
 - `--permission-mode` accepts `acceptEdits`, `auto`, `bypassPermissions`, `manual`,
   `dontAsk`, `plan`. Two recorded spellings are observed directly: `auto`, and
   `bypassPermissions` after a session was switched into bypass mode. That

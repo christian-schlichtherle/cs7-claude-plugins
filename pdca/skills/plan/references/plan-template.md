@@ -66,6 +66,13 @@ are spelled out literally here so the comparison is a string match, not a judgem
 
    Expected: `"model":"claude-opus-5"`, `"permissionMode":"auto"`, `effort=high`.
 
+   The `permissionMode` line prints nothing when the session was started with a slash
+   command as its prompt — which is what the handoff launches (`claude -p … "/goal …"`).
+   Fall back to the launch flags, walking up from `$PPID` until the argv starts with
+   `claude`, and matching `--permission-mode <mode>` or `--dangerously-skip-permissions`.
+   If neither source answers, the mode is unverifiable: say so rather than assuming it.
+   See `preflight.md`.
+
 2. **Privileges** — skip this group only if the mode above is `bypassPermissions`,
    and say in the Run Log that you skipped it.
    - `kubectl auth can-i update configmap -n staging` prints `yes`.
