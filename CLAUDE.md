@@ -9,46 +9,9 @@ A Claude plugin repository published as a marketplace with two plugins:
 - `pdca` — two-phase PDCA development: one command (`/pdca:plan`) and one skill (`plan`) that split work into an interactive planning session and a fresh autonomous session driven by `/goal`. Pure Markdown, no scripts.
 - `gemini-media` — AI-powered image and video generation using Google's Gemini API, containing two skills: `generate-image` and `generate-video`.
 
-## Architecture
-
-```
-.claude-plugin/marketplace.json    # Marketplace manifest listing plugins
-pdca/
-  .claude-plugin/plugin.json       # Plugin manifest
-  CLAUDE.md                        # Plugin-specific developer guide
-  commands/plan.md                 # /pdca:plan — the P phase
-  skills/plan/
-    SKILL.md                       # The PDCA method
-    references/                    # plan template, pre-flight gate, goal condition rules, review loop, Jira ticket handling
-gemini-media/
-  .claude-plugin/plugin.json       # Plugin manifest (name, version, keywords)
-  skills/
-    generate-image/
-      SKILL.md                     # Skill prompt (loaded by Claude when skill is invoked)
-      scripts/generate_image.py    # Standalone Python script (stdlib only)
-      references/                  # API docs and advanced feature guides
-    generate-video/
-      SKILL.md                     # Skill prompt
-      scripts/generate_video.py    # Standalone Python script (stdlib only)
-      references/                  # API docs and advanced feature guides
-```
-
-Each skill follows the pattern: `SKILL.md` defines how Claude should use the skill, `scripts/` contains the executable, and `references/` provides API documentation the SKILL.md can reference.
-
 ## Running the Scripts
 
 Both Python scripts use **only stdlib** (no pip install needed). They require Python 3.7+ and a `GEMINI_API_KEY` environment variable (or `.env` file in the repo root).
-
-```bash
-# Image generation
-python3 gemini-media/skills/generate-image/scripts/generate_image.py generate --prompt "..."
-
-# Video generation
-python3 gemini-media/skills/generate-video/scripts/generate_video.py generate --prompt "..."
-
-# Check video operation status
-python3 gemini-media/skills/generate-video/scripts/generate_video.py poll --operation "..."
-```
 
 Output goes to `./generated-images/` and `./generated-videos/` (both gitignored).
 
