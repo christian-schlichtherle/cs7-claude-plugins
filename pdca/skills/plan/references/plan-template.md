@@ -73,23 +73,37 @@ result, and any failure stops the run: write the blocked report named in step 10
 the Execution Protocol and do not start the tasks. Model, effort and permission mode
 are spelled out literally here so the comparison is a string match, not a judgement.>
 
-1. **Executing model, effort and permission mode.**
+1. **Driven by this plan's /goal; executing model, effort and permission mode.**
 
    ```bash
    T=$(ls -t "$HOME"/.claude/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl | head -1)
+   echo "T=$T"
+   G=$(grep '"type":"goal_status"' "$T" | tail -1)
+   echo "$G" | grep -o '"met":[a-z]*'
+   echo "$G" | grep -o '"condition":"[^"]\{0,120\}'
    grep '"type":"assistant"' "$T" | tail -1 | grep -o '"model":"[^"]*"' | head -1
    grep -o '"permissionMode":"[^"]*"' "$T" | tail -1
    echo "effort=$CLAUDE_EFFORT"
    ```
 
-   Expected: `"model":"claude-opus-5"`, `"permissionMode":"auto"`, `effort=high`.
+   Expected: `"met":false` with a condition naming this plan file — the last goal
+   set in this session is this plan's and was never met and never cleared. A last
+   record with `"met":true`, a different goal's condition, or no record at all in
+   a readable transcript each mean no evaluator guards this run: stop and write the
+   blocked
+   report; the fix is relaunching with the command in the Handoff section. If the
+   `T=` line prints empty, the transcript could not be found and none of the
+   transcript-derived facts can be read — they are unverifiable, not false: record
+   that in the Run Log, take the model from what this session states about itself,
+   the effort from `CLAUDE_EFFORT`, and the permission mode from the launch flags
+   described below; treat the goal check as unverifiable, and continue. Otherwise
+   expect `"model":"claude-opus-5"`, `"permissionMode":"auto"`, `effort=high`.
 
    The `permissionMode` line prints nothing when the session was started with a slash
    command as its prompt — which is what the handoff launches (`claude -p … "/goal …"`).
    Fall back to the launch flags, walking up from `$PPID` until the argv starts with
    `claude`, and matching `--permission-mode <mode>` or `--dangerously-skip-permissions`.
    If neither source answers, the mode is unverifiable: say so rather than assuming it.
-   See `preflight.md`.
 
 2. **Privileges** — skip this group only if the mode above is `bypassPermissions`,
    and say in the Run Log that you skipped it.

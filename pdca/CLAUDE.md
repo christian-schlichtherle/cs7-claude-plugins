@@ -31,6 +31,23 @@ hard on verified facts and inlined acceptance criteria.
   state — so the first draft always ends the turn. There is no waiver and no
   non-interactive mode: anyone who does not want the interactive phase can set a
   `/goal` directly instead of using this workflow.
+- **READY alone does not exit the planning session.** The nested loops — the user's
+  iteration outside, the adversarial review inside — exit only on a fixpoint: one
+  version of the plan that the user, the planner and the executing model all stand
+  behind at once. The outer loop ends only when the user *states* satisfaction, so a
+  review that fixed blockers returns its changes to the user as a delta — their
+  go-ahead attached to a version the review has since rewritten. User afterthoughts —
+  there, or at any point in the handoff step before launch — reopen the iteration,
+  and a material change re-enters the review with a fresh three-round budget. Only
+  a READY on a plan the review did not touch exits straight to the handoff, because
+  that version is exactly the one the user already approved. The one exception is
+  the user's override: when the review does not converge, the user settles the
+  disagreement and their settlement is the exit — the user outranks both models —
+  with the overruled
+  objection recorded in the plan so phase 2 knows it was seen, not missed. A
+  re-entry from the handoff step rebuilds whatever was already built there: the goal
+  condition, the Handoff section, and a follow-up commit when the plan was already
+  committed. README.md carries the Mermaid diagram of the loop nest.
 - Phase 1 never enters plan mode. Not because plan mode blocks read-only probes (it
   does not — `kubectl get` and `grep` run fine there), but because the phase writes
   the plan file and spike files and runs verification that touches state.
@@ -40,13 +57,19 @@ hard on verified facts and inlined acceptance criteria.
   must run every prescribed command under that mode before prescribing it.
 - Phase 2 opens with a pre-flight gate, and the gate is the reason model, effort and
   permission mode are settled in phase 1 step 2 rather than at handoff. The plan names
-  all three literally; phase 2 reads its own back and compares. A failure there is a
-  blocked report in turn 1 — never an adaptation, never a run that starts anyway,
-  because a wrong-model run looks fine for a while and a Stop hook offers no quiet way
-  out later. The gate is instructed twice on purpose: the plan's Execution Protocol
-  tells the executing session to run it, and the goal condition repeats it, because
-  the condition is the directive the session actually receives and the evaluator has
-  to accept a turn-1 abort as terminal.
+  all three literally; phase 2 reads its own back and compares. The gate also checks
+  that a `/goal` naming the plan is driving the session — read from the last
+  `goal_status` record in the transcript, per the facts below — because a launch
+  that lost the prefix runs with no evaluator guarding its completion: it can stop
+  half-done and nothing notices. A failure there is a blocked report in turn 1 —
+  never an adaptation, never a run that starts anyway, because a wrong-model run
+  looks fine for a while and a Stop hook offers no quiet way out later. The gate is
+  instructed twice on purpose: the plan's Execution Protocol tells the executing
+  session to run it, and the goal condition repeats the instruction — though never
+  the `/goal` check as a clause of its own, which would be circular there — because
+  the condition is the directive the
+  session actually receives and the evaluator has to accept a turn-1 abort as
+  terminal.
 - **The step-2 questions are an interview, not a free-form prompt.** The missing
   handoff parameters are collected in a single `AskUserQuestion` call — one question
   per missing parameter (model, effort, permission mode, ticket: at most four, the
@@ -164,6 +187,35 @@ confirmed the model and effort checks and corrected the permission-mode one belo
   source answers, the mode is **unverifiable**: record it as such and treat it under the
   degradation rule in `preflight.md`. Never infer a value and never pass the check
   silently.
+- Two kinds of transcript record share the type `goal_status`: a sentinel record
+  (`"sentinel":true`) is written when a goal is set (`met:false` — for a
+  `/goal`-launched session, alongside its first prompt) and again when it is
+  explicitly cleared (`met:true`, observed in four transcripts spanning
+  2.1.221–2.1.238 — so `/goal clear` fails the last-record check correctly); and
+  the evaluator writes one per judged stop attempt (a `reason` field, no
+  `sentinel`), `met:false` while the goal holds
+  the session, `met:true` when it is met and auto-clears. Their number is unbounded
+  (one goal at 2.1.241 left 370 records: one sentinel, 369 evaluator) and they
+  survive resumption, so neither presence nor count proves anything; the pre-flight
+  gate reads the **last** record and requires `met:false` with a condition naming
+  the plan. Verified 2026-08-28 against transcripts spanning 2.1.221–2.1.247: the
+  two still-inspectable `/goal`-prompt transcripts of the 2026-08-27 end-to-end
+  runs, both 2.1.247 (the
+  other four ran in scratch project directories that have since been removed), carry
+  the sentinel from turn 1 — the finished run closes with `met:true`, the abandoned
+  one stays `met:false`; plain-prompt headless and interactive non-goal transcripts
+  carry none; and a resumed session (2.1.233→2.1.234) in another project carries two
+  full goal cycles, including a no-goal stretch where a count-based check would pass
+  wrongly. The absence of any record in a plain-prompt session, and the `met:true`
+  tail of a finished or cleared goal, are what let the pre-flight gate fail a
+  phase 2 that is not driven by its plan's `/goal`. The Stop hook itself appears to
+  survive a resume: two resumed sessions (2.1.222→2.1.223, 2.1.246→2.1.247) carry
+  further evaluator records for the same goal after the resume — so a resumed
+  session whose last goal is still open appears to be genuinely guarded by it, which
+  narrows the resume caveat without removing it. The check is exact for the fresh
+  launch the Handoff section prescribes and only presumptive for a resumed session —
+  an abandoned goal leaves a trailing `met:false` forever — which `preflight.md`
+  states as the fresh-launch assumption.
 - The model check is unaffected by all of this: every `{"type":"assistant"}` record has
   `message.model` as its first key — which is why grepping the last assistant line for
   the first `"model":"…"` match is safe, and it worked in every session tested.

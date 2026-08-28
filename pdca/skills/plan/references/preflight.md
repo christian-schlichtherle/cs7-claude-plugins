@@ -50,13 +50,79 @@ Three things the executing session must not do instead:
 
 Four groups, in this order — cheapest and most fatal first.
 
-### 1. Identity — model, effort, permission mode
+### 1. Identity — under /goal, model, effort, permission mode
 
-The session can observe all three. `CLAUDE_EFFORT` carries the effort level, and the
-session transcript records the model and the current permission mode:
+First, that a `/goal` naming this plan is driving this session. The whole design
+assumes the Stop hook and its evaluator: without them the session can stop half-done
+and nothing notices, the acceptance criteria are never judged independently, and the
+blocked-report hatch has no audience. A launch that lost the `/goal` prefix — a
+partial paste of the handoff command is enough — must fail here rather than run as
+an ordinary prompt.
+
+Two kinds of transcript record share the type `goal_status`. A sentinel record
+(`"sentinel":true`) marks the goal's boundaries:
+`{"type":"goal_status","met":false,"sentinel":true,"condition":"…"}` when it is
+set — for a `/goal`-launched session, alongside its first prompt — and `met:true`
+when it is explicitly cleared with `/goal clear`. The evaluator writes the other
+kind, one per judged stop attempt, carrying a `reason` and no `sentinel`:
+`met:false` while the goal holds the session, `met:true` when it is met and
+auto-clears. Their number is unbounded — a single goal was observed to leave 370
+records, one sentinel and 369 evaluator — and they survive resumption, so neither
+presence nor count proves anything about now. The check therefore reads the
+**last** record — the most recent goal, and whether it was met or cleared:
 
 ```bash
 T=$(ls -t "$HOME"/.claude/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl | head -1)
+echo "T=$T"                                      # empty: transcript not found
+G=$(grep '"type":"goal_status"' "$T" | tail -1)
+echo "$G" | grep -o '"met":[a-z]*'               # "met":false — the last goal is still open
+echo "$G" | grep -o '"condition":"[^"]\{0,120\}' # and it names this plan file
+```
+
+Both grep lines must answer: `"met":false`, and a condition naming this plan. (The
+extraction prints only the condition's first 120 characters and stops at the first
+escaped quote, so the handoff must put the plan path near the front of the
+condition — the `Execute the plan at <path> …` opening that `goal-condition.md`
+prescribes already does.) A last record with `"met":true`, a condition for a
+different goal, or no record at all in a readable transcript all mean the same
+thing — no evaluator is guarding this plan — and each is a failed pre-flight. An
+empty `T=` line is different: the transcript
+cannot be found, so the fact is unverifiable — a directive that merely reads like a
+goal condition proves nothing about the hook — and an unavailable identity fact is a
+warning to record and continue from under the degradation rule below, not a failed
+check, and not a pass.
+
+Say precisely what a passing check proves: *the last goal ever set in this
+transcript names this plan and was never recorded as met or cleared.* For the fresh
+session the handoff launches — the only launch the Handoff section prescribes, in
+its one-step or two-step form — that is the same thing as being guarded now.
+`/goal clear` is no exception: clearing writes a sentinel record with `met:true` —
+observed in four transcripts spanning Claude Code 2.1.221–2.1.238 — so a cleared
+goal fails this check correctly. The one genuinely presumptive case is a resumed
+session: records survive resumption, and an abandoned run — goal set, never met,
+never cleared — leaves a trailing `met:false` forever. The hook itself does appear
+to survive: two resumed sessions (2.1.222→2.1.223 and 2.1.246→2.1.247, each resumed
+with a continue prompt) carry further evaluator records for the same single goal
+after the resume, ending `met:true` — so a resumed session whose last goal is still
+open is in practice still guarded by it. Two observations are not a guarantee, so
+the gate still does not try to detect resumption; it rides on the fresh-launch
+assumption, and this is where that assumption is written down.
+
+Verified on 2026-08-28 against transcripts spanning Claude Code 2.1.221–2.1.247: at
+2.1.247, the finished end-to-end run of 2026-08-27 closes with `met:true`, so its
+last record correctly reports no open goal, and the abandoned run's last record is
+`met:false` with its own plan's condition; plain-prompt headless and interactive
+non-goal transcripts carry no record; a single-goal session at 2.1.241 with many
+unmet stop attempts carries 370 records; and a resumed session (2.1.233→2.1.234)
+carries two full goal cycles including a no-goal stretch — the last two being why
+the last record is read and the records are never counted.
+
+Then the remaining three. The session can observe them all: `CLAUDE_EFFORT` carries
+the effort level, and the session transcript records the model and the current
+permission mode:
+
+```bash
+# T as computed for the /goal check above
 grep '"type":"assistant"' "$T" | tail -1 | grep -o '"model":"[^"]*"' | head -1
 grep -o '"permissionMode":"[^"]*"' "$T" | tail -1
 echo "effort=$CLAUDE_EFFORT"
@@ -113,9 +179,11 @@ relaunch correctly and not worth guessing about.
 If the transcript cannot be located — the path is an internal detail and a future
 release may move it — fall back to what the session knows about itself: its own
 context states the model it is running as, and `CLAUDE_EFFORT` is independent of the
-transcript. Say in the run log which check you got. An identity check that cannot be
-performed *at all* is itself a failed pre-flight; an identity check that is merely
-self-reported is a warning to record and continue from.
+transcript. Say in the run log which check you got. The gate fails on identity for
+unavailability only when no identity fact at all can be established; a check that
+is merely self-reported — or unavailable, like the goal check when the transcript
+is missing, or the mode when neither the transcript nor the launch flags answer —
+is a warning to record and continue from.
 
 ### 2. Privilege — only when the mode is not a bypass
 
@@ -195,6 +263,10 @@ Writing the Pre-Flight section is phase 1's job, and it is not boilerplate:
 - **Name the expected model, effort and permission mode literally**, in the spelling
   the checks produce — `claude-opus-5`, `high`, `auto` — so the comparison is a string
   match and not a judgement call.
+- **Keep the goal check.** Check 1's first half — the last `goal_status` record
+  naming this plan, `met:false` — is the gate's only proof that an evaluator is
+  guarding the run. It is in the template; a plan that drops it has lost the check
+  that makes every other check enforceable.
 - **Enumerate the privileges from the tasks, not from imagination.** Read back through
   the plan; every command that writes outside the tree, touches a cluster, signs,
   pushes, or reaches the network earns a probe.

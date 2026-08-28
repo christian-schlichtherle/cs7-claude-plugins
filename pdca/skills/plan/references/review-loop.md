@@ -32,6 +32,16 @@ approach. Neither improves with a fourth round. If the loop does not converge, s
 and put both positions in front of the user — that disagreement is usually the most
 interesting thing to have found, and it is theirs to settle.
 
+READY ends this loop, not the planning conversation. If reaching it took fixing
+blockers, the plan has changed since the user approved it, and the changes go back
+to the user as an ordinary delta report before anything else happens — and their
+afterthoughts may send the plan through this loop again. The exit rule for the
+whole nest is in the skill, step 7: the handoff needs one version of the plan that
+the user, the planner and the executing model all stand behind at once — or, when
+this loop would not converge, the user's explicit settlement over the reviewer's
+objection, recorded in the plan. The three-round budget is per entry into the loop;
+what bounds the total across re-entries is the outer loop's own exit, the user.
+
 Tell the user the loop is starting and report each round in a line or two: how many
 blockers came back and what you did about them. It costs real time and tokens, and a
 silent multi-minute pause is worse than a noisy one.
@@ -84,8 +94,9 @@ will have to guess, and a wrong guess runs unsupervised.
 
 Read the plan at <path>, then read enough of the repository to judge it.
 
-The Handoff section is written after this review, so do not flag it as missing or
-empty — that is the one absence that is expected.
+The Handoff section is written or refreshed after this review, so do not flag it as
+missing, empty, or out of date with the rest of the plan — it is the one part of
+the file you are not reviewing.
 
 Report, in this order:
 
@@ -103,8 +114,9 @@ Include here:
   results, that would pass without the work being done, or that cannot run in
   this environment.
 - A Pre-Flight section that would not stop you: a model, effort or permission mode
-  that is not named literally enough to compare against, a privilege the tasks
-  need that nothing probes, or a check whose failure you could talk yourself past.
+  that is not named literally enough to compare against, no check that the plan's
+  own /goal is driving the session, a privilege the tasks need that nothing probes,
+  or a check whose failure you could talk yourself past.
 - A ticket whose requirements are not accounted for: a Ticket Requirements table
   that omits something the ticket asks for, or a disposition you would feel entitled
   to overrule by reading the ticket yourself.

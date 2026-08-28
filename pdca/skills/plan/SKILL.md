@@ -256,9 +256,11 @@ a sign the wrong tool was reached for, not as licence to hurry.
 
 ### 7. Adversarial review by the executing model
 
-When the user signals they are happy, the plan is reviewed — not by you, but by a
-fresh `claude -p` process running **phase 2's model at phase 2's effort level**,
-which sees the plan and the repository and nothing else.
+When the user signals they are happy with a version this loop has not already
+cleared, the plan is reviewed — not by you, but by a fresh `claude -p` process
+running **phase 2's model at phase 2's effort level**, which sees the plan and the
+repository and nothing else. (A go-ahead on the exact version the reviewer already
+cleared needs no new round — that is the fixpoint below.)
 
 You cannot review your own plan for self-sufficiency, and the reason is structural
 rather than a matter of diligence: you remember the conversation. The constraint the
@@ -271,6 +273,39 @@ Loop: review, fix the blockers, review again. Until the reviewer returns READY, 
 three rounds, whichever comes first. If it does not converge, stop and put both
 positions to the user — a persistent disagreement between the planner and the
 executor is a finding in itself, and it is the user's to settle.
+
+READY ends the loop; it does not by itself reach the handoff. What it exits to
+depends on whether the review changed the plan:
+
+- **READY with the plan unchanged** — the version the user approved in step 6 is
+  the version the reviewer cleared. Nothing new for the user to see; proceed to
+  step 8.
+- **READY after blockers were fixed** — the plan the user approved is not the plan
+  about to be handed off. Report the review's changes as a step 6 delta and hand
+  control back. Approval attaches to a version of the plan, not to the plan in the
+  abstract, and the review has just written a version the user has never seen.
+
+Expect afterthoughts at that point, and welcome them — returning here is an
+invitation to have them, not a signature to collect. They are step 6 resuming, and
+a change that alters what phase 2 would do goes back through this step: an
+unreviewed edit to a reviewed plan is an unreviewed plan. Each re-entry is a fresh
+loop with its own three rounds, though a re-review of a lightly edited plan usually
+returns READY in one.
+
+So the exit condition of the nested loops is a fixpoint: **one version of the plan
+that all three parties stand behind at once** — the user, whose go-ahead it carries;
+you, its author, who fixed the blockers you agreed with and recorded in your round
+reports why the rest are not blockers; and the executing model, whose READY came
+from reading that very version. The loops alternate until a single version holds
+all three, and only then does step 8 begin.
+
+The one exception is the user's override. When the loop does not converge and the
+user settles the disagreement against the reviewer, their settlement is the exit —
+the user outranks both models, and holding the handoff hostage to a READY that will
+never come would make the reviewer the authority instead. Record the overruled
+objection in the plan — Constraints & Non-Goals is the natural place — so phase 2
+knows the executing model raised it and the user decided against it, rather than
+rediscovering the concern mid-run and treating it as news.
 
 Read `references/review-loop.md` before the first round; it has the exact command,
 the reviewer prompt, and how to handle a verdict you disagree with.
@@ -288,6 +323,16 @@ attached and the outcome is commented, exactly as the plan's Ticket Closeout sec
 already prescribes. Re-asking a settled decision reads as the workflow not trusting
 its own record, and invites an answer that contradicts what the plan and the goal
 condition were built on.
+
+One question does not mean one possible reply, though. An answer that changes the
+plan — "actually, could it also…" — is not an answer to the commit question; it is
+step 6 resuming, and a material change goes back through step 7. The fixpoint from
+step 7 does not expire because the conversation moved on a step. And a re-entry —
+from here, or from the launch offer — rebuilds whatever this step had already
+built: the goal condition and the Handoff section are regenerated from the revised
+plan, and a plan already committed takes a follow-up commit. A handoff line
+pointing at acceptance criteria the plan no longer states is exactly the stale
+artifact this step exists to prevent.
 
 1. **Ask whether to commit the plan — decision only, no commit yet.** Whether the
    plan ends up tracked decides how it can be removed at the end, so the condition
@@ -345,12 +390,13 @@ Context section records the command behind every fact: re-run them, along with t
 pre-flight probes, and report which still hold and which have drifted — an access
 token or a signing key that has expired since the plan was written shows up here as
 readily as a changed config value. Then bring the plan back to true — update
-the drifted facts, adjust the tasks and acceptance criteria that depended on them —
-and reprint the handoff.
+the drifted facts, adjust the tasks and acceptance criteria that depended on them.
 
-Both cases end the same way: the Handoff section is refreshed and printed. So "I
-lost the command you printed" is answered by reopening the plan, and comes with a
-freshness check attached.
+Both cases end the same way: back through steps 7 and 8 as usual — a plan brought
+back to true is a changed plan, and an unreviewed edit to a reviewed plan is an
+unreviewed plan — and the Handoff section is refreshed and printed. So "I lost the
+command you printed" is answered by reopening the plan, and comes with a freshness
+check attached.
 
 A stale plan that gets executed anyway is not a disaster either: the Execution
 Protocol tells the executing session to check the Verified Context against reality
@@ -428,6 +474,8 @@ is not boilerplate you may drop — it is what makes the file self-sufficient. I
 instructs the executing session to:
 
 - Run the plan's **Pre-Flight** section before anything else, in its first turn: that
+  a `/goal` naming the plan is driving it — a launch that lost the prefix runs with
+  no evaluator guarding its completion — that
   the model, effort and permission mode are the ones the plan was written for, that
   every privilege the tasks need is actually available, and that the working
   directory, branch and plan path are what the plan expects. Any failure ends the run
@@ -472,9 +520,10 @@ with one impossible check turns into a session that cannot stop, retrying foreve
 - `references/plan-template.md` — the plan file template, section by section, with
   what each section is for. Read before writing a plan.
 - `references/preflight.md` — the pre-flight gate phase 2 runs before task 1: how a
-  session checks its own model, effort and permission mode, which privileges to probe
-  and how, and why a failure there is written up rather than worked around. Read
-  before filling in a plan's Pre-Flight section.
+  session checks that its plan's `/goal` is driving it and its own model, effort and
+  permission mode, which privileges to probe and how, and why a failure there is
+  written up rather than worked around. Read before filling in a plan's Pre-Flight
+  section.
 - `references/jira.md` — the ticket side of the workflow: how to fetch a ticket and
   turn it into a requirements conversation, how the plan records what the user decided
   against it, and the closeout that attaches the finished plan to the ticket at the end

@@ -25,7 +25,7 @@ The plan file is the only interface between the phases, which is why the skill p
 - Before handoff, the plan is reviewed by a fresh `claude -p` at phase 2's model and effort — it sees the plan and the repo and nothing else — looping until both models agree or three rounds pass
 - The goal condition inlines the acceptance criteria, stays inside the 4000-character cap, is shell-safe, and always carries a blocked-report escape hatch so an impossible check terminates instead of looping
 - The handoff command is written into the plan itself, so it survives weeks between the two phases
-- The autonomous session opens with a pre-flight gate — model, effort, permission mode, branch, and every privilege the tasks need are confirmed before anything changes; a mismatch is a blocked report in turn 1, not an adaptation
+- The autonomous session opens with a pre-flight gate — that a `/goal` naming its plan is driving it, on the right model, effort and permission mode, on the right branch, with every privilege the tasks need — all confirmed before anything changes; a mismatch is a blocked report in turn 1, not an adaptation
 - Every run asks for a Jira ticket in the opening interview; given one, phase 1 plans against its requirements and phase 2 closes it out — finished plan attached, outcome commented — before anything is deleted
 - The plan file self-destructs when the work is done
 
@@ -107,7 +107,11 @@ Start the interactive planning phase, naming the model and effort level for the 
 Anything missing — model, effort, permission mode, and the Jira ticket, which is
 asked for every time — is settled in a short interview of pick-an-option questions
 before planning starts. Each turn then updates a plan file and reports only what
-changed. When you are satisfied, the plan is reviewed by a fresh session at the executing model's level, then you get a command to run the implementation unattended.
+changed. When you are satisfied, the plan is reviewed by a fresh session at the executing
+model's level; whatever the review changed comes back to you, and only a version
+that you, the planning session and the executing model all stand behind — or that
+you explicitly cleared over the reviewer's objection — gets the command to run the
+implementation unattended.
 
 ### gemini-media
 

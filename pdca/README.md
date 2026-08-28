@@ -1,6 +1,7 @@
 # pdca Plugin
 
-Two-phase development for Claude Code: plan interactively, implement autonomously.
+Two-phase development harness for Claude Code: plan interactively, implement
+autonomously.
 
 ## The idea
 
@@ -38,8 +39,16 @@ Planning then proceeds interactively. Each turn updates
 you want the whole picture. When you are satisfied, the plan is handed to a fresh
 `claude -p` process running at phase 2's model and effort — which sees the plan and
 the repository and nothing else — and asked whether it could execute it unattended.
-Blockers get fixed and it is asked again, up to three rounds. Then the session writes
-the launch command into the plan, prints it, and — if you agreed — commits the plan:
+Blockers get fixed and it is asked again, up to three rounds. If fixing them changed
+the plan, the changes come back to you before anything else happens — your go-ahead
+was given to a version the review has since rewritten. Afterthoughts at that point
+reopen the iteration, and a materially changed plan goes through review again. The
+two loops alternate until a single version of the plan is one that all three parties
+stand behind: you, the planning session, and the model that will execute it — or, if
+the review will not converge, until you settle the disagreement yourself: you
+outrank both models, and the overruled objection is recorded in the plan. Only then
+does the session write the launch command into the plan, print it, and — if you
+agreed — commit the plan:
 
 ```bash
 claude --model opus --effort high --permission-mode auto '/goal Execute the plan at …'
@@ -47,12 +56,15 @@ claude --model opus --effort high --permission-mode auto '/goal Execute the plan
 
 Run that in the work repository's directory — usually the same one you planned in —
 and the autonomous phase begins with a pre-flight check. Before it changes anything,
-it confirms it is running on the model, effort level and permission mode the plan was
-written for, that every privilege the plan needs is actually available — a passwordless
-sudo, a warm signing key, a cluster role — and that it is in the right repository on
-the right branch. If any of that is wrong it writes a `.BLOCKED.md` naming the
-mismatch and stops immediately, rather than producing plausible-looking work on the
-wrong model and going wrong somewhere nobody is watching.
+it confirms a `/goal` naming this plan is what is driving it — a launch that lost
+the prefix runs with no evaluator guarding its completion, so it can stop half-done
+and nobody notices — that it is running on the model, effort level and permission
+mode the plan was written for, that every privilege the plan needs is actually
+available — a passwordless sudo, a warm signing key, a cluster role — and that it
+is in the right repository on the right branch. If any of that is wrong it writes
+a `.BLOCKED.md` naming the mismatch and stops immediately, rather than producing
+plausible-looking work on the wrong model and going wrong somewhere nobody is
+watching.
 
 Past the gate, it ticks off tasks in the plan file as it goes, so you can watch
 progress by reading the file — and an interrupted run resumes from where it stopped. When every acceptance check passes,
@@ -75,6 +87,63 @@ ticket at the start was the decision, and neither phase brings it back to you.
 If a check turns out to be impossible, it writes a `.BLOCKED.md` post-mortem and
 stops, rather than retrying forever.
 
+## The three loops
+
+The harness is three loops in total. The planning session nests the first two: you
+drive the outer one, and it exits only when you *state* you are satisfied — never by
+inference, and never in the same turn as the first draft; the adversarial reviewer
+drives the inner one. A plan reaches the handoff only when a single version of it is
+one that all three parties stand behind at once — you, the planning session, and the
+model that will execute it. The one exception is your override: a review that will
+not converge is settled by you, and your settlement is the exit, with the overruled
+objection recorded in the plan. The third loop is `/goal` itself: in the fresh session,
+an evaluator judges the goal condition after every turn and blocks stopping until it
+holds — or until the session proves it cannot, in the blocked report.
+
+```mermaid
+flowchart TD
+    subgraph Outer["Outer loop — you decide when planning is done"]
+        Draft["Write / update<br>the plan file"] --> Delta["Report the delta"]
+        Delta --> Happy{"You state you<br>are satisfied?"}
+        Happy -- "answers, changes,<br>afterthoughts" --> Draft
+    end
+
+    subgraph Inner["Inner loop — adversarial review"]
+        Reviewer["Fresh claude -p at phase 2's<br>model and effort, read-only"] --> Verdict{"Verdict?"}
+        Verdict -- "BLOCKED:<br>fix the blockers" --> Reviewer
+    end
+
+    Start(["/pdca:plan"]) --> Interview["Interview: model, effort,<br>permission mode, ticket"]
+    Interview --> Explore["Explore and verify"]
+    Explore --> Draft
+
+    Happy -- "go-ahead — version not<br>yet cleared by review" --> Reviewer
+    Happy -- "go-ahead — version already<br>cleared by review" --> Handoff
+    Verdict -- "no convergence<br>after three rounds" --> Settle["Both positions<br>put to you"]
+    Settle -- "you side with<br>the reviewer" --> Draft
+    Settle -- "you overrule — objection<br>recorded in the plan" --> Handoff
+    Verdict -- "READY —<br>plan unchanged" --> Handoff["Handoff: commit decision,<br>goal condition, launch command"]
+    Verdict -- "READY — but the review<br>changed the plan" --> Delta
+    Handoff -. "afterthought that<br>changes the plan" .-> Draft
+
+    subgraph Goal["Third loop — the fresh /goal session"]
+        Gate["Pre-flight gate: this plan's /goal<br>drives the session; right model, effort<br>and permission mode; privileges;<br>right repo and branch;<br>plan preconditions still hold"] --> Work["Work the tasks, run the<br>acceptance checks, close out<br>the ticket, remove the plan"]
+        Work --> Eval{"Evaluator:<br>condition holds?"}
+        Eval -- "not yet" --> Work
+    end
+
+    Handoff -. "you run the printed<br>command, maybe weeks later" .-> Gate
+    Gate -- "any check fails" --> Blocked(["Blocked report written —<br>the evaluator accepts it<br>as terminal; run ends"])
+    Work -. "a check can<br>never pass" .-> Blocked
+    Eval -- "holds" --> Done(["Session ends: work committed,<br>ticket closed out, plan file gone"])
+```
+
+Only a READY on a plan the review did not touch exits straight to the handoff — that
+version is exactly the one you already approved. Any other path puts the plan back in
+front of someone before it can leave the nest. The third loop then has exactly two
+exits: the condition holds, or the blocked report says why it never can — and the
+evaluator accepting that report as terminal is what lets the session stop.
+
 ## Coming back to a plan later
 
 The gap between the two phases can be weeks, so the handoff command is never only
@@ -90,7 +159,8 @@ If the plan has been sitting a while, reopen it rather than pasting the old comm
 
 Because every fact in the plan's Verified Context is recorded with the command that
 established it, re-verification is cheap: the session re-runs them, tells you what
-has drifted since, brings the plan back to true, and reprints a fresh handoff.
+has drifted since, brings the plan back to true, takes it back through the review,
+and reprints a fresh handoff.
 
 And if a stale plan gets executed anyway, the executing session is told to check the
 Verified Context against reality before it starts, and to stop with a blocked report

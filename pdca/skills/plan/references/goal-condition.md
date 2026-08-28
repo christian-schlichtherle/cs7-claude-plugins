@@ -35,6 +35,12 @@ Six parts, in order:
 
 ## Rules
 
+**Open with the plan path** — `Execute the plan at <path> to completion. …`. The
+pre-flight goal check confirms the condition names the plan by printing only its
+first 120 characters from the transcript record, stopping at the first escaped
+quote, so the path has to sit near the front. Every worked example already has
+this shape; keep it.
+
 **Cap: 4000 characters.** Count before emitting. If you are over: compress the
 criteria to command plus expected result, dropping prose; then, if still over, keep
 the checks that would catch a wrong outcome and replace the remainder with "and every
@@ -70,6 +76,11 @@ because the condition told it to. The evaluator needs the second, or a session t
 correctly aborts in turn 1 is judged not-done and pushed back into work it already
 established it cannot do. Under a Stop hook there is no quiet exit, so the escape
 hatch has to cover the gate as well as the finish.
+
+One absence here is deliberate: the condition never asserts the gate's own `/goal`
+check. A condition claiming its goal exists would be circular — only a session
+already driven by a goal ever receives the condition — so that check lives in the
+plan's Pre-Flight section alone. Do not add it here for completeness.
 
 **The closeout earns its own clause.** When the plan has a Ticket Closeout section,
 the condition must require it — that the finished plan was attached to the ticket, that
