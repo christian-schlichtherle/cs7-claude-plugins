@@ -20,7 +20,8 @@ silently omitting it, so a reader can tell the difference between "not needed" a
 | **Executor** | Opus 5, high effort, permission mode auto |
 | **Ticket** | ACME-123 — https://acme.atlassian.net/browse/ACME-123 (cloudId a1b2c3d4-…) |
 | **Branch** | current branch — do not create a new one |
-| **Plan file** | docs/plans/2026-08-27-cache-ttl.md |
+| **Plan file** | docs/plans/2026-08-27-cache-ttl.md — committed; closeout pushes |
+| **Plan permalink** | `https://github.com/acme/api/blob/<sha>/docs/plans/2026-08-27-cache-ttl.md` |
 
 ## Goal
 
@@ -33,9 +34,10 @@ anticipate.>
 <Every requirement in the ticket and what the user decided about it. Omit this section
 only when there is no ticket, and then say so in one line. See `references/jira.md`.>
 
-**Where this plan and the ticket disagree, this plan wins.** Do not implement a ticket
-requirement that this table marks out of scope, deferred or reversed — each of those is
-a decision the user made in the planning session, not an oversight.
+**Where this plan and the ticket disagree, this plan wins.** The ticket was a request,
+not a specification, and this table is what the user decided about it. Do not implement
+a ticket requirement that this table marks out of scope, deferred, reversed or replaced
+— each of those is a decision made in the planning session, not an oversight.
 
 | # | Requirement (ticket wording, condensed) | Disposition | Note |
 |---|---|---|---|
@@ -44,6 +46,7 @@ a decision the user made in the planning session, not an oversight.
 | 3 | Add a cache-hit-rate metric | Deferred | Split to ACME-131 |
 | 4 | Document the value in the runbook | In scope — task 3 | |
 | 5 | AC: "cache hits improve measurably" | Reworded | Not testable as written; replaced by acceptance criterion 2 |
+| 7 | "Move the TTL into Redis config" | Replaced | Non-functional; the ConfigMap path is already watched — user chose it over a new dependency |
 | 6 | Restart the pods after the change | Already satisfied | The ConfigMap is watched, not mounted: verified below |
 
 ## Verified Context
@@ -112,9 +115,14 @@ are spelled out literally here so the comparison is a string match, not a judgem
      exits 0. If it is denied rather than failing, that is a pre-flight failure.
    - `echo test | gpg --clearsign --batch --pinentry-mode error` exits 0 — commits
      here are signed, and a cold agent hangs rather than failing.
-   - The ticket closeout channel answers: `GET /rest/api/3/mypermissions?issueKey=ACME-123&permissions=CREATE_ATTACHMENTS,ADD_COMMENTS`
-     returns `havePermission: true` for both. A closeout that cannot run is a
-     pre-flight failure, because the plan cannot be preserved once it is deleted.
+   - The ticket comment channel answers: a read against the Atlassian MCP server
+     succeeds under this permission mode (or, on the REST fallback,
+     `GET /rest/api/3/mypermissions?issueKey=ACME-123&permissions=ADD_COMMENTS`
+     returns `havePermission: true`).
+   - `git push --dry-run` exits 0 — the closeout pushes the preservation commit, and a
+     link to a commit that never left the machine is a dead link. A closeout that
+     cannot run is a pre-flight failure, because the plan cannot be preserved once it
+     is deleted.
 
 3. **Ground.**
    - This file exists at `docs/plans/2026-08-27-cache-ttl.md`.
@@ -148,8 +156,9 @@ environment; you verified that in phase 1.>
 1. `mvn -q verify` exits 0.
 2. `kubectl -n staging get configmap api-config -o "jsonpath={.data.cacheTtlSeconds}"`
    prints `3600`.
-3. The final plan is attached to ACME-123 as `2026-08-27-cache-ttl.md` — the issue read
-   back lists that filename — and a comment summarizing the outcome has been posted.
+3. The final state of the plan was committed and pushed, and a comment on ACME-123
+   links to `docs/plans/2026-08-27-cache-ttl.md` at that commit — which is the last
+   commit before the one that deletes the file.
 4. `git status --porcelain` is empty — everything committed, plan file gone.
 
 ## Rollback
@@ -167,40 +176,53 @@ runs them, it does not work out how to talk to Jira. This section is not a decis
 point: do not ask what should be done with this file or the ticket — that was decided
 in the planning session, and this section is the decision. Run the recorded commands;
 if they cannot complete, the answer is the blocked report, not a question. Omit only
-when there is no ticket, or when the user decided against a closeout, and then say
-which in one line.>
+when there is no ticket, or when the user decided against the comment — and then say
+which in one line, noting that the preservation commit still happens.>
 
 1. Bring this file to its final state: every task checkbox ticked, the Run Log
    complete, the outcome recorded.
-2. Attach it to ACME-123 under its own basename:
+2. Commit this file on its own — the preservation commit — and push it:
 
    ```bash
-   curl -sS -u "$JIRA_EMAIL:$JIRA_TOKEN" -X POST \
-     -H "X-Atlassian-Token: no-check" \
-     -F "file=@docs/plans/2026-08-27-cache-ttl.md" \
-     https://acme.atlassian.net/rest/api/3/issue/ACME-123/attachments
+   git add docs/plans/2026-08-27-cache-ttl.md
+   git commit -m "ACME-123: record final plan state"
+   git push
+   SHA=$(git rev-parse HEAD); echo "$SHA"
    ```
 
-3. Verify it landed — read the issue back and find the filename among its attachments:
+   It is a commit of its own because the final Run Log entries are written after the
+   work commit, so they exist in no earlier commit. Do not squash it into the work
+   commit and do not delete the file in it.
+3. Build the permalink by substituting that SHA into the template from the header:
 
-   ```bash
-   curl -sS -u "$JIRA_EMAIL:$JIRA_TOKEN" \
-     "https://acme.atlassian.net/rest/api/3/issue/ACME-123?fields=attachment" \
-     | grep -o '2026-08-27-cache-ttl.md'
+   ```
+   https://github.com/acme/api/blob/$SHA/docs/plans/2026-08-27-cache-ttl.md
    ```
 
-   An upload that exited 0 is not evidence. This listing is.
+   Check the SHA and path are the ones just committed. A comment carrying a wrong URL
+   looks like a record and is not.
 4. Post a comment on ACME-123 via the Atlassian MCP tool `addCommentToJiraIssue`
-   (cloudId `a1b2c3d4-…`), containing: the outcome in one sentence; the commit SHAs and
+   (cloudId `a1b2c3d4-…`), containing: a Markdown link to that URL on the file name,
+   `[2026-08-27-cache-ttl.md](…)`; the outcome in one sentence; the commit SHAs and
    branch; each acceptance criterion as command → result; the dispositions from the
    Ticket Requirements table, so a reader sees which ticket requirements this run did
    not cover and that it was deliberate; and any deviation from this plan.
-5. Do not transition ACME-123 and do not edit any of its fields. An attachment and a
-   comment, nothing else.
+5. Only now delete this file, in a **separate follow-up commit**, and push that too:
 
-If the attachment or the comment cannot be completed, **leave this file in place** and
-write the blocked report — the attachment is the only thing that preserves this record
-once the file is gone.
+   ```bash
+   git rm docs/plans/2026-08-27-cache-ttl.md
+   git commit -m "ACME-123: remove plan file"
+   git push
+   ```
+
+   Separate is the point: the preservation commit has to stay the last commit in which
+   this file exists, because that is the commit the comment links to.
+6. Do not transition ACME-123 and do not edit any of its fields. A comment, nothing
+   else.
+
+If the preservation commit, the push or the comment cannot be completed, **leave this
+file in place** and write the blocked report — that commit is the only thing that
+preserves this record once the file is gone.
 
 ## Execution Protocol
 
@@ -235,19 +257,22 @@ what is written here plus the repository, and record what you decided.
    Do not create a branch.
 8. Run the **Ticket Closeout** section — after the commit in step 7 and before you
    remove this file in step 9. That order is the whole point: this file is the record
-   of the run and it is about to stop existing, so it is attached to the ticket first
-   and the attachment is confirmed to be there before anything is deleted. If the
-   closeout cannot be completed, do not remove this file — write the blocked report in
-   step 10 instead, naming the closeout as what failed.
+   of the run and it is about to stop existing, so its final state is committed and
+   linked from the ticket before anything is deleted. If the closeout cannot be
+   completed, do not remove this file — write the blocked report in step 10 instead,
+   naming the closeout as what failed.
 9. When every acceptance criterion passes and the closeout is done, remove this plan
    file. How depends on where it lives, so check rather than assume:
-   - **Tracked in the repository being changed** — delete it as part of the final
-     commit, so the plan and the work that fulfilled it land together.
-   - **Untracked** (the author chose not to commit it) — just `rm` it. There is no
-     deletion to commit, and the Run Log has nowhere to survive, so summarize it in
-     the final commit message body instead.
-   - **In a different repository than the work** — `rm` it after the final commit.
-     It cannot be part of a commit in the repository you are changing.
+   - **With a ticket** — the Ticket Closeout section already prescribes it: a separate
+     commit after the preservation commit, never folded into it.
+   - **Tracked in the repository being changed, no ticket** — delete it as part of the
+     final commit, so the plan and the work that fulfilled it land together.
+   - **Untracked** (no ticket, and the author chose not to commit it) — just `rm` it.
+     There is no deletion to commit, and the Run Log has nowhere to survive, so
+     summarize it in the final commit message body instead.
+   - **In a different repository than the work** — the plan commits (preservation and
+     deletion alike) go to the repository holding the plan, never to the one you are
+     changing.
 10. If a criterion cannot be made to pass: write the blocked report at **exactly the
     path named in the goal condition** — the plan path with `.md` replaced by
     `.BLOCKED.md`, so `2026-08-27-cache-ttl.md` becomes
@@ -309,8 +334,11 @@ repository it is changing, which it must not touch, and that the plan file canno
 part of the commit. Left implicit, it will guess — and committing a plan file into
 an unrelated repository is a messy thing to undo unattended.
 
-**The Ticket Requirements table is for phase 2, not for the record.** Its job is to
-stop an executing session from implementing a ticket requirement the user decided
+**The Ticket Requirements table is for phase 2, not for the record.** It is also where
+the ticket-as-request rule leaves its trace: a ticket's non-functional demands — a named
+mechanism, a library, a split into phases — are the ones a verified plan most often
+deviates from, and each deviation belongs here with its reason. Its job is to stop an
+executing session from implementing a ticket requirement the user decided
 against — which is a thing it will otherwise do, in good faith, because the ticket key
 is right there in the header. So every requirement appears, including the ones that were
 dropped, and every disposition says which task covers it or why nothing does. A table

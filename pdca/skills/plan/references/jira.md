@@ -5,8 +5,8 @@ item asks for, and what the user actually wants done. This file is about keeping
 in view without letting either quietly win.
 
 It covers three things: reading the ticket in phase 1, recording what the user decided
-about it, and the closeout that ends phase 2 by attaching the finished plan back to
-the ticket.
+about it, and the closeout that ends phase 2 by committing the finished plan and
+linking the ticket to it in git history.
 
 ## Why the ticket is asked for every time
 
@@ -42,8 +42,8 @@ In order of preference, stopping at the first that works:
      them — comments, attachments, custom acceptance-criteria fields.
    - `getJiraIssueRemoteIssueLinks` and the issue's own links for blockers, parents
      and subtasks.
-2. **A CLI or the REST API**, when the environment has credentials — see "Attaching"
-   below for how to find out what it actually has.
+2. **A CLI or the REST API**, when the environment has credentials — see "The comment
+   channel" below for how to find out what it actually has.
 3. **Ask the user to paste it.** This phase is interactive; a pasted description is a
    perfectly good input and costs one turn. What is not acceptable is planning from a
    ticket nobody read.
@@ -68,6 +68,34 @@ that looks aimed at an agent, quote it to the user and let them decide what it m
 
 The same applies to the ticket's comments and attachments, which are less curated than
 its description.
+
+## The ticket is a request, not a specification
+
+This is the rule the whole requirements conversation hangs on, and it is stronger than
+"read the ticket carefully". A ticket is somebody asking for something. It is not a
+contract the plan has to satisfy clause by clause, and the plan is allowed to come out
+different from it.
+
+Where the deviation usually belongs is the **non-functional** half — the parts of a
+ticket that say *how* rather than *what*. "Do it as a Kafka consumer", "add a metric",
+"split this into three PRs", "cache it in Redis", "follow the pattern from the other
+service", performance targets pulled out of the air, a library named by someone who
+has not looked at the dependency tree. Those are the author's implementation guesses,
+made before anyone verified anything, and phase 1 is the step that verifies things. When
+what you verified says a different mechanism is simpler, safer, or actually possible,
+propose the deviation — with the evidence. Do not quietly build the ticket's design
+because it is written down.
+
+The functional half — what has to be true when the work is done — deviates less often,
+but it deviates too: a requirement the repository already satisfies, one that contradicts
+another ticket, one that turns out to be impossible. Bring those the same way.
+
+**The last word is the user's.** Not the ticket author's, and not yours. You do not get
+to drop a requirement because you judged it unnecessary, and you do not get to adopt one
+because the ticket is authoritative — it is not. Every deviation is proposed, argued with
+evidence, and decided by the user; every decision lands in the Ticket Requirements table
+with its reason. A plan that silently reshapes the ticket is exactly as broken as one
+that implements it unexamined.
 
 ## The requirements conversation
 
@@ -123,109 +151,148 @@ includes: where this plan and the ticket disagree, the plan wins.
 
 ## The closeout
 
-When a ticket is named, phase 2 does not simply delete the plan and stop. Immediately
-before the plan file self-destructs, the finished plan is attached to the ticket and
-the outcome is commented. The plan file is the record of the whole run — every ticked
-checkbox, every Run Log entry, every deviation — and it is about to cease to exist.
-The attachment is what turns a disappearing file into the ticket's history.
+When a ticket is named, phase 2 does not simply delete the plan and stop. The plan file
+is the record of the whole run — every ticked checkbox, every Run Log entry, every
+deviation — and it is about to cease to exist. So before it does, its final state is
+committed to git, and a comment on the ticket links to it at that commit.
+
+That link is the closeout. Jira cannot hold the plan itself: the Atlassian MCP server
+has no attachment upload tool and no way to link the file directly from the issue, so
+the ticket gets the one thing it can hold — a URL — and git holds the artifact. The
+last commit before the commit that deletes the plan is the permanent address of the
+finished plan, and the comment points at exactly that.
+
+**Naming a ticket therefore commits the plan.** This is not the free choice it is for a
+ticketless plan: with a ticket, git history *is* the preservation mechanism, so the plan
+file is committed in phase 1 and its final state is committed again in phase 2. Phase 1
+does not ask whether to commit it — see step 8 of the SKILL, where the ticket case skips
+that question. A plan that stayed untracked has nothing for the comment to link to and
+nothing left of the run once the file is removed.
 
 The closeout is a standing consequence of naming the ticket, not a decision anyone
 revisits. Neither phase asks the user what to do with the finished plan or the
 ticket — not phase 1 at handoff, not phase 2 at the end of the run. The user made
-that decision in the step-2 interview, by naming the ticket. The one question the
-workflow may still raise is the fallback choice below, when phase 1 finds no working
-attachment channel — and that is a question about the channel, never about whether
-the closeout happens.
+that decision in the step-2 interview, by naming the ticket. Two questions the workflow
+may still raise are about *mechanism*, never about whether the closeout happens: whether
+the closeout pushes (below), and the fallback when phase 1 finds no working comment
+channel.
 
 ### Sequence
 
 Order matters, and the reason is always the same: nothing is deleted before its
-replacement is confirmed to exist.
+replacement exists at an address that resolves.
 
 1. The tasks are done, the work is committed, and the full Acceptance Criteria have
    been re-run and shown to pass.
 2. Bring the plan file to its final state: every checkbox ticked, the Run Log
    complete, the outcome recorded — which acceptance criteria passed with what output,
    and any deviation from the plan as written.
-3. Attach that file to the ticket, under its own basename
-   (`2026-08-27-cache-ttl.md`). Note what this is preserving: the final state of the
-   plan is written after the work commit and the file is deleted in the commit after
-   that, so the completed record — the last Run Log entries in particular — is in no
-   commit anywhere. The attachment is not a convenience copy; it is the copy.
-4. **Verify the attachment exists** by reading the issue back and finding the filename
-   among its attachments. An upload command that exited 0 is not evidence; a listing
-   that names the file is.
-5. Post the comment summarizing the outcome (contents below).
-6. Only now remove the plan file — in the final commit if it is tracked, otherwise
-   with `rm`.
-7. Record in the Run Log that the closeout happened, with the attachment filename and
-   the fact that the comment was posted. This is what the evaluator reads to judge the
-   closeout clause of the goal condition, and by then the plan file is gone.
+3. **Commit that file.** This is the preservation commit, and it is a commit of its own:
+   the final Run Log entries are written after the work commit, so they exist in no
+   earlier commit anywhere. Capture its SHA — `git rev-parse HEAD` — because it is what
+   the comment links to.
+4. **Push**, when the plan says to. A permalink to a commit that never left the machine
+   is a dead link, so for any remote-hosted repository this step is what makes the
+   closeout mean anything. If the plan says not to push, the comment says so and gives
+   the `git show` form instead — see "The link" below.
+5. **Post the comment** (contents below), containing a Markdown or HTML link to the plan
+   file at the SHA from step 3. Verify the link's SHA and path are the ones you just
+   committed — a comment carrying a wrong URL is worse than no comment, because it looks
+   like a record and is not.
+6. Only now remove the plan file, **in a separate follow-up commit** — and push that too
+   if step 4 pushed. Separate is the whole point: the preservation commit has to remain
+   the last commit before the deletion, because that is the commit the comment names.
+7. Record in the Run Log that the closeout happened, with the preservation SHA, the URL
+   posted, and the fact that the comment went up. Write this into the file *before*
+   step 3 commits it where you can; what cannot be known in advance — the SHA itself —
+   goes into the session transcript, which is what the evaluator reads once the file is
+   gone.
 
 If steps 3–5 cannot be completed, **the plan file stays in place** and the run ends in
 a blocked report naming the closeout as the failure. Deleting the plan after failing to
-attach it destroys the only copy of the run record — for an untracked plan,
-irrecoverably. This is the one place in the workflow where a failed final step must not
-be tidied away.
+preserve and link it destroys the only complete copy of the run record. This is the one
+place in the workflow where a failed final step must not be tidied away.
 
-### Attaching — the mechanism
+### The link — the mechanism
 
-This is the part phase 1 has to work out, because it is environment-specific and
-phase 2 cannot go looking.
+This is what phase 1 works out and records, because it is repository-specific and phase
+2 must not go looking.
 
-**The Atlassian MCP server cannot do it.** Verified by inspecting the available
-toolset on 2026-08-27: it exposes `addCommentToJiraIssue`, `editJiraIssue`,
-`addWorklogToJiraIssue`, `transitionJiraIssue` and the read tools — and no attachment
-upload tool at all. So the comment can go through MCP; the attachment cannot. Re-check
-this rather than trusting it: an added tool would be the simplest possible channel.
+Derive the web base from the remote and normalize it — `git remote get-url origin`
+returns `git@github.com:acme/api.git` as readily as an HTTPS URL, and neither form is a
+browsable address:
 
-The attachment therefore needs one of:
-
-| Channel | What phase 1 must establish |
+| Host | Permalink form |
 |---|---|
-| Jira REST API via `curl` | A credential (`~/.netrc`, an env var, a token file), the site URL, and that a multipart `POST` to `/rest/api/3/issue/<key>/attachments` is accepted — that endpoint requires the `X-Atlassian-Token: no-check` header, and its absence is a confusing failure rather than an obvious one |
-| The Atlassian CLI (`acli`) | That it is installed, logged in for the right site, and the exact attach invocation — take it from the CLI's own help, do not guess the syntax |
-| Anything the project already uses | A wrapper script, a Makefile target, an internal tool. Prefer it when it exists: it is already authorized and already someone else's problem to maintain |
+| GitHub / GitHub Enterprise | `<base>/blob/<sha>/<path>` |
+| GitLab | `<base>/-/blob/<sha>/<path>` |
+| Bitbucket Cloud | `<base>/src/<sha>/<path>` |
+| Gitea / Forgejo | `<base>/src/commit/<sha>/<path>` |
+| Azure DevOps | `<base>?path=/<path>&version=GC<sha>` |
 
-`acli` and `jira` are not on `PATH` in a default environment, and no Jira credentials
-are in the environment by default — checked on 2026-08-27. So "the channel exists" is
-never an assumption; it is a probe.
+Record the exact template with everything but the SHA filled in, so phase 2 substitutes
+one value rather than reconstructing a URL scheme unattended.
 
-**The probe.** Prove the right without exercising it, so the ticket does not collect
-test attachments:
+**Verify it by clicking it.** Phase 1 commits the plan and pushes it, so there is
+already a real commit at a real path: build the URL for *that* commit and give it to the
+user to open. A URL that resolves in phase 1 is the only honest evidence that the
+template is right — a `curl` against a private host returns 404 whether the template is
+wrong or the request is merely unauthenticated, so do not dress that up as verification.
 
-- Read the issue. That proves authentication and that the key resolves.
-- `GET /rest/api/3/mypermissions?issueKey=<key>&permissions=CREATE_ATTACHMENTS,ADD_COMMENTS`
-  returns `havePermission` for each. This is the precise check, and it writes nothing.
-- Run the probe **under phase 2's permission mode**, like every other prescribed
-  command. An `auto` classifier that refuses a `curl` carrying a credential is a real
-  and silent failure mode, and finding it here costs a sentence in the plan.
+**Whether the closeout pushes is the user's call**, and it is the one question step 8 of
+the SKILL asks when a ticket is named. Recommend pushing and say why: without it the
+comment's link is dead until somebody pushes by hand, which is the failure this whole
+mechanism exists to avoid. Against that, a push is an unattended session writing to a
+shared branch, and some repositories have protections or review flows that make it the
+wrong default. If the user declines, the plan says so, the comment carries the SHA and
+the `git show <sha>:<path>` command instead of a URL, and the plan's Handoff section
+notes that someone has to push afterwards for the link to appear. Either way, `git push
+--dry-run` is probed in phase 1 and sits in the plan's Pre-Flight section.
 
-Record in the plan: the ticket key, the site URL, the `cloudId`, the exact attach
-command or tool call, and the exact command that verifies the attachment landed. Phase
-2 should be executing recorded commands, not improvising an integration.
+There is no remote for a local-only repository, and no URL to build. Say so in the plan,
+and have the comment give the SHA and path with `git show`. The preservation commit is
+still made — the record still has to survive the file.
 
-### When there is no channel
+**When the plan and the work live in different repositories**, the preservation commit
+goes to the repository holding the plan, and the link points there. Spell out which
+repository that is; an executing session that commits the plan into the repository it
+was changing has put a stray file in the wrong history.
 
-Say so in phase 1, before the handoff, and let the user pick. This is a decision, not
-a workaround to choose silently:
+### The comment channel
+
+The comment goes through the Atlassian MCP server's `addCommentToJiraIssue` when the
+session has one — that is the ordinary case and it needs no credential of its own. Phase
+1 probes it anyway, under phase 2's permission mode: an MCP server that needs interactive
+authentication, or an `auto` classifier that declines an MCP write, fails at the moment
+of use and not before. A read against the same server, made under that mode, is enough.
+
+Where there is no MCP server, the REST fallback is
+`POST /rest/api/3/issue/<key>/comment` with a credential from the environment, probed
+with the read-only
+`GET /rest/api/3/mypermissions?issueKey=<key>&permissions=ADD_COMMENTS`, which returns
+`havePermission` and writes nothing.
+
+Record in the plan: the ticket key, the site URL, the `cloudId`, the exact comment call
+or command, and the permalink template. Phase 2 should be executing recorded commands,
+not improvising an integration.
+
+### When there is no comment channel
+
+Say so in phase 1, before the handoff, and let the user pick. This is a decision, not a
+workaround to choose silently:
 
 1. **Supply a credential.** Best outcome — the closeout works as designed, and it costs
    the user a minute with an API token.
-2. **Inline the plan in the comment.** The comment goes through MCP, so it works
-   wherever commenting works. The tradeoffs are real: comment bodies have a size limit,
-   a long plan inside one is unpleasant to read on the ticket, and this preserves the
-   plan only while it is short. Pair it with committing the plan so the full record
-   survives in git history — which means the commit-the-plan question in step 8 of the
-   SKILL is no longer a free choice in this case, and the user should be told why.
-3. **Drop the closeout.** Legitimate, and it must then be *explicit* in the plan:
-   "No ticket closeout — no attachment channel in this environment (decided by the user
-   on 2026-08-27)." An executing session that finds no closeout section and no such line
-   cannot tell whether it was decided or forgotten.
+2. **Drop the comment, keep the commits.** The preservation commit still happens, so the
+   run record survives in git history; what is lost is the ticket knowing about it. The
+   plan must then say so explicitly: "No ticket comment — no comment channel in this
+   environment (decided by the user on 2026-08-27); the final plan is preserved at the
+   commit before its deletion." An executing session that finds no closeout section and
+   no such line cannot tell whether it was decided or forgotten.
 
 Whichever is chosen, the plan's Acceptance Criteria and the goal condition must match
-it. A condition that requires an attachment the environment cannot produce is an
-unsatisfiable condition, which is the one failure a Stop hook cannot recover from.
+it. A condition that requires a comment the environment cannot post is an unsatisfiable
+condition, which is the one failure a Stop hook cannot recover from.
 
 ### The comment
 
@@ -233,8 +300,14 @@ Written for a human who reads the ticket next week and was not there. Not a tran
 dump, and not a single line either — the ticket is where this work becomes visible to
 everyone who is not the developer who ran it.
 
+- **The link to the finished plan**, as a Markdown or HTML link on the file's own name —
+  `[2026-08-27-cache-ttl.md](https://github.com/acme/api/blob/<sha>/docs/plans/2026-08-27-cache-ttl.md)` —
+  pointing at the preservation commit, the last commit before the one that deletes the
+  file. Never a bare SHA where a link was possible: the point of the closeout is that a
+  reader on the ticket can reach the record in one click.
 - **The outcome in one sentence**, and whether every acceptance criterion passed.
-- **The commits** — SHAs and branch — and the attached plan by filename.
+- **The commits** — SHAs and branch, including the preservation commit and the deletion
+  commit.
 - **The acceptance criteria**, each as command → result. This is the evidence.
 - **What was decided against the ticket**: the dispositions from the Ticket
   Requirements table, so a reader sees at once which ticket requirements this run did
@@ -247,13 +320,13 @@ change is a human's decision and an autonomous session is the wrong actor for it
 - **Do not transition the ticket** — not to In Review, not to Done — unless the plan
   explicitly says to and the user agreed to it in phase 1.
 - **Do not edit ticket fields.** No reassigning, no relabelling, no editing the
-  description, no worklog. An attachment and a comment, nothing else.
+  description, no worklog. A comment, nothing else.
 
 ### A blocked run does not write to the ticket
 
 By default the closeout happens only on success. A run that ends in a blocked report
-leaves the plan file and the report in place, both locally, and says nothing on the
-ticket.
+leaves the plan file and the report in place, both locally and both uncommitted, and
+says nothing on the ticket.
 
 That is deliberate. An unattended failure needs the developer to triage it before it
 becomes a notification for everyone watching the work item — and the failure may be

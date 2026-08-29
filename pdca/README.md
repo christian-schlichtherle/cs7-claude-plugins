@@ -29,10 +29,14 @@ spell out depends on who will be reading it.
 The interview also asks for a Jira ticket, every time — a key, a URL, or "none". Given one,
 the session reads it before it plans anything and puts its requirements to you as a
 list: this one is in scope, this one looks like a separate ticket, this acceptance
-criterion is not testable as written — here is what I propose instead. Every decision is
-yours; the ticket is an input, not an authority. What you decide goes into the plan as a
-requirements table, including the requirements you dropped, so the autonomous phase does
-not helpfully implement them behind your back.
+criterion is not testable as written — here is what I propose instead. A ticket is a
+request, not a specification: the plan is allowed to come out different from it, and
+usually does in the non-functional half — the named mechanism, the suggested library,
+the split into phases, the performance number someone wrote down before anything was
+verified. Phase 1 is where things get verified, so those get challenged with evidence.
+Every decision is yours; not the ticket author's and not the model's. What you decide
+goes into the plan as a requirements table, including the requirements you dropped, so
+the autonomous phase does not helpfully implement them behind your back.
 
 Planning then proceeds interactively. Each turn updates
 `docs/plans/<date>-<slug>.md` and reports only what changed; you read the file when
@@ -73,14 +77,21 @@ commit.
 
 If the plan names a ticket, one thing happens first. The plan file is the record of the
 whole run — every ticked box, every decision the session made alone — and it is about to
-be deleted, so it is attached to the ticket, the attachment is confirmed to be there,
-and a comment goes up summarizing the outcome: what was done, the commits, each
-acceptance check with its result, and which ticket requirements this run deliberately
-did not cover. Only then is the file removed. If the attachment cannot be made, the plan
-stays where it is and the run stops with a blocked report — nothing is deleted before its
-replacement exists.
+be deleted, so its final state is committed on its own and pushed, and a comment goes up
+on the ticket linking to the plan **at that commit**, plus the outcome: what was done, the
+commits, each acceptance check with its result, and which ticket requirements this run
+deliberately did not cover. Only then is the file removed, in a separate follow-up commit
+— which is what keeps the linked commit the last one where the plan still exists. Jira
+cannot hold the file itself (no attachment upload, no way to link it from the issue), so
+git holds the artifact and the ticket holds the URL. If the commit, the push or the
+comment cannot be made, the plan stays where it is and the run stops with a blocked
+report — nothing is deleted before its replacement exists at an address that resolves.
 
-The closeout attaches and comments, and does nothing else: it will not transition your
+That is also why naming a ticket means the plan gets committed: with a ticket it is not
+the optional convenience it is otherwise, it is the preservation mechanism, so the
+planning session commits it without asking.
+
+The closeout commits and comments, and does nothing else: it will not transition your
 ticket, reassign it, or edit its fields. And it happens without asking — naming the
 ticket at the start was the decision, and neither phase brings it back to you.
 
@@ -172,9 +183,10 @@ if the ground has moved.
 `disableAllHooks` or `allowManagedHooksOnly` is set.
 
 The ticket side is optional and degrades cleanly. Reading a ticket needs an Atlassian
-MCP server, a CLI, or you pasting it. Attaching the plan at the end needs more than
-that — the MCP server can comment but cannot upload attachments — so the planning
-session probes for a channel and, if there is none, tells you before the handoff and
-asks which fallback you want: supply an API token, inline the plan in the comment, or
-skip the closeout. What it will not do is promise an attachment the autonomous run
-cannot deliver.
+MCP server, a CLI, or you pasting it. The closeout needs a comment channel — the MCP
+server is enough — plus a repository whose web host has a permalink form the planning
+session can work out and prove by handing you a URL to click. If there is no comment
+channel it tells you before the handoff and asks which fallback you want: supply an API
+token, or keep the preservation commit and drop the comment. If there is no remote at
+all, the comment carries the commit SHA and a `git show` line instead of a link. What it
+will not do is promise a link the autonomous run cannot deliver.

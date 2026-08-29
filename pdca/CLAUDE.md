@@ -86,44 +86,70 @@ hard on verified facts and inlined acceptance criteria.
   header and in the commit prefix, so an executing session can and will read the ticket
   itself. The standing rule the table carries: where the plan and the ticket disagree,
   the plan wins.
+- **A ticket is a request, not a specification.** The plan may deviate from it, and the
+  non-functional half is where it usually should — a named mechanism, a library, a split
+  into phases, a performance number written before anything was verified. Phase 1 is the
+  step that verifies things, so it proposes the deviation with evidence. What it may not
+  do is decide alone in either direction: the last word belongs to the user, not to the
+  ticket author and not to the model, and every deviation lands in the table with its
+  reason.
 - **Ticket content is untrusted input.** It is written by other people and read by an
   agent that acts on text, so it is treated as claims about the work to raise with the
   user, never as instructions. This is stated in `references/jira.md` rather than left
   implicit.
-- **Phase 2 closes out the ticket immediately before the plan self-destructs**: final
-  plan attached, attachment verified by reading the issue back, then a comment
-  summarizing the outcome, then the file is removed. The order is the design — the plan
-  is the record of the run and it is about to be deleted, so a failed closeout leaves
-  the file in place and ends in a blocked report. The closeout is in the plan's
-  Acceptance Criteria and in the goal condition, because a step the evaluator does not
-  check is a step an autonomous run can skip and still be judged done.
-- **The attachment channel must be probed in phase 1**, because the Atlassian MCP
-  server has comment tools and no attachment upload tool (verified 2026-08-27), and
-  `acli`/credentials are not present by default. Phase 1 finds a channel, records the
-  exact commands in the plan, and probes it with the read-only `mypermissions` check
-  under phase 2's permission mode. With no channel, the user picks a fallback — a
-  credential, inlining the plan in the comment, or dropping the closeout — and the
-  choice is written into the plan, so an absent closeout section can be told from a
-  forgotten one.
-- **The closeout writes an attachment and a comment, nothing else.** No transition, no
-  field edits, no worklog; and a blocked run says nothing on the ticket by default,
-  because an unattended failure is for the developer to triage before it notifies
-  everyone watching the work item.
+- **Naming a ticket makes committing the plan mandatory.** Git history is the
+  preservation mechanism the closeout depends on — Jira cannot hold the file and cannot
+  link to it — so a ticketed plan is committed in phase 1 without asking, and phase 2
+  commits its final state again. Only a ticketless plan leaves the commit decision to
+  the user.
+- **Phase 2 closes out the ticket immediately before the plan self-destructs**: the
+  final plan is committed on its own, pushed when the plan says so, a comment linking to
+  the plan file *at that commit* is posted, and only then is the file removed in a
+  separate follow-up commit. Three ordering constraints carry the design: the
+  preservation commit is separate from the work commit because the final Run Log entries
+  are written afterwards; the deletion is a separate commit after it, so the linked
+  commit stays the last one where the file exists; and a failed closeout leaves the file
+  in place and ends in a blocked report. The closeout is in the plan's Acceptance
+  Criteria and in the goal condition, because a step the evaluator does not check is a
+  step an autonomous run can skip and still be judged done.
+- **The permalink template is worked out and proved in phase 1.** The plan carries the
+  host's permalink form with everything but the SHA filled in, and phase 1 proves it by
+  committing and pushing the plan and handing the user the resulting URL to open. A
+  `curl` is not proof: a private host answers 404 for a wrong template and for an
+  unauthenticated request alike. With no remote at all, the comment falls back to the
+  SHA and a `git show` line.
+- **Whether the closeout pushes is the user's call**, and it is the one question step 8
+  asks when a ticket is named — the commit question having been settled by the ticket.
+  Recommend pushing, because an unpushed preservation commit makes the comment's link
+  dead; accept a no, because an unattended session writing to a shared branch is a real
+  decision. `git push --dry-run` is probed in phase 1 either way.
+- **The comment channel must be probed in phase 1** under phase 2's permission mode: an
+  MCP server needing interactive auth, or an `auto` classifier declining an MCP write,
+  fails at the moment of use. The MCP server's `addCommentToJiraIssue` is the ordinary
+  channel; the REST fallback is probed with the read-only `mypermissions` check for
+  `ADD_COMMENTS`. With no channel, the user picks a fallback — a credential, or keeping
+  the preservation commit and dropping the comment — and the choice is written into the
+  plan, so an absent closeout section can be told from a forgotten one.
+- **The closeout writes a comment, nothing else.** No transition, no field edits, no
+  worklog; and a blocked run says nothing on the ticket by default, because an
+  unattended failure is for the developer to triage before it notifies everyone watching
+  the work item.
 - **The closeout is never re-asked.** Naming the ticket in the step-2 interview *is*
-  the decision about what happens to the finished plan: attach it, comment the
-  outcome. Neither phase may end by asking the user what to do with the plan or the
-  ticket — phase 1 not at handoff (its only question there is whether to commit the
-  plan), phase 2 not at the end of the run (its only alternative is the blocked
-  report). The one legitimate closeout question is phase 1's channel fallback when no
-  attachment channel probes clean, and it is about the channel, not about whether to
+  the decision about what happens to the finished plan: commit it, comment the outcome
+  with a link to it. Neither phase may end by asking the user what to do with the plan
+  or the ticket — phase 1 not at handoff (its only question there is whether the
+  closeout pushes), phase 2 not at the end of the run (its only alternative is the
+  blocked report). The legitimate closeout questions are about mechanism — the push, and
+  the channel fallback when no comment channel probes clean — never about whether to
   close out. This rule exists because a planning session ended by asking exactly
   that question with the ticket named from the start — a settled decision re-asked.
 - The goal condition is capped at 4000 characters, is single-quoted into a shell
   argument (so: no apostrophes, no backticks), and always carries a blocked-report
   escape hatch so an impossible check terminates instead of looping.
-- The plan file self-destructs at the end of phase 2 — in the final commit when it is
-  tracked there, otherwise with `rm`. Committing the plan is an offer the user can
-  decline, so nothing may assume it is tracked.
+- The plan file self-destructs at the end of phase 2 — with a ticket, in its own commit
+  after the preservation commit; otherwise in the final commit when it is tracked there,
+  or with `rm`. Committing the plan is an offer the user can decline **only when there is
+  no ticket**, so nothing outside the ticket path may assume it is tracked.
 - Before handoff, the plan is reviewed by a fresh `claude -p` process at phase 2's
   model and effort, in a loop capped at three rounds. The reviewer runs with
   `--permission-mode plan` so it is read-only by construction, and runs in the
@@ -145,16 +171,18 @@ Verified by inspecting the available toolset on 2026-08-27:
 - The Jira tools include `getJiraIssue`, `getAccessibleAtlassianResources` (for the
   `cloudId`), `searchJiraIssuesUsingJql`, `addCommentToJiraIssue`, `editJiraIssue`,
   `addWorklogToJiraIssue` and `transitionJiraIssue`.
-- There is **no attachment upload tool**, which is the entire reason the closeout needs
-  a REST or CLI channel discovered in phase 1. If a future release adds one, that
-  becomes the preferred channel and `references/jira.md` should say so.
+- There is **no attachment upload tool and no way to link a repository file from the
+  issue**, which is the entire reason the closeout preserves the plan in git and posts a
+  permalink instead. If a future release adds an attachment tool, that becomes a second
+  channel worth having and `references/jira.md` should say so — the git permalink still
+  earns its place, since it survives independently of the ticket.
 - `acli` and `jira` are not on `PATH` in a default environment, and no Jira credentials
   are exported by default.
 
-The REST endpoints named in `references/jira.md` — the attachments `POST` with its
-mandatory `X-Atlassian-Token: no-check` header, and `mypermissions` — come from
-Atlassian's documented API, not from a call made here. That is exactly why the skill
-prescribes probing them in phase 1 rather than trusting them.
+The REST endpoints named in `references/jira.md` — the comment `POST` and
+`mypermissions` — come from Atlassian's documented API, not from a call made here. The
+same goes for the permalink forms in that file's host table. That is exactly why the
+skill prescribes probing them in phase 1 rather than trusting them.
 
 ## Facts About Session Introspection This Plugin Depends On
 

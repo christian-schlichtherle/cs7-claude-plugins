@@ -120,9 +120,14 @@ Include here:
 - A ticket whose requirements are not accounted for: a Ticket Requirements table
   that omits something the ticket asks for, or a disposition you would feel entitled
   to overrule by reading the ticket yourself.
-- A Ticket Closeout section you could not execute: an unprobed channel, an attach
-  command with no verification that it landed, or an order that removes the plan file
-  before the attachment is confirmed.
+- A Ticket Closeout section you could not execute: an unprobed comment channel, a
+  permalink template that is guessed rather than verified against this repository's
+  host, an order that removes the plan file before its final state is committed, or a
+  deletion folded into the preservation commit so the linked commit no longer holds the
+  file.
+- A ticket requirement adopted without a decision behind it — a non-functional demand
+  from the ticket that the plan implements because it was written down, where the
+  Verified Context suggests something else and the table records no reasoning.
 - Ambiguity you could resolve two ways, where the two ways differ materially.
 - Ordering that matters but is not stated.
 - Anything the plan asks for that you could not actually carry out.

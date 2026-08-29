@@ -26,7 +26,7 @@ The plan file is the only interface between the phases, which is why the skill p
 - The goal condition inlines the acceptance criteria, stays inside the 4000-character cap, is shell-safe, and always carries a blocked-report escape hatch so an impossible check terminates instead of looping
 - The handoff command is written into the plan itself, so it survives weeks between the two phases
 - The autonomous session opens with a pre-flight gate — that a `/goal` naming its plan is driving it, on the right model, effort and permission mode, on the right branch, with every privilege the tasks need — all confirmed before anything changes; a mismatch is a blocked report in turn 1, not an adaptation
-- Every run asks for a Jira ticket in the opening interview; given one, phase 1 plans against its requirements and phase 2 closes it out — finished plan attached, outcome commented — before anything is deleted
+- Every run asks for a Jira ticket in the opening interview; given one, phase 1 treats it as a request rather than a specification and plans against its requirements, and phase 2 closes it out — the finished plan committed, the outcome commented with a link to it in git history — before anything is deleted
 - The plan file self-destructs when the work is done
 
 ### gemini-media

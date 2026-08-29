@@ -124,7 +124,9 @@ cannot write at the right altitude without knowing the audience.
 
 The ticket key ends up in the handoff command, in the commit prefix, and in the
 closeout that ends phase 2 — so ask now. Supplied at paste time it is merely a
-prefix; supplied now it is also requirements to plan against.
+prefix; supplied now it is also requirements to plan against. And it settles one
+thing step 8 would otherwise have to ask: a plan with a ticket is committed, always,
+because git history is what the ticket's closeout comment links to.
 
 All three of model, effort and mode are also what phase 2 checks itself against
 before it touches anything, so settling them here is what makes that gate possible
@@ -142,10 +144,15 @@ the exact shape of the conversation.
 
 Two rules govern the whole exchange, and both matter enough to state here:
 
-**The ticket is always considered, never authoritative.** Every requirement in it
-gets raised with the user explicitly — none is quietly dropped because it looks
-tangential, and none is quietly adopted because it is written down. What the ticket
-says is input to a decision; the decision is the user's.
+**The ticket is a request, not a specification.** The plan is allowed to come out
+different from it — most often in the non-functional half, the parts that say *how*
+rather than *what*: a named mechanism, a library, a metric, a split into phases, a
+performance number. Those are the author's guesses, written before anyone verified
+anything, and this phase is where things get verified. Where what you verified says
+otherwise, propose the deviation with the evidence. But every requirement is still
+raised explicitly — none quietly dropped because it looks tangential, none quietly
+adopted because it is written down. **The last word is the user's**, not the ticket
+author's and not yours.
 
 **Where the plan and the ticket disagree, record the disagreement.** A requirement
 the user descopes, defers, or reverses is written into the plan's Ticket Requirements
@@ -155,13 +162,16 @@ not cover, and helpfully implements it — which is the exact failure the intera
 phase exists to prevent.
 
 Naming the ticket also settles, by itself, what happens to the plan at the end:
-phase 2 attaches the finished plan to the ticket and comments the outcome. That is a
-standing consequence of the answer given in step 2, not a further decision — do not
-ask the user, now or at handoff, what should be done with the plan or the ticket when
-the work is finished. What is *not* settled yet is the channel: attaching needs one
-this environment may not have. Step 4 probes it, and `references/jira.md` says what to
-do when there is none — the single case where a closeout question is warranted, and it
-is a question about the channel, never about whether the closeout happens.
+phase 2 commits the finished plan and posts a comment linking the ticket to it at that
+commit. Jira cannot hold the file — the MCP server has no attachment upload and no way
+to link the plan from the issue — so git holds the artifact and the ticket gets the URL.
+That is a standing consequence of the answer given in step 2, not a further decision —
+do not ask the user, now or at handoff, what should be done with the plan or the ticket
+when the work is finished, and do not ask whether to commit the plan. What is *not*
+settled yet is mechanism: the comment channel, and whether the closeout pushes. Step 4
+probes both, and `references/jira.md` says what to do when there is no channel — the
+only closeout questions that are warranted, and they are about mechanism, never about
+whether the closeout happens.
 
 ### 4. Explore and verify
 
@@ -199,12 +209,15 @@ what turns a silent refusal at task 5 into a clean abort in turn 1;
 `references/preflight.md` has the catalogue and the reasoning.
 
 **The ticket closeout is one of those privileges.** If a ticket was named, phase 2
-finishes by attaching the plan to it and posting a comment, and neither is guaranteed
-to work: an MCP server that needs interactive authentication, a token this session
-happens to hold and the next one does not, an `auto` classifier that refuses the
-upload command. Probe the exact channel you are about to prescribe, record the
-verified commands and identifiers in the plan, and if there is no working channel,
-say so now and let the user choose the fallback — see `references/jira.md`.
+finishes by committing the final plan, pushing it if that was agreed, and posting a
+comment linking to it — and none of that is guaranteed to work: an MCP server that
+needs interactive authentication, a token this session holds and the next one does not,
+an `auto` classifier that refuses an MCP write, a protected branch that rejects the
+push. Probe each, record the verified calls and identifiers in the plan, and work out
+the permalink template for this repository's host — then commit and push the plan here
+and give the user the resulting URL to click, which is the only honest proof the
+template is right. If there is no comment channel, say so now and let the user choose
+the fallback — see `references/jira.md`.
 
 You may prototype throwaway spikes to de-risk an assumption — a scratch script, a
 quick patch to see whether something compiles. Restore the working tree before the
@@ -312,20 +325,20 @@ the reviewer prompt, and how to handle a verdict you disagree with.
 
 ### 8. Hand off
 
-The order below is not arbitrary. The commit decision has to be *asked* first
-because the condition depends on it, but the commit itself has to *happen* last,
+The order below is not arbitrary. The decision in step 1 has to be *asked* first
+because the goal condition depends on it, but the commit itself has to *happen* last,
 because the plan is still being written until the handoff is in it.
 
-The commit decision is also the **only** question this step asks. In particular, when
-a ticket was named, do not ask what should happen to the finished plan or the ticket
-at the end of phase 2 — the user answered that by naming the ticket: the plan is
-attached and the outcome is commented, exactly as the plan's Ticket Closeout section
-already prescribes. Re-asking a settled decision reads as the workflow not trusting
-its own record, and invites an answer that contradicts what the plan and the goal
-condition were built on.
+Step 1 is also the **only** question this step asks, and which question it is depends
+on the ticket. Do not ask what should happen to the finished plan or the ticket at the
+end of phase 2 — the user answered that by naming the ticket: the final plan is
+committed and the outcome is commented with a link to it, exactly as the plan's Ticket
+Closeout section already prescribes. Re-asking a settled decision reads as the workflow
+not trusting its own record, and invites an answer that contradicts what the plan and
+the goal condition were built on.
 
 One question does not mean one possible reply, though. An answer that changes the
-plan — "actually, could it also…" — is not an answer to the commit question; it is
+plan — "actually, could it also…" — is not an answer to the step-1 question; it is
 step 6 resuming, and a material change goes back through step 7. The fixpoint from
 step 7 does not expire because the conversation moved on a step. And a re-entry —
 from here, or from the launch offer — rebuilds whatever this step had already
@@ -334,29 +347,45 @@ plan, and a plan already committed takes a follow-up commit. A handoff line
 pointing at acceptance criteria the plan no longer states is exactly the stale
 artifact this step exists to prevent.
 
-1. **Ask whether to commit the plan — decision only, no commit yet.** Whether the
+1. **Settle how the plan is tracked — decision only, no commit yet.** Whether the
    plan ends up tracked decides how it can be removed at the end, so the condition
-   cannot be written until you know. Committing means phase 2 starts from a clean
-   tree — so its own `git status` is a trustworthy signal of its own work — and means
-   the plan stays recoverable from history after it self-destructs. One case where it
-   is not a free choice: if the ticket closeout fell back to inlining the plan in the
-   comment, git history is the only full copy that survives, so recommend committing
-   and say why.
+   cannot be written until you know. Which question this is depends on the ticket:
+
+   - **A ticket was named — do not ask whether to commit.** It is committed. Git
+     history is what the closeout comment links to, so an untracked plan would leave
+     the comment with nothing to point at and the run with no surviving record. Say
+     that it is being committed and why; the question here is instead **whether the
+     closeout pushes.** Recommend yes — an unpushed preservation commit makes the
+     comment's link dead until somebody pushes by hand — and respect a no: some
+     branches are protected, and an unattended session writing to a shared branch is a
+     real decision. A no means the comment carries the SHA and a `git show` command
+     instead of a URL, and the Handoff section says someone must push afterwards.
+   - **No ticket — ask whether to commit the plan.** Committing means phase 2 starts
+     from a clean tree, so its own `git status` is a trustworthy signal of its own
+     work, and it means the plan stays recoverable from history after it
+     self-destructs. Either answer is fine; the plan and the condition follow it.
 2. **Build the goal condition** per `references/goal-condition.md`. Read that file
    before writing the condition; the constraints there are not obvious.
 3. **Write the handoff command into the plan's Handoff section**, then print it.
    Terminal output is the most perishable place a command can live, and the gap
    between the two phases can be weeks. A plan that carries its own launch
    instruction can be picked up by whoever finds the file.
-4. **Now commit, if that was agreed.** Follow the repository's commit convention,
-   including the ticket prefix and signing if that is what `git log` shows.
-   Committing before step 3 would put a plan into history without its own launch
-   command and leave phase 2 facing a dirty tree — both of which defeat the point.
+4. **Now commit** — always when a ticket was named, otherwise if that was agreed.
+   Follow the repository's commit convention, including the ticket prefix and signing
+   if that is what `git log` shows. Committing before step 3 would put a plan into
+   history without its own launch command and leave phase 2 facing a dirty tree — both
+   of which defeat the point.
+
+   When a ticket was named and the closeout pushes, push this commit too and build the
+   permalink for the plan at it. Give the user that URL to open: a link that resolves
+   here is the proof that the template recorded in the plan is the right one for this
+   host, and it costs one click now instead of a dead link on the ticket weeks later.
 
    If the convention signs commits, this commit doubles as the live proof that
    signing works unattended: check it with `git log --show-signature -1`.
 
-   If the plan is staying untracked there is no such commit, so probe separately —
+   If the plan is staying untracked — only possible without a ticket — there is no
+   such commit, so probe separately —
    a passphrase-protected key with no warm agent does not fail loudly in phase 2, it
    *hangs* on a pinentry prompt nobody can answer, under a Stop hook that will not
    let the session stop. Branch on `git config gpg.format`: for the gpg default,
@@ -498,16 +527,18 @@ instructs the executing session to:
   unless the plan explicitly says to.
 - **Close out the ticket** — when the plan names one, and immediately before removing
   the plan file. Bring the plan to its final state (every checkbox ticked, the Run Log
-  complete, the outcome recorded), attach that file to the ticket, verify the
-  attachment is listed on the issue, then post a comment summarizing the outcome. The
-  order is not negotiable: the plan is about to stop existing, and the attachment is
-  what preserves it. A closeout that cannot be completed is a blocked report with the
-  plan file left in place — never a silent skip, and never a deletion that takes the
-  only copy with it. `references/jira.md` has the sequence and the fallbacks.
-- Remove the plan file as the final act — in the same commit as the work when it is
-  tracked there, otherwise with `rm`. Do not write a condition that requires
-  committing the deletion of a file that was never committed, or that lives in
-  another repository: that check can never pass, and an unsatisfiable condition is
+  complete, the outcome recorded), commit that file on its own, push if the plan says
+  to, then post a comment summarizing the outcome and linking to the plan at that
+  commit. The order is not negotiable: the plan is about to stop existing, and that
+  commit is what preserves it. A closeout that cannot be completed is a blocked report
+  with the plan file left in place — never a silent skip, and never a deletion that
+  takes the only copy with it. `references/jira.md` has the sequence and the fallbacks.
+- Remove the plan file as the final act. With a ticket that is a **separate commit
+  after the preservation commit**, so the commit the comment links to stays the last
+  one in which the plan exists. Without a ticket it goes in the same commit as the
+  work when the plan is tracked there, otherwise `rm`. Do not write a condition that
+  requires committing the deletion of a file that was never committed, or that lives
+  in another repository: that check can never pass, and an unsatisfiable condition is
   the one thing the Stop hook cannot recover from on its own.
 - If a check genuinely cannot pass: write the blocked report named in the condition,
   explaining which check failed, what was tried, and why it cannot pass — then stop.
@@ -524,10 +555,11 @@ with one impossible check turns into a session that cannot stop, retrying foreve
   permission mode, which privileges to probe and how, and why a failure there is
   written up rather than worked around. Read before filling in a plan's Pre-Flight
   section.
-- `references/jira.md` — the ticket side of the workflow: how to fetch a ticket and
-  turn it into a requirements conversation, how the plan records what the user decided
-  against it, and the closeout that attaches the finished plan to the ticket at the end
-  of phase 2. Read when a ticket is named.
+- `references/jira.md` — the ticket side of the workflow: why a ticket is a request
+  rather than a specification, how to fetch one and turn it into a requirements
+  conversation, how the plan records what the user decided against it, and the closeout
+  that commits the finished plan and links the ticket to it at the end of phase 2. Read
+  when a ticket is named.
 - `references/goal-condition.md` — how to construct the `/goal` condition: the
   character budget, shell safety, the escape hatch, worked examples. Read before
   writing a handoff.

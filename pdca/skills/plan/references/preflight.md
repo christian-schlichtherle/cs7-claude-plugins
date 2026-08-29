@@ -214,7 +214,8 @@ command has a rehearsal form, that is the probe:
 | Cloud API access | `aws sts get-caller-identity`, or the provider equivalent |
 | Dependency installation | the actual fetch against the real registry |
 | A write outside the repository | `touch` the target path and remove it |
-| A Jira attachment or comment at closeout | `GET /rest/api/3/mypermissions?issueKey=<key>&permissions=CREATE_ATTACHMENTS,ADD_COMMENTS` returns `havePermission` for both — it writes nothing, so the ticket collects no test attachments |
+| A Jira comment at closeout | A read against the same MCP server under phase 2's mode; on the REST fallback, `GET /rest/api/3/mypermissions?issueKey=<key>&permissions=ADD_COMMENTS` returns `havePermission` — it writes nothing, so the ticket collects no test comments |
+| A push at closeout | `git push --dry-run` — the closeout's permalink points at a commit that has to reach the remote |
 
 A probe that needed manual approval, or came back denied, is a failed pre-flight — not
 a note to keep in mind.
@@ -222,7 +223,9 @@ a note to keep in mind.
 Two of those rows are worth a word on why they are fatal rather than cosmetic. A cold
 signing key does not fail, it *hangs*. And a closeout that cannot run means the plan
 file — the record of the entire run, including everything the run is about to append to
-it — has nowhere to go before it is deleted. Both are cheaper to catch here than
+it — has nowhere to go before it is deleted; a push that is refused is the same failure
+wearing a different hat, since the ticket comment then links to a commit no reader can
+reach. Both are cheaper to catch here than
 anywhere else in the workflow.
 
 MCP tool calls are probed the same way as shell commands, and for the same reason: a
