@@ -16,7 +16,7 @@ several of them by name, so the headings are fixed:
 
 **Goal** · **Ticket Requirements** · **Verified Context** · **Constraints &
 Non-Goals** · **Pre-Flight** · **Tasks** · **Acceptance Criteria** · **Rollback** ·
-**Ticket Closeout** · **Execution Protocol** · **Run Log** · **Handoff**
+**Ticket Closeout** · **Execution Protocol** · **Handoff** · **Run Log**
 
 `Ticket Requirements` and `Ticket Closeout` are dropped together when there is no
 ticket. `Writing guidance`, at the end of this file, is about writing the plan and is
@@ -293,10 +293,6 @@ from what is written here plus the repository, and record what you decided.
     the report does not register and the session cannot stop. Do not weaken a check,
     skip it, or declare success without it.
 
-## Run Log
-
-<Appended by the executing session: decisions, surprises, deviations.>
-
 ## Handoff
 
 <The verbatim command that starts phase 2. Written here so the plan file carries its
@@ -310,6 +306,10 @@ claude --model opus --effort high --permission-mode auto '/goal Execute the plan
 If this plan file has been sitting for a while, do not paste that blindly — reopen it
 with `/pdca:plan <this file>` to re-verify the Verified Context and get a
 freshened handoff.
+
+## Run Log
+
+<Appended by the executing session: decisions, surprises, deviations.>
 ````
 
 ## Writing guidance
