@@ -121,7 +121,7 @@ flowchart TD
 
     subgraph Inner["Inner loop — adversarial review"]
         Reviewer["Fresh claude -p at phase 2's<br>model and effort, read-only"] --> Verdict{"Verdict?"}
-        Verdict -- "BLOCKED:<br>fix the blockers" --> Reviewer
+        Verdict -- "VETOED:<br>fix the blockers" --> Reviewer
     end
 
     Start(["/pdca:plan"]) --> Interview["Interview: model, effort,<br>permission mode, ticket"]
@@ -133,8 +133,8 @@ flowchart TD
     Verdict -- "no convergence<br>after three rounds" --> Settle["Both positions<br>put to you"]
     Settle -- "you side with<br>the reviewer" --> Draft
     Settle -- "you overrule — objection<br>recorded in the plan" --> Handoff
-    Verdict -- "READY —<br>plan unchanged" --> Handoff["Handoff: commit decision,<br>goal condition, launch command"]
-    Verdict -- "READY — but the review<br>changed the plan" --> Delta
+    Verdict -- "AGREED —<br>plan unchanged" --> Handoff["Handoff: commit decision,<br>goal condition, launch command"]
+    Verdict -- "AGREED — but the review<br>changed the plan" --> Delta
     Handoff -. "afterthought that<br>changes the plan" .-> Draft
 
     subgraph Goal["Third loop — the fresh /goal session"]
@@ -149,7 +149,7 @@ flowchart TD
     Eval -- "holds" --> Done(["Session ends: work committed,<br>ticket closed out, plan file gone"])
 ```
 
-Only a READY on a plan the review did not touch exits straight to the handoff — that
+Only an AGREED on a plan the review did not touch exits straight to the handoff — that
 version is exactly the one you already approved. Any other path puts the plan back in
 front of someone before it can leave the nest. The third loop then has exactly two
 exits: the condition holds, or the blocked report says why it never can — and the

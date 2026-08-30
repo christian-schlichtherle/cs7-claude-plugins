@@ -31,7 +31,7 @@ hard on verified facts and inlined acceptance criteria.
   state — so the first draft always ends the turn. There is no waiver and no
   non-interactive mode: anyone who does not want the interactive phase can set a
   `/goal` directly instead of using this workflow.
-- **READY alone does not exit the planning session.** The nested loops — the user's
+- **AGREED alone does not exit the planning session.** The nested loops — the user's
   iteration outside, the adversarial review inside — exit only on a fixpoint: one
   version of the plan that the user, the planner and the executing model all stand
   behind at once. The outer loop ends only when the user *states* satisfaction, so a
@@ -39,7 +39,7 @@ hard on verified facts and inlined acceptance criteria.
   go-ahead attached to a version the review has since rewritten. User afterthoughts —
   there, or at any point in the handoff step before launch — reopen the iteration,
   and a material change re-enters the review with a fresh three-round budget. Only
-  a READY on a plan the review did not touch exits straight to the handoff, because
+  an AGREED on a plan the review did not touch exits straight to the handoff, because
   that version is exactly the one the user already approved. The one exception is
   the user's override: when the review does not converge, the user settles the
   disagreement and their settlement is the exit — the user outranks both models —

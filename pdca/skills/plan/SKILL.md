@@ -315,18 +315,18 @@ in this repository — you read all of that back into the plan without noticing 
 never written down. A reviewer holding your context reads past every such gap. A
 reviewer without it walks into them exactly as phase 2 would.
 
-Loop: review, fix the blockers, review again. Until the reviewer returns READY, or
+Loop: review, fix the blockers, review again. Until the reviewer returns AGREED, or
 three rounds, whichever comes first. If it does not converge, stop and put both
 positions to the user — a persistent disagreement between the planner and the
 executor is a finding in itself, and it is the user's to settle.
 
-READY ends the loop; it does not by itself reach the handoff. What it exits to
+AGREED ends the loop; it does not by itself reach the handoff. What it exits to
 depends on whether the review changed the plan:
 
-- **READY with the plan unchanged** — the version the user approved in step 6 is
+- **AGREED, plan unchanged** — the version the user approved in step 6 is
   the version the reviewer cleared. Nothing new for the user to see; proceed to
   step 8.
-- **READY after blockers were fixed** — the plan the user approved is not the plan
+- **AGREED after blockers were fixed** — the plan the user approved is not the plan
   about to be handed off. Report the review's changes as a step 6 delta and hand
   control back. Approval attaches to a version of the plan, not to the plan in the
   abstract, and the review has just written a version the user has never seen.
@@ -336,18 +336,18 @@ invitation to have them, not a signature to collect. They are step 6 resuming, a
 a change that alters what phase 2 would do goes back through this step: an
 unreviewed edit to a reviewed plan is an unreviewed plan. Each re-entry is a fresh
 loop with its own three rounds, though a re-review of a lightly edited plan usually
-returns READY in one.
+returns AGREED in one.
 
 So the exit condition of the nested loops is a fixpoint: **one version of the plan
 that all three parties stand behind at once** — the user, whose go-ahead it carries;
 you, its author, who fixed the blockers you agreed with and recorded in your round
-reports why the rest are not blockers; and the executing model, whose READY came
+reports why the rest are not blockers; and the executing model, whose AGREED came
 from reading that very version. The loops alternate until a single version holds
 all three, and only then does step 8 begin.
 
 The one exception is the user's override. When the loop does not converge and the
 user settles the disagreement against the reviewer, their settlement is the exit —
-the user outranks both models, and holding the handoff hostage to a READY that will
+the user outranks both models, and holding the handoff hostage to an AGREED that will
 never come would make the reviewer the authority instead. Record the overruled
 objection in the plan — Constraints & Non-Goals is the natural place — so phase 2
 knows the executing model raised it and the user decided against it, rather than

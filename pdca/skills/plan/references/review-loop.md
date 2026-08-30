@@ -24,7 +24,7 @@ model that has to do the work.
 3. Read its verdict. For each **blocker**, either fix the plan or write down why it
    is not actually a blocker.
 4. If there were blockers, go back to step 2 with the revised plan.
-5. Stop when the reviewer returns READY, or after **three rounds**.
+5. Stop when the reviewer returns AGREED, or after **three rounds**.
 
 Three rounds is a real limit, not a formality. Two things can prevent convergence: a
 reviewer that keeps surfacing fresh nitpicks, and a genuine disagreement about the
@@ -32,7 +32,7 @@ approach. Neither improves with a fourth round. If the loop does not converge, s
 and put both positions in front of the user — that disagreement is usually the most
 interesting thing to have found, and it is theirs to settle.
 
-READY ends this loop, not the planning conversation. If reaching it took fixing
+AGREED ends this loop, not the planning conversation. If reaching it took fixing
 blockers, the plan has changed since the user approved it, and the changes go back
 to the user as an ordinary delta report before anything else happens — and their
 afterthoughts may send the plan through this loop again. The exit rule for the
@@ -74,7 +74,7 @@ is legitimately new or modified. Cheap, and it catches a reviewer that found a w
 be helpful.
 
 **A round with no verdict line is inconclusive, not a verdict.** If the output
-contains neither `READY` nor `BLOCKED:`, the reviewer was killed or failed — retry it
+contains neither `AGREED` nor `VETOED:`, the reviewer was killed or failed — retry it
 once, and **do not count it against the three rounds**. At xhigh effort that
 distinction is the difference between having a review loop and not having one. If the
 retry also produces no verdict, fall back to reviewing the plan yourself and say which
@@ -137,12 +137,12 @@ Improvements that would not change what you do. Keep these separate — they do 
 gate the handoff.
 
 ## Verdict
-Exactly one line: `READY` if you could execute this plan unattended and be
-confident the result is what the author wanted, or `BLOCKED: <n> blockers`.
+Exactly one line: `AGREED` if you could execute this plan unattended and be
+confident the result is what the author wanted, or `VETOED: <n> blockers`.
 
 Be adversarial about blockers and sparing with nits. A plan that ships with a real
 gap costs an entire unattended run; a nit costs nothing. But do not manufacture
-blockers to seem rigorous — READY is the correct verdict for a good plan, and
+blockers to seem rigorous — AGREED is the correct verdict for a good plan, and
 inventing objections to avoid giving it wastes a round.
 ````
 
