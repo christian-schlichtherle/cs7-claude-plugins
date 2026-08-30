@@ -177,6 +177,29 @@ And if a stale plan gets executed anyway, the executing session is told to check
 Verified Context against reality before it starts, and to stop with a blocked report
 if the ground has moved.
 
+## Watching phase 1 in the status line
+
+Phase 2 shows its progress natively — `/goal` has a built-in `◎` indicator. Phase 1
+can show its progress too, but Claude Code plugins cannot ship a status line, so this
+part is an opt-in. The planning session maintains a one-line status file at
+`~/.cache/claude-pdca/<session-id>.status` — updated at every step transition and
+review round, deleted when planning ends — and your own status-line command displays
+it. Add a segment like this to the script your `statusLine` setting names:
+
+```bash
+# after: input=$(cat)
+sid=$(echo "$input" | jq -r '.session_id // empty')
+pdca_file="$HOME/.cache/claude-pdca/$sid.status"
+if [ -n "$sid" ] && [ -f "$pdca_file" ]; then
+  printf ' | PDCA %s' "$(head -c 120 "$pdca_file" | tr -d '[:cntrl:]')"
+fi
+```
+
+No `refreshInterval` is needed: the status line re-runs on every assistant message,
+which is exactly when the step changes. Without the segment, the file is still
+written and is harmless — one tiny line per session, swept automatically after seven
+days.
+
 ## Requirements
 
 `/goal` needs a trusted workspace and working hooks — it is unavailable when

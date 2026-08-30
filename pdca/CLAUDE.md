@@ -163,6 +163,35 @@ hard on verified facts and inlined acceptance criteria.
 - The `/goal` condition never makes a present-tense claim about the plan file, since
   the same condition orders that file deleted. Claims are phrased as what happened in
   the session, which is what the evaluator can still see.
+- **Phase 1 progress reaches the status line through a status file, never directly.**
+  Plugins cannot ship a `statusLine` — a plugin's own `settings.json` supports only
+  `agent` and `subagentStatusLine` — and `/goal`'s `◎` indicator is hardcoded in the
+  harness, so parity with it is not available. Instead the skill has the planning
+  session maintain `~/.cache/claude-pdca/<session-id>.status` (one line, updated on
+  step transitions and review rounds, leftovers swept after seven days, deleted when
+  the phase ends), and README.md documents the opt-in status-line segment that
+  displays it. When nothing reads the file, writing it is harmless — which is why the
+  skill writes it unconditionally rather than asking whether the user's status line
+  is wired up. The segment sanitizes with `tr -d '[:cntrl:]'`, not `[:print:]`: the
+  status text carries UTF-8 em-dashes, and stripping to printable ASCII would mangle
+  them, while control characters are the actual injection surface (`\e`, `\n`).
+
+## Facts About the Status Line This Plugin Depends On
+
+From the Claude Code documentation (`statusline.md`, `plugins.md`, `goal.md`),
+checked 2026-08-30:
+
+- `statusLine` is user- or project-settings only; there is no plugin mechanism for
+  it. `/goal`'s `◎ /goal active` indicator and its Ctrl+O status view are built into
+  the harness, not implemented via `statusLine`.
+- The status-line command receives JSON on stdin including `session_id` and
+  `transcript_path`; there are **no goal-state fields** in that JSON.
+- It re-runs on every new assistant message (debounced at 300ms), on permission-mode
+  changes, and optionally on a `refreshInterval` timer (minimum 1s) — so a file the
+  skill updates at step transitions is re-read without any timer.
+- `CLAUDE_CODE_SESSION_ID` (see the session-introspection facts below) holds the same
+  session id the status-line command receives as `session_id`, which is what lets the
+  writer and the reader agree on the file path.
 
 ## Facts About the Atlassian MCP Server This Plugin Depends On
 

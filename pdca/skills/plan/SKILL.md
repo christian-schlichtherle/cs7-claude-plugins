@@ -46,6 +46,39 @@ Plan mode does have a place in this workflow, just not here: the reviewer in ste
 needs read-only exploration and must not touch the repository, which is exactly what
 plan mode enforces.
 
+## Keep the status line posted
+
+`/goal` gets a progress indicator for free — its `◎ /goal active` badge is built into
+the harness. Phase 1 gets nothing, and it is the phase with the long quiet stretches:
+verification runs commands for minutes at a time, and a review round is an entire
+background process. A user staring at a spinner cannot tell step 4 from step 7.
+
+A plugin cannot drive Claude Code's status line, but the user's own status-line
+command can display anything a file holds, and it receives the session id to find
+that file with. So maintain a one-line status file for the whole phase:
+
+```bash
+mkdir -p ~/.cache/claude-pdca
+printf 'step 4/8 — verify' > ~/.cache/claude-pdca/"$CLAUDE_CODE_SESSION_ID".status
+```
+
+Update it at every step transition, and within step 7 at every review round
+(`step 7/8 — review, round 2/3`). Reopening a plan starts at `re-verifying a
+reopened plan`. Keep it one short line naming where the session is *now*, not the
+furthest point reached: a re-entry from step 8 back to the iteration loop is written
+as step 6 again.
+
+Two rules govern the file's lifetime. On the first write, sweep leftovers —
+`find ~/.cache/claude-pdca -name '*.status' -mtime +7 -delete` — because an
+abandoned session cannot clean up after itself. And delete this session's file when
+the phase ends: after the launch offer in step 8, or the moment the user abandons
+the planning. A status file that outlives the phase has the status line asserting
+work that is not happening.
+
+If the user's status line does not read the file, all of this is harmless — one tiny
+file outside the repository, consistent with the scratch-file rule in step 4. The
+plugin's README carries the status-line segment users opt into.
+
 ## Phase 1 — the planning session
 
 ### 1. Parse the invocation
