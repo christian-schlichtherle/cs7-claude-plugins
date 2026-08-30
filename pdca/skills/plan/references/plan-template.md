@@ -11,6 +11,17 @@ silently omitting it, so a reader can tell the difference between "not needed" a
 
 ## Skeleton
 
+The sections, in order — the goal condition and the Execution Protocol refer to
+several of them by name, so the headings are fixed:
+
+**Goal** · **Ticket Requirements** · **Verified Context** · **Constraints &
+Non-Goals** · **Pre-Flight** · **Tasks** · **Acceptance Criteria** · **Rollback** ·
+**Ticket Closeout** · **Execution Protocol** · **Run Log** · **Handoff**
+
+`Ticket Requirements` and `Ticket Closeout` are dropped together when there is no
+ticket. `Writing guidance`, at the end of this file, is about writing the plan and is
+not a section of it.
+
 ````markdown
 # <Goal in one line>
 
@@ -226,11 +237,11 @@ preserves this record once the file is gone.
 
 ## Execution Protocol
 
-<Copy this section into every plan. It is what lets a fresh session execute the plan
+<Copy this section into every plan file. It is what lets a fresh session execute one
 without supervision.>
 
-You are implementing this plan autonomously. There is nobody to ask, so decide from
-what is written here plus the repository, and record what you decided.
+You are implementing this plan file autonomously. There is nobody to ask, so decide
+from what is written here plus the repository, and record what you decided.
 
 1. Read this file completely before starting.
 2. Run the **Pre-Flight** section first, in your first turn, before changing
@@ -288,20 +299,28 @@ what is written here plus the repository, and record what you decided.
 
 ## Handoff
 
-<The verbatim command that starts phase 2. Written here so the plan carries its own
-launch instruction — terminal output is lost, a committed file is not. Keep it in a
-fenced block so it can be copied straight out of the file.>
+<The verbatim command that starts phase 2. Written here so the plan file carries its
+own launch instruction — terminal output is lost, a committed file is not. Keep it
+in a fenced block so it can be copied straight out of the file.>
 
 ```bash
 claude --model opus --effort high --permission-mode auto '/goal Execute the plan at docs/plans/2026-08-27-cache-ttl.md to completion. Done when ...'
 ```
 
-If this plan has been sitting for a while, do not paste that blindly — reopen it
+If this plan file has been sitting for a while, do not paste that blindly — reopen it
 with `/pdca:plan <this file>` to re-verify the Verified Context and get a
 freshened handoff.
 ````
 
 ## Writing guidance
+
+**Inline every command; never factor one into a bundled script.** The transcript
+checks in Pre-Flight are fiddly enough to look like they belong in a `scripts/`
+directory, and they are duplicated in `references/preflight.md`, which sharpens the
+temptation. Resist it. Phase 2 runs with no plugin installed — the goal condition and
+this file are all it has — so a path into the skill directory is a dead path in the
+artifact, and the check it guards stops running without saying so. Duplication is the
+cheaper failure here.
 
 **Verified Context is the anti-hallucination core.** A plan whose facts were checked
 is a plan an autonomous session can trust. If you catch yourself writing "should be"

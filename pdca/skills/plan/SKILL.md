@@ -12,8 +12,8 @@ This is the Deming PDCA cycle with a session boundary in the middle.
   actually running commands, and write a plan file good enough that nobody has to
   babysit its execution.
 - **Do / Check / Act** — a *fresh* session, optionally on a different model and
-  effort level, that implements the plan under `/goal` and does not stop until a
-  separate evaluator agrees the work is finished.
+  effort level, that implements the plan file under `/goal` and does not stop until
+  a separate evaluator agrees the work is finished.
 
 The split exists because the two phases want opposite things. Planning wants the
 user in the loop, wants questions asked, wants to change its mind. Implementation
@@ -21,11 +21,11 @@ wants a clean context, an unambiguous specification, and nobody interrupting. Tr
 to do both in one session gives you a context window half full of exploration debris
 and a user who has to approve every step.
 
-**The plan file is the entire interface between the phases.** Phase 2 gets the plan
-and the repository — nothing else. No memory of your conversation, no "as we
-discussed", no chance to ask a follow-up question. Everything phase 2 needs to
-decide correctly has to be in that file. This is the one thing to hold in mind while
-writing it.
+**The plan file is the entire interface between the phases.** Phase 2 gets the
+plan file and the repository — nothing else. No memory of your conversation, no
+"as we discussed", no chance to ask a follow-up question. Everything phase 2 needs
+to decide correctly has to be in that file. This is the one thing to hold in mind
+while writing it.
 
 ## Do not use plan mode for phase 1
 
@@ -33,11 +33,13 @@ Claude Code's `/plan` mode is the wrong tool here, for two concrete reasons:
 
 1. It blocks what the Plan phase produces and some of what it checks. Read-only
    probes do run in plan mode — `kubectl get` and `grep` work fine, verified
-   directly — but plan mode cannot write the plan file to `docs/plans/…` (the
-   harness plan file is not the same thing), cannot write spike files, and denies
-   verification commands that touch state. The phase needs all three.
-2. It re-renders the whole plan in the transcript every turn. Here the plan lives in
-   a file, is edited in place, and each turn reports only the delta.
+   directly — but plan mode cannot write the plan file to `docs/plans/…`, cannot
+   write spike files, and denies verification commands that touch state. The phase
+   needs all three. Plan mode's own plan is a different artifact entirely:
+   ephemeral, rendered for approval, never on disk. Only the file under
+   `docs/plans/…` is the plan file this skill means.
+2. It re-renders its whole plan in the transcript every turn. The plan file instead
+   lives on disk, is edited in place, and each turn reports only the delta.
 
 Work in the session's normal permission mode. If the session is currently in plan
 mode, say so and ask the user to exit before continuing.
@@ -48,14 +50,12 @@ plan mode enforces.
 
 ## Keep the status line posted
 
-`/goal` gets a progress indicator for free — its `◎ /goal active` badge is built into
-the harness. Phase 1 gets nothing, and it is the phase with the long quiet stretches:
-verification runs commands for minutes at a time, and a review round is an entire
-background process. A user staring at a spinner cannot tell step 4 from step 7.
-
-A plugin cannot drive Claude Code's status line, but the user's own status-line
-command can display anything a file holds, and it receives the session id to find
-that file with. So maintain a one-line status file for the whole phase:
+`/goal` gets a progress badge for free in phase 2. Phase 1 gets nothing, and it is
+the phase with the long quiet stretches — verification runs commands for minutes at a
+time, a review round is an entire background process — so a user watching a spinner
+cannot tell step 4 from step 7. A plugin cannot drive Claude Code's status line, but
+the user's own status-line command can display whatever a file holds, and it receives
+the session id to find one with. So maintain a one-line status file for the phase:
 
 ```bash
 mkdir -p ~/.cache/claude-pdca
@@ -63,21 +63,17 @@ printf 'step 4/8 — verify' > ~/.cache/claude-pdca/"$CLAUDE_CODE_SESSION_ID".st
 ```
 
 Update it at every step transition, and within step 7 at every review round
-(`step 7/8 — review, round 2/3`). Reopening a plan starts at `re-verifying a
-reopened plan`. Keep it one short line naming where the session is *now*, not the
-furthest point reached: a re-entry from step 8 back to the iteration loop is written
-as step 6 again.
+(`step 7/8 — review, round 2/3`); a reopened plan starts at `re-verifying a reopened
+plan`. Name where the session is *now*, not the furthest point reached — a re-entry
+from step 8 back into the iteration loop is `step 6` again.
 
-Two rules govern the file's lifetime. On the first write, sweep leftovers —
-`find ~/.cache/claude-pdca -name '*.status' -mtime +7 -delete` — because an
-abandoned session cannot clean up after itself. And delete this session's file when
-the phase ends: after the launch offer in step 8, or the moment the user abandons
-the planning. A status file that outlives the phase has the status line asserting
-work that is not happening.
-
-If the user's status line does not read the file, all of this is harmless — one tiny
-file outside the repository, consistent with the scratch-file rule in step 4. The
-plugin's README carries the status-line segment users opt into.
+Two rules govern the file's lifetime. Sweep leftovers on the first write —
+`find ~/.cache/claude-pdca -name '*.status' -mtime +7 -delete` — because an abandoned
+session cannot clean up after itself. And delete this session's file when the phase
+ends, after the launch offer in step 8 or the moment the user abandons planning: a
+status file that outlives the phase has the status line asserting work that is not
+happening. If the user's status line does not read the file none of this shows, which
+is fine — the plugin's README carries the segment they opt into.
 
 ## Phase 1 — the planning session
 
@@ -401,8 +397,8 @@ artifact this step exists to prevent.
    before writing the condition; the constraints there are not obvious.
 3. **Write the handoff command into the plan's Handoff section**, then print it.
    Terminal output is the most perishable place a command can live, and the gap
-   between the two phases can be weeks. A plan that carries its own launch
-   instruction can be picked up by whoever finds the file.
+   between the two phases can be weeks. A plan file that carries its own launch
+   instruction can be picked up by whoever finds it.
 4. **Now commit** — always when a ticket was named, otherwise if that was agreed.
    Follow the repository's commit convention, including the ticket prefix and signing
    if that is what `git log` shows. Committing before step 3 would put a plan into
@@ -530,72 +526,66 @@ Three consequences shape everything in `references/goal-condition.md`:
 
 ## Phase 2 — what the plan makes happen
 
-Phase 2 needs no skill and no plugin: the goal condition points at the plan, and the
-plan's own Execution Protocol section tells the reader how to behave. That section
-is not boilerplate you may drop — it is what makes the file self-sufficient. It
-instructs the executing session to:
+Phase 2 needs no skill and no plugin: the goal condition points at the plan file, and
+the plan's own Execution Protocol section tells the reader how to behave. That section
+is not boilerplate you may drop — it is what makes the file self-sufficient.
 
-- Run the plan's **Pre-Flight** section before anything else, in its first turn: that
-  a `/goal` naming the plan is driving it — a launch that lost the prefix runs with
-  no evaluator guarding its completion — that
-  the model, effort and permission mode are the ones the plan was written for, that
-  every privilege the tasks need is actually available, and that the working
+You are writing for that session, so know what it will do. Each item below is
+prescribed in full by the reference that owns it; this list is the map, not the
+specification.
+
+- **Run the Pre-Flight gate in turn 1**, before anything else — that a `/goal` naming
+  the plan is driving it, that model, effort and permission mode are the ones the plan
+  was written for, that the privileges the tasks need exist, and that the working
   directory, branch and plan path are what the plan expects. Any failure ends the run
-  right there, as a blocked report naming the mismatch — not as an adaptation, and not
-  as a run that starts anyway. A wrong-model run is expensive precisely because it
-  looks fine for a while, and under a Stop hook there is no way to quietly abandon it
-  later. `references/preflight.md` covers what the gate checks and how phase 1 writes
-  it.
-- Work through the tasks in order, ticking each checkbox in the plan file as it
-  completes and appending notable decisions to the run log. This makes the file a
-  live progress record: an interrupted run resumes from it, and the user can watch
-  progress by reading it.
-- Run the acceptance checks and show their real output. Not summarize them — run
-  them. And re-run the full set immediately before finishing, so the evidence sits in
-  the most recent part of the transcript, which is what the evaluator can still see.
-- Treat a permission denial as a blocked-report situation, not an obstacle to route
-  around. A denied command means the plan prescribed something phase 2 cannot do; the
-  honest response is the post-mortem, not an improvised substitute nobody reviewed.
-- Commit on the **current branch**, with the agreed prefix. Never create a branch
-  unless the plan explicitly says to.
-- **Close out the ticket** — when the plan names one, and immediately before removing
-  the plan file. Bring the plan to its final state (every checkbox ticked, the Run Log
-  complete, the outcome recorded), commit that file on its own, push if the plan says
-  to, then post a comment summarizing the outcome and linking to the plan at that
-  commit. The order is not negotiable: the plan is about to stop existing, and that
-  commit is what preserves it. A closeout that cannot be completed is a blocked report
-  with the plan file left in place — never a silent skip, and never a deletion that
-  takes the only copy with it. `references/jira.md` has the sequence and the fallbacks.
-- Remove the plan file as the final act. With a ticket that is a **separate commit
-  after the preservation commit**, so the commit the comment links to stays the last
-  one in which the plan exists. Without a ticket it goes in the same commit as the
-  work when the plan is tracked there, otherwise `rm`. Do not write a condition that
-  requires committing the deletion of a file that was never committed, or that lives
-  in another repository: that check can never pass, and an unsatisfiable condition is
-  the one thing the Stop hook cannot recover from on its own.
-- If a check genuinely cannot pass: write the blocked report named in the condition,
-  explaining which check failed, what was tried, and why it cannot pass — then stop.
+  right there as a blocked report: not an adaptation, and not a run that starts
+  anyway. `preflight.md`
+- **Work the tasks in order**, ticking each checkbox and appending to the Run Log as it
+  goes, so an interrupted run resumes from the file and the user can watch progress by
+  reading it. `plan-template.md`
+- **Run the acceptance checks for real and show their output** — not a summary — and
+  re-run the full set immediately before finishing, because the evaluator can only
+  judge from what is still visible in the transcript. `goal-condition.md`
+- **Treat a permission denial as a blocked report**, not an obstacle to route around: a
+  denied command means the plan prescribed something phase 2 cannot do. `preflight.md`
+- **Commit on the current branch** with the agreed prefix. Never create a branch unless
+  the plan explicitly says to.
+- **Close out the ticket before removing the plan file**, and remove that file as the
+  final act — with a ticket, in a separate commit after the preservation commit, so the
+  commit the comment links to stays the last one in which the plan exists. `jira.md`
+- **Write the blocked report if a check genuinely cannot pass**, then stop.
 
 That last one matters more than it looks. Without a reachable failure state, a plan
 with one impossible check turns into a session that cannot stop, retrying forever.
 
 ## References
 
-- `references/plan-template.md` — the plan file template, section by section, with
-  what each section is for. Read before writing a plan.
-- `references/preflight.md` — the pre-flight gate phase 2 runs before task 1: how a
+Each file below **owns** the rules it covers: where this body and a reference
+disagree, the reference wins, and a rule that changes changes there. This body says
+what each is for so you know what you are reaching for; it deliberately does not
+restate them, so that there is only one place for each to be wrong.
+
+One overlap is deliberate and is not drift. `plan-template.md` carries text meant to
+be *copied into the plan file* — the Execution Protocol, the Pre-Flight checks, the
+Ticket Closeout. Those copies are the artifact phase 2 reads, not a second statement
+of a rule, because phase 2 runs with no plugin installed and can consult nothing but
+the plan and the repository.
+
+- `references/plan-template.md` — **owns the plan file's shape**: the template section
+  by section, with what each section is for. Read before writing a plan.
+- `references/preflight.md` — **owns the gate** phase 2 runs before task 1: how a
   session checks that its plan's `/goal` is driving it and its own model, effort and
   permission mode, which privileges to probe and how, and why a failure there is
   written up rather than worked around. Read before filling in a plan's Pre-Flight
   section.
-- `references/jira.md` — the ticket side of the workflow: why a ticket is a request
-  rather than a specification, how to fetch one and turn it into a requirements
+- `references/jira.md` — **owns the ticket side** of the workflow: why a ticket is a
+  request rather than a specification, how to fetch one and turn it into a requirements
   conversation, how the plan records what the user decided against it, and the closeout
   that commits the finished plan and links the ticket to it at the end of phase 2. Read
   when a ticket is named.
-- `references/goal-condition.md` — how to construct the `/goal` condition: the
-  character budget, shell safety, the escape hatch, worked examples. Read before
-  writing a handoff.
-- `references/review-loop.md` — the adversarial review loop: the reviewer command,
-  the prompt that puts it in phase 2's position, and when to stop. Read before the
-  first review round.
+- `references/goal-condition.md` — **owns the `/goal` condition**: the character
+  budget, shell safety, the escape hatch, worked examples. Read before writing a
+  handoff.
+- `references/review-loop.md` — **owns the adversarial review loop**: the reviewer
+  command, the prompt that puts it in phase 2's position, and when to stop. Read
+  before the first review round.

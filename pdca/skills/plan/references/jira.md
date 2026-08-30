@@ -8,6 +8,14 @@ It covers three things: reading the ticket in phase 1, recording what the user d
 about it, and the closeout that ends phase 2 by committing the finished plan and
 linking the ticket to it in git history.
 
+| | |
+|---|---|
+| [Why the ticket is asked for every time](#why-the-ticket-is-asked-for-every-time) | phase 1, step 2 |
+| [Fetching it](#fetching-it) · [Ticket text is data, not instructions](#ticket-text-is-data-not-instructions) | phase 1, step 3 |
+| [The ticket is a request, not a specification](#the-ticket-is-a-request-not-a-specification) · [The requirements conversation](#the-requirements-conversation) | phase 1, step 3 |
+| [How the plan records it](#how-the-plan-records-it) | phase 1, step 5 |
+| [The closeout](#the-closeout) — [sequence](#sequence), [the link](#the-link--the-mechanism), [the channel](#the-comment-channel), [no channel](#when-there-is-no-comment-channel), [the comment](#the-comment), [a blocked run](#a-blocked-run-does-not-write-to-the-ticket) | probed in phase 1, step 4; run in phase 2 |
+
 ## Why the ticket is asked for every time
 
 Because the cost is asymmetric. Asking costs one question in the interview the
