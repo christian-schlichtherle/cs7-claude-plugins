@@ -26,6 +26,26 @@ model that has to do the work.
 4. If there were blockers, go back to step 2 with the revised plan.
 5. Stop when the reviewer returns AGREED, or after **three rounds**.
 
+Every round is a fresh process reading the whole plan cold — never a diff, and never
+a resumed session. Reviewing only what changed would be cheaper and would test the
+wrong thing. The question is not whether the edits are correct but whether a reader
+who has never seen the plan can execute it unattended, and that is not a
+diff-local property: fixing a blocker in one step routinely strands an acceptance
+criterion in another, contradicts a Verified Context fact, or quietly changes the
+order things have to happen in. Worse, showing a reviewer its own previous verdict
+turns it from a simulated executor into a proofreader checking whether you did as
+you were told — a reader warmed by exactly the context the loop exists to strip out,
+who will now read past new gaps for the same reason you do. Its AGREED only means
+something because it came from a cold start, which is the one thing phase 2 will
+always be. The saving would be small anyway: the plan file is the cheap input, and
+the reviewer's real cost is reading the repository to spot-check the plan's claims —
+which a diff makes harder, not cheaper, since it hides which parts of the repository
+the unchanged sections lean on. Narrow the reviewer's scope by rule when you must,
+the way the prompt exempts the Handoff section, never by handing it less of the plan.
+
+If a plan is too expensive to read three times, that is a fact about the plan. Phase
+2 has to read it cold too, and only once.
+
 Three rounds is a real limit, not a formality. Two things can prevent convergence: a
 reviewer that keeps surfacing fresh nitpicks, and a genuine disagreement about the
 approach. Neither improves with a fourth round. If the loop does not converge, stop
