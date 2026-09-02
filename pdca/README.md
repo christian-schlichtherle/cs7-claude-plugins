@@ -1,6 +1,6 @@
 # pdca Plugin
 
-Two-phase development harness for Claude Code: plan interactively, implement
+Two-phase development harness for Claude Code: plan interactively, execute
 autonomously.
 
 ## The idea
@@ -9,8 +9,8 @@ This is the Deming PDCA cycle with a session boundary in the middle.
 
 | Phase | Session | What happens |
 |-------|---------|--------------|
-| **Plan** | interactive, with you | Explore, verify every assumption by running commands, and iterate on a plan file until you are satisfied |
-| **Do / Check / Act** | fresh, unattended | A new `claude` process checks it is the session the plan was written for, implements the plan under `/goal`, and cannot stop until an evaluator agrees the work is done |
+| **Plan** — the planning phase | interactive, with you | Explore, verify every assumption by running commands, and iterate on a plan file until you say proceed |
+| **Do / Check / Act** — the execution phase | fresh, unattended | A new `claude` process checks it is the session the plan was written for, executes the plan under `/goal`, and cannot stop until an evaluator agrees the work is done |
 
 The plan file is the entire interface between them. Phase 2 has no memory of your
 conversation — so the plan has to be good enough that nobody needs to babysit it.
@@ -26,40 +26,46 @@ Both are optional — if omitted you will be asked, in a short interview of
 pick-an-option questions before planning starts, because how much the plan must
 spell out depends on who will be reading it.
 
-The interview also asks for a Jira ticket, every time — a key, a URL, or "none". Given one,
-the session reads it before it plans anything and puts its requirements to you as a
-list: this one is in scope, this one looks like a separate ticket, this acceptance
-criterion is not testable as written — here is what I propose instead. A ticket is a
-request, not a specification: the plan is allowed to come out different from it, and
+The interview also asks for a Jira ticket, every time — a key, a URL, or "none". A
+spec is the other kind of input: hand it over on the command line —
+`/pdca:plan opus high docs/specs/cache-ttl.md` — or as a URL, or paste it. Ticket and
+spec are both **requirements sources**, and given either, the session reads it before
+it plans anything and puts its requirements to you as one list: this one is in scope,
+this one looks like a separate ticket, this acceptance criterion is not testable as
+written — here is what I propose instead. A source is a request, not a contract, even
+one titled "specification": the plan is allowed to come out different from it, and
 usually does in the non-functional half — the named mechanism, the suggested library,
 the split into phases, the performance number someone wrote down before anything was
 verified. Phase 1 is where things get verified, so those get challenged with evidence.
-Every decision is yours; not the ticket author's and not the model's. What you decide
-goes into the plan as a requirements table, including the requirements you dropped, so
-the autonomous phase does not helpfully implement them behind your back.
+Every decision is yours; not the source's author's and not the model's. What you
+decide goes into the plan as a requirements table naming every source, including the
+requirements you dropped, so the execution phase does not helpfully implement
+them behind your back.
 
 Planning then proceeds interactively. Each turn updates
 `docs/plans/<date>-<slug>.md` and reports only what changed; you read the file when
-you want the whole picture. When you are satisfied, the plan is handed to a fresh
+you want the whole picture. When you say proceed, the plan is handed to a fresh
 `claude -p` process running at phase 2's model and effort — which sees the plan and
 the repository and nothing else — and asked whether it could execute it unattended.
-Blockers get fixed and it is asked again, up to three rounds. If fixing them changed
-the plan, the changes come back to you before anything else happens — your go-ahead
+Its verdict is one word: VETOED, with at least one blocker to fix, after which it is
+asked again, up to three rounds; or AGREED, possibly with nits, which are applied
+without another round. If the review changed the plan, the changes come back to you
+before anything else happens — your proceed
 was given to a version the review has since rewritten. Afterthoughts at that point
 reopen the iteration, and a materially changed plan goes through review again. The
 two loops alternate until a single version of the plan is one that all three parties
 stand behind: you, the planning session, and the model that will execute it — or, if
 the review will not converge, until you settle the disagreement yourself: you
 outrank both models, and the overruled objection is recorded in the plan. Only then
-does the session write the launch command into the plan, print it, and — if you
-agreed — commit the plan:
+does the session write the launch command into the plan, print it, and commit the
+plan:
 
 ```bash
 claude --model opus --effort high --permission-mode auto '/goal Execute the plan at …'
 ```
 
 Run that in the work repository's directory — usually the same one you planned in —
-and the autonomous phase begins with a pre-flight check. Before it changes anything,
+and the execution phase begins with a pre-flight check. Before it changes anything,
 it confirms a `/goal` naming this plan is what is driving it — a launch that lost
 the prefix runs with no evaluator guarding its completion, so it can stop half-done
 and nobody notices — that it is running on the model, effort level and permission
@@ -70,44 +76,82 @@ a `.BLOCKED.md` naming the mismatch and stops immediately, rather than producing
 plausible-looking work on the wrong model and going wrong somewhere nobody is
 watching.
 
-Past the gate, it ticks off tasks in the plan file as it goes, so you can watch
-progress by reading the file — and an interrupted run resumes from where it stopped. When every acceptance check passes,
-it commits the work on the current branch and deletes the plan file in the same
-commit.
+Past the gate, it ticks off tasks in the plan file and commits the work as it goes, a
+task or a coherent slice per commit, so you can watch progress by reading the file or
+the log — and an interrupted run resumes from where it stopped. When every acceptance
+check passes, it commits the plan's final state on its own — the preservation commit, the record of the run: every ticked box, every decision
+the session made alone — and then removes the plan in a separate follow-up commit, so
+the record stays the last commit in which the file exists.
 
-If the plan names a ticket, one thing happens first. The plan file is the record of the
-whole run — every ticked box, every decision the session made alone — and it is about to
-be deleted, so its final state is committed on its own and pushed, and a comment goes up
-on the ticket linking to the plan **at that commit**, plus the outcome: what was done, the
-commits, each acceptance check with its result, and which ticket requirements this run
-deliberately did not cover. Only then is the file removed, in a separate follow-up commit
-— which is what keeps the linked commit the last one where the plan still exists. Jira
+If the plan names a ticket, one thing happens between those two commits. The
+preservation commit is pushed, and a comment goes up on the ticket linking to the plan
+**at that commit**, plus the outcome: what was done, the commits, each acceptance check
+with its result, and which ticket requirements this run deliberately did not cover. Jira
 cannot hold the file itself (no attachment upload, no way to link it from the issue), so
 git holds the artifact and the ticket holds the URL. If the commit, the push or the
 comment cannot be made, the plan stays where it is and the run stops with a blocked
 report — nothing is deleted before its replacement exists at an address that resolves.
 
-That is also why naming a ticket means the plan gets committed: with a ticket it is not
-the optional convenience it is otherwise, it is the preservation mechanism, so the
-planning session commits it without asking.
+The plan is always committed — at handoff by the planning session, in its final state
+by the execution session. Git is a requirement of this plugin, not an option, and the
+planning session checks for a repository before it writes anything. The work goes on
+the branch you planned on; if you want it on a new branch, say so, and the planning
+session creates it at handoff so the plan lands there. The execution session never
+creates branches.
 
 The closeout commits and comments, and does nothing else: it will not transition your
 ticket, reassign it, or edit its fields. And it happens without asking — naming the
 ticket at the start was the decision, and neither phase brings it back to you.
 
-If a check turns out to be impossible, it writes a `.BLOCKED.md` post-mortem and
-stops, rather than retrying forever.
+If a check turns out to be impossible, it writes a `.BLOCKED.md` report next to the
+plan, commits the two together, and stops, rather than retrying forever. The report
+lists the working tree it leaves behind and ends with `Next: relaunch` or
+`Next: reopen`. It is a message, not the record: whichever session picks the plan up
+next — a relaunch's pre-flight or a reopen — folds it into the plan's Run Log and
+deletes it, so a finished run never leaves one behind. And a leftover report cannot
+end a relaunch early, because the goal only accepts a report written in that session.
+
+## The plan file
+
+Every plan opens with YAML frontmatter — the file's data, rendered by GitHub as a
+table at the top — and the prose sections follow. The frontmatter says which plugin
+version wrote the plan and when, which model, effort and permission mode it was
+written for, which sources it was planned from, which ticket it closes out, where the
+file lives, and its `status`. The status is the one piece of
+state the file carries, and it is moved by whichever phase moves the plan:
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    state "handed-off" as handed_off
+    [*] --> drafting : /pdca:plan
+    drafting --> drafting : delta reports, review rounds
+    drafting --> handed_off : proceed, review AGREED, Handoff written
+    handed_off --> drafting : reopened and re-verified
+    handed_off --> executing : launched, pre-flight passed
+    handed_off --> blocked : launched, pre-flight failed
+    executing --> done : criteria re-run, closeout, deletion
+    executing --> blocked : a check cannot pass
+    executing --> drafting : reopened, run abandoned
+    blocked --> drafting : reopened after triage
+    blocked --> executing : relaunched, report consumed
+    done --> [*]
+```
+
+`done` is written immediately before the preservation commit, so the permalinked final
+state of a ticketed plan says so; the file is then deleted. A plan found on disk with
+any other status says exactly what to do with it — see "Coming back to a plan later".
 
 ## The three loops
 
 The harness is three loops in total. The planning session nests the first two: you
-drive the outer one, and it exits only when you *state* you are satisfied — never by
-inference, and never in the same turn as the first draft; the adversarial reviewer
+drive the outer one, and it exits only when you *say* proceed — never by inference,
+and never in the same turn as the first draft; the adversarial reviewer
 drives the inner one. A plan reaches the handoff only when a single version of it is
 one that all three parties stand behind at once — you, the planning session, and the
 model that will execute it. The one exception is your override: a review that will
 not converge is settled by you, and your settlement is the exit, with the overruled
-objection recorded in the plan. The third loop is `/goal` itself: in the fresh session,
+objection recorded in the plan. The third loop is `/goal` itself: in the execution session,
 an evaluator judges the goal condition after every turn and blocks stopping until it
 holds — or until the session proves it cannot, in the blocked report.
 
@@ -115,7 +159,7 @@ holds — or until the session proves it cannot, in the blocked report.
 flowchart TD
     subgraph Outer["Outer loop — you decide when planning is done"]
         Draft["Write / update<br>the plan file"] --> Delta["Report the delta"]
-        Delta --> Happy{"You state you<br>are satisfied?"}
+        Delta --> Happy{"You say<br>proceed?"}
         Happy -- "answers, changes,<br>afterthoughts" --> Draft
     end
 
@@ -125,11 +169,12 @@ flowchart TD
     end
 
     Start(["/pdca:plan"]) --> Interview["Interview: model, effort,<br>permission mode, ticket"]
-    Interview --> Explore["Explore and verify"]
+    Interview --> Sources["Read the sources —<br>ticket, spec — and settle<br>every requirement"]
+    Sources --> Explore["Explore and verify"]
     Explore --> Draft
 
-    Happy -- "go-ahead — version not<br>yet cleared by review" --> Reviewer
-    Happy -- "go-ahead — version already<br>cleared by review" --> Handoff
+    Happy -- "proceed — version not<br>yet cleared by review" --> Reviewer
+    Happy -- "proceed — version already<br>cleared by review" --> Handoff
     Verdict -- "no convergence<br>after three rounds" --> Settle["Both positions<br>put to you"]
     Settle -- "you side with<br>the reviewer" --> Draft
     Settle -- "you overrule — objection<br>recorded in the plan" --> Handoff
@@ -150,7 +195,7 @@ flowchart TD
 ```
 
 Only an AGREED on a plan the review did not touch exits straight to the handoff — that
-version is exactly the one you already approved. Any other path puts the plan back in
+version is exactly the one you already said proceed on. Any other path puts the plan back in
 front of someone before it can leave the nest. The third loop then has exactly two
 exits: the condition holds, or the blocked report says why it never can — and the
 evaluator accepting that report as terminal is what lets the session stop.
@@ -159,8 +204,8 @@ evaluator accepting that report as terminal is what lets the session stop.
 
 The gap between the two phases can be weeks, so the handoff command is never only
 terminal output. It is written into the plan's own `## Handoff` section before being
-printed, and — if you agreed to commit it — the plan is committed, so the command
-survives in the file, in the diff, and in `git log`.
+printed, and the plan is committed, so the command survives in the file, in the diff,
+and in `git log`.
 
 If the plan has been sitting a while, reopen it rather than pasting the old command:
 
@@ -168,23 +213,63 @@ If the plan has been sitting a while, reopen it rather than pasting the old comm
 /pdca:plan docs/plans/2026-08-27-cache-ttl.md
 ```
 
-Because every fact in the plan's Verified Context is recorded with the command that
-established it, re-verification is cheap: the session re-runs them, tells you what
-has drifted since, brings the plan back to true, takes it back through the review,
-and reprints a fresh handoff.
+The session reads the plan's `status` and acts on it rather than guessing from the
+file's age. `drafting` continues where planning stopped. `handed-off` re-verifies:
+because every fact in the plan's Verified Context is recorded with the command that
+established it, that is cheap — the session re-runs them, re-reads the ticket and any
+spec, tells you what has drifted since, brings the plan back to true — and a branch
+made for it up to date with its base — takes it back through the review, and reprints
+a fresh handoff. `blocked` reads the blocked report first, folds it into the Run Log,
+deletes it, and then does the same. `executing` means a run is under way or was
+interrupted, and the session asks before touching anything — relaunching resumes the
+run from its ticked boxes; reopening abandons it.
 
-And if a stale plan gets executed anyway, the executing session is told to check the
+And if a stale plan gets executed anyway, the execution session is told to check the
 Verified Context against reality before it starts, and to stop with a blocked report
 if the ground has moved.
+
+## Launching a plan from its path
+
+`/goal docs/plans/2026-08-27-cache-ttl.md` on its own does not work, however
+self-sufficient the plan is, and the reason is the evaluator. It is Claude Code's small
+fast model, it reads only the condition text and the transcript, and it calls no tools
+— so a bare path gives it nothing to judge, it cannot open the file to find the
+criteria, and the plan deletes itself before the last judgement anyway. The full
+condition inlines the acceptance criteria so the evaluator holds them independently of
+the session it is judging.
+
+What does work is running the plan's own Handoff command from its path. The plan
+carries the command verbatim, so a shell function is all it takes:
+
+```bash
+# Launch the execution phase for a plan by running its Handoff command.
+pdca-run() {
+  local plan=${1:?usage: pdca-run <plan-file>}
+  local cmd
+  cmd=$(awk '/^## Handoff/{h=1;next} h&&!b&&/^## /{exit} h&&/^```bash/{b=1;next} b&&/^```/{exit} b' "$plan")
+  [ -n "$cmd" ] || { echo "no Handoff command in $plan" >&2; return 1; }
+  printf '%s\n' "$cmd"
+  eval "$cmd"
+}
+```
+
+It runs whatever the Handoff block says, including the `cd` form when the work lives in
+another repository — which is fine, because the plan is a file you reviewed and had
+reviewed. If the plan has been sitting, reopen it first; the freshness check is the
+point of the reopen, and the launcher does not do it for you.
+
+For a session you started by hand with the right flags, the Handoff section also
+carries a short form — one `/goal` line naming the plan, its protocol and the escape
+hatch, but not the criteria. It is the fallback, and the plan says what it gives up.
 
 ## Watching phase 1 in the status line
 
 Phase 2 shows its progress natively — `/goal` has a built-in `◎` indicator. Phase 1
 can show its progress too, but Claude Code plugins cannot ship a status line, so this
 part is an opt-in. The planning session maintains a one-line status file at
-`~/.cache/claude-pdca/<session-id>.status` — updated at every step transition and
-review round, deleted when planning ends — and your own status-line command displays
-it. Add a segment like this to the script your `statusLine` setting names:
+`~/.cache/claude-pdca/<session-id>.status` — the current step by name (`verify`,
+`iterate`, `review 2/3`, `handoff`, …), updated at every step transition and review
+round, deleted when planning ends — and your own status-line command displays it. Add a segment like this to the script your `statusLine` setting names:
 
 ```bash
 # after: input=$(cat)
@@ -202,6 +287,12 @@ days.
 
 ## Requirements
 
+A git repository. The plan is committed at handoff and its final state is committed
+again, on its own, before it is removed — git history is the run record — and the
+planning session stops before writing anything if the working directory is not a
+repository. A new branch for the work is made only if you ask for one, by the planning
+session at handoff; the execution session never creates branches.
+
 `/goal` needs a trusted workspace and working hooks — it is unavailable when
 `disableAllHooks` or `allowManagedHooksOnly` is set.
 
@@ -212,4 +303,4 @@ session can work out and prove by handing you a URL to click. If there is no com
 channel it tells you before the handoff and asks which fallback you want: supply an API
 token, or keep the preservation commit and drop the comment. If there is no remote at
 all, the comment carries the commit SHA and a `git show` line instead of a link. What it
-will not do is promise a link the autonomous run cannot deliver.
+will not do is promise a link the execution session cannot deliver.

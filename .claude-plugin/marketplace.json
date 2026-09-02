@@ -15,7 +15,7 @@
     {
       "name": "pdca",
       "source": "./pdca",
-      "description": "Two-phase PDCA development — plan interactively into a self-sufficient plan file, then implement it autonomously in a fresh /goal session."
+      "description": "Two-phase PDCA development — plan interactively into a self-sufficient plan file, then execute it autonomously in a fresh /goal session."
     }
   ]
 }

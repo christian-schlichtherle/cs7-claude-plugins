@@ -1,7 +1,7 @@
 {
   "name": "pdca",
-  "version": "0.5.4",
-  "description": "Two-phase PDCA development: an interactive planning session that produces a self-sufficient plan file, handed off to a fresh autonomous session driven by /goal.",
+  "version": "0.6.0",
+  "description": "Two-phase PDCA development: an interactive planning session that produces a self-sufficient plan file, handed off to a fresh execution session driven by /goal.",
   "author": {
     "name": "Christian Schlichtherle"
   },

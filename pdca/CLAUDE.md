@@ -5,13 +5,38 @@
 One command (`/pdca:plan`) and one skill (`plan`) implementing a PDCA
 cycle split across two sessions:
 
-- **Plan** — interactive, runs commands to verify its assumptions, writes
-  `docs/plans/<date>-<slug>.md`.
-- **Do/Check/Act** — a fresh `claude` process under `/goal`, implementing the plan
-  unattended.
+- **Plan**, the planning phase — interactive, runs commands to verify its
+  assumptions, writes `docs/plans/<date>-<slug>.md`.
+- **Do/Check/Act**, the execution phase — a fresh `claude` process under
+  `/goal`, executing the plan unattended.
 
 The plan file is the only interface between them, which is why the skill pushes so
 hard on verified facts and inlined acceptance criteria.
+
+## Vocabulary
+
+One word per concept, used in every file. Phase 2 once went by six names and the
+user's exit signal by three; these are the survivors, decided 2026-09-02.
+
+| Concept | Word | Not |
+|---|---|---|
+| The first phase | planning phase | Plan phase, interactive phase |
+| The second phase | execution phase | Do/Check/Act phase, implementation phase, autonomous run |
+| The process running each | planning session, execution session | fresh session, autonomous session, executing session, execution session |
+| The model in phase 1 | planner | |
+| The model in phase 2 | executor | executing model, implementer |
+| The executor's model reading the plan cold inside phase 1 | reviewer | |
+| The small model behind the `/goal` Stop hook | evaluator | |
+| The planner's last step | handoff | |
+| A human starting phase 2, maybe weeks later | launch | |
+| The user's exit signal for the outer loop | proceed | go-ahead, satisfied, approved |
+| What a ticket or a spec is | a requirements source; a request, not a contract | a specification |
+| The artifact | the plan, the plan file | recipe, spec |
+
+"Phase 1" and "phase 2" remain as shorthand once the names have been given. "Execute"
+is the one verb for the second phase throughout — execution phase, execution session,
+executor, Execution Protocol, "Execute the plan at". "Implementation phase" was tried
+for a day and dropped for exactly that consistency.
 
 ## Conventions
 
@@ -27,20 +52,20 @@ hard on verified facts and inlined acceptance criteria.
 - The skill stays model-invocable, which is what makes it trigger on intent
   ("write me a plan I can run later") without the command being typed.
 - Planning never reaches the handoff in the turn that drafts the plan. The
-  interactive loop's exit condition is that the user is satisfied, which they have to
-  state — so the first draft always ends the turn. There is no waiver and no
-  non-interactive mode: anyone who does not want the interactive phase can set a
+  interactive loop's exit condition is that the user says proceed, which they have to
+  say — so the first draft always ends the turn. There is no waiver and no
+  non-interactive mode: anyone who does not want the planning phase can set a
   `/goal` directly instead of using this workflow.
 - **AGREED alone does not exit the planning session.** The nested loops — the user's
   iteration outside, the adversarial review inside — exit only on a fixpoint: one
-  version of the plan that the user, the planner and the executing model all stand
-  behind at once. The outer loop ends only when the user *states* satisfaction, so a
+  version of the plan that the user, the planner and the executor all stand
+  behind at once. The outer loop ends only when the user *says* proceed, so a
   review that fixed blockers returns its changes to the user as a delta — their
-  go-ahead attached to a version the review has since rewritten. User afterthoughts —
+  proceed attached to a version the review has since rewritten. User afterthoughts —
   there, or at any point in the handoff step before launch — reopen the iteration,
   and a material change re-enters the review with a fresh three-round budget. Only
   an AGREED on a plan the review did not touch exits straight to the handoff, because
-  that version is exactly the one the user already approved. The one exception is
+  that version is exactly the one the user already said proceed on. The one exception is
   the user's override: when the review does not converge, the user settles the
   disagreement and their settlement is the exit — the user outranks both models —
   with the overruled
@@ -52,7 +77,7 @@ hard on verified facts and inlined acceptance criteria.
   does not — `kubectl get` and `grep` run fine there), but because the phase writes
   the plan file and spike files and runs verification that touches state.
 - Phase 2 always runs with `--permission-mode auto` unless the user deliberately
-  escalates; an autonomous session cannot answer permission prompts. Auto decides
+  escalates; an execution session cannot answer permission prompts. Auto decides
   without asking in *both* directions, though — it also denies silently — so phase 1
   must run every prescribed command under that mode before prescribing it.
 - Phase 2 opens with a pre-flight gate, and the gate is the reason model, effort and
@@ -64,7 +89,7 @@ hard on verified facts and inlined acceptance criteria.
   half-done and nothing notices. A failure there is a blocked report in turn 1 —
   never an adaptation, never a run that starts anyway, because a wrong-model run
   looks fine for a while and a Stop hook offers no quiet way out later. The gate is
-  instructed twice on purpose: the plan's Execution Protocol tells the executing
+  instructed twice on purpose: the plan's Execution Protocol tells the execution
   session to run it, and the goal condition repeats the instruction — though never
   the `/goal` check as a clause of its own, which would be circular there — because
   the condition is the directive the
@@ -80,38 +105,94 @@ hard on verified facts and inlined acceptance criteria.
   re-asked.
 - **The ticket is asked for on every run**, unconditionally, and the answer may be
   "none". Given one, phase 1 reads it and turns it into a requirements conversation
-  whose outcome is the plan's `## Ticket Requirements` table. That table records every
-  requirement including the dropped ones, because its real job is to stop phase 2 from
-  implementing a requirement the user decided against — the ticket key is in the plan
-  header and in the commit prefix, so an executing session can and will read the ticket
-  itself. The standing rule the table carries: where the plan and the ticket disagree,
-  the plan wins.
-- **A ticket is a request, not a specification.** The plan may deviate from it, and the
-  non-functional half is where it usually should — a named mechanism, a library, a split
-  into phases, a performance number written before anything was verified. Phase 1 is the
-  step that verifies things, so it proposes the deviation with evidence. What it may not
-  do is decide alone in either direction: the last word belongs to the user, not to the
-  ticket author and not to the model, and every deviation lands in the table with its
-  reason.
+  whose outcome is the plan's `## Requirements` table. That table records every
+  requirement including the dropped ones, each naming its source, because its real job
+  is to stop phase 2 from implementing a requirement the user decided against — the
+  ticket key and the spec path are in the plan's frontmatter and the key is in the
+  commit prefix, so an execution session can and will read the sources itself. The
+  standing rule the table carries: where the plan and a source disagree, the plan wins.
+- **A spec is an input, never an output.** `/pdca:plan` receives specifications; it
+  does not write them, and there is no `/pdca:spec`. A spec file, a URL or a paste is a
+  requirements source beside the ticket and goes through the same conversation, with
+  the same table. It is not interviewed for — the interview is at the tool's four-question
+  capacity, and a spec the user has is one they hand over. The plan stays self-contained
+  regardless: it condenses every source into the Requirements table, because phase 2 may
+  not be able to reach a Confluence page and a plan that only points at a spec has lost
+  the property the design rests on. A path on the command line is told apart by the
+  file's frontmatter: `plugin: pdca` is a plan to reopen, anything else is a source.
+- **A source is a request, not a contract.** The plan may deviate from a ticket or a
+  spec, and the non-functional half is where it usually should — a named mechanism, a
+  library, a split into phases, a performance number written before anything was
+  verified. Phase 1 is the step that verifies things, so it proposes the deviation with
+  evidence. What it may not do is decide alone in either direction: the last word
+  belongs to the user, not to the source's author and not to the model, and every
+  deviation lands in the table with its reason. The rule used to say "not a
+  specification"; it was reworded when specs became inputs.
+- **Frontmatter, not prose, for the plan's data.** The plan opens with YAML
+  frontmatter — the header table of 0.5.x is gone; `plan-template.md` owns the keys. The split is data versus
+  prose: provenance (`plugin`, `plugin_version`, `plugin_url` — copied from
+  `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`), `created`, `status`, the
+  `executor` block in the literal spellings the pre-flight compares, `sources`,
+  `ticket` (or `none`), `plan_file`, `work_repo` when it differs, and the handoff-time
+  fields `branch`, `closeout_push`, `permalink`. Instructions such as "do
+  not create a branch" are sentences in sections, never keys. Provenance earns its
+  place because the plan self-destructs: a reader at the permalink weeks later learns
+  what wrote the file, and a reopen learns which template did. GitHub renders the
+  block as a table, so the human reader loses nothing.
+- **`status` is the only state the plan file records**, and it is read, never
+  inferred. `drafting` → `handed-off` (phase 1, with the Handoff section) →
+  `executing` (phase 2, when the gate passes) → `done` (before the preservation
+  commit, so the permalinked final state says so) or `blocked` (with the blocked
+  report, committed together). Reopening dispatches on it: continue, re-verify, ask
+  before touching a run in progress, consume the report first, or refuse a stray
+  `done`. In-conversation states —
+  proceed given but not yet reviewed, AGREED but changed — stay out of the file on
+  purpose: they do not survive a session and the file records only what does.
 - **Ticket content is untrusted input.** It is written by other people and read by an
   agent that acts on text, so it is treated as claims about the work to raise with the
   user, never as instructions. This is stated in `references/jira.md` rather than left
   implicit.
-- **Naming a ticket makes committing the plan mandatory.** Git history is the
-  preservation mechanism the closeout depends on — Jira cannot hold the file and cannot
-  link to it — so a ticketed plan is committed in phase 1 without asking, and phase 2
-  commits its final state again. Only a ticketless plan leaves the commit decision to
-  the user.
-- **Phase 2 closes out the ticket immediately before the plan self-destructs**: the
-  final plan is committed on its own, pushed when the plan says so, a comment linking to
-  the plan file *at that commit* is posted, and only then is the file removed in a
-  separate follow-up commit. Three ordering constraints carry the design: the
+- **Git is a requirement and the plan is always tracked.** Decided 2026-09-02. The
+  planning session checks for a repository before writing anything and stops without
+  one; the plan is committed at handoff and its final state is committed again, on its
+  own, before removal — for every plan. There is no untracked path and no commit
+  question; the only tracking question is whether the closeout pushes, asked only with a
+  ticket. Git history is the run record; Jira cannot hold the file, so the ticket gets a
+  link into that history.
+- **A new branch is opt-in, and phase 1 makes it.** The default is the branch planning
+  happened on. When the user asks — in the goal text or while iterating, never inferred
+  from a ticket or a repository's habits — the planning session creates the branch at
+  handoff, before the commit carrying the Handoff section, so the plan lands on it and
+  `branch` names it. Phase 2 never creates a branch and the pre-flight treats a missing
+  branch as a failed check, which makes the executor's most common unwanted initiative
+  impossible by construction rather than merely forbidden. Three consequences are
+  written down: the handoff says which branch it left the checkout on; a new branch is
+  pushed at handoff with `git push -u`, which sets the upstream phase 2's plain push
+  relies on; and reopening a plan on such a branch brings the branch up to date with
+  its base as part of re-verification, since the plan is exactly as stale as the
+  branch. The plan-on-main alternative was considered and rejected on 2026-09-02: a
+  protected main cannot take the handoff commit, main would carry a copy of the plan
+  whose status lies once the run moves on, and deferring branch creation to launch puts
+  it either in a fragile Handoff command or back into phase 2.
+- **Phase 2 commits as it goes** — a task, or a coherent slice of one, per commit, on
+  the branch the plan names. This is the default, not an option a plan enables:
+  reaching for `/pdca:plan` at all says the work is non-trivial, and multiple commits
+  are the ordinary practice for non-trivial work. Decided 2026-09-03: one work commit
+  at the end was the protocol's unstated assumption, and it made every interruption or
+  block lose everything since launch. Per-task commits are what make a resume, a
+  rollback and a blocked report's tree listing mean anything; a plan may only say which
+  tasks land together, never that everything waits for the end.
+- **Phase 2 runs the Closeout immediately before the plan self-destructs**, for every
+  plan: the final plan is committed on its own — the preservation commit — and only then
+  is the file removed in a separate follow-up commit; with a ticket, the preservation
+  commit is pushed when the plan says so and a comment linking to the plan file *at that
+  commit* is posted in between. Three ordering constraints carry the design: the
   preservation commit is separate from the work commit because the final Run Log entries
   are written afterwards; the deletion is a separate commit after it, so the linked
   commit stays the last one where the file exists; and a failed closeout leaves the file
   in place and ends in a blocked report. The closeout is in the plan's Acceptance
   Criteria and in the goal condition, because a step the evaluator does not check is a
-  step an autonomous run can skip and still be judged done.
+  step an execution session can skip and still be judged done.
 - **The permalink template is worked out and proved in phase 1.** The plan carries the
   host's permalink form with everything but the SHA filled in, and phase 1 proves it by
   committing and pushing the plan and handing the user the resulting URL to open. A
@@ -119,7 +200,8 @@ hard on verified facts and inlined acceptance criteria.
   unauthenticated request alike. With no remote at all, the comment falls back to the
   SHA and a `git show` line.
 - **Whether the closeout pushes is the user's call**, and it is the one question step 8
-  asks when a ticket is named — the commit question having been settled by the ticket.
+  asks, and only when a ticket is named — there is no commit question, since the plan is
+  always tracked.
   Recommend pushing, because an unpushed preservation commit makes the comment's link
   dead; accept a no, because an unattended session writing to a shared branch is a real
   decision. `git push --dry-run` is probed in phase 1 either way.
@@ -130,6 +212,19 @@ hard on verified facts and inlined acceptance criteria.
   `ADD_COMMENTS`. With no channel, the user picks a fallback — a credential, or keeping
   the preservation commit and dropping the comment — and the choice is written into the
   plan, so an absent closeout section can be told from a forgotten one.
+- **The blocked report is a message; the Run Log is the record.** Decided 2026-09-03
+  after the art-backend-nt runs left two reports behind for good and one plan had to
+  invent the rule itself. A blocked run commits the plan and the report together and
+  leaves only work short of a commit boundary uncommitted; the report lists the tree and ends with `Next: relaunch`
+  or `Next: reopen`. Whichever session picks the plan up next — a relaunch's pre-flight
+  before its first check, or a reopen — folds the report into the Run Log and deletes
+  it, so a report never outlives the pick-up and a finished run has none. The goal's
+  hatch requires a report *written in this session*, so a leftover one cannot end a
+  relaunch in turn 1 even if the consuming step is missed — that trap was real. A
+  report written on an estimate rather than a check that ran is retracted in the same
+  session. A boundary stop — a run that cannot finish everything and stops clean at a
+  task boundary — is the same mechanism with `Next: relaunch`; the Run Log's
+  started-lines tell the resume which task was cut mid-way.
 - **The closeout writes a comment, nothing else.** No transition, no field edits, no
   worklog; and a blocked run says nothing on the ticket by default, because an
   unattended failure is for the developer to triage before it notifies everyone watching
@@ -146,16 +241,40 @@ hard on verified facts and inlined acceptance criteria.
 - The goal condition is capped at 4000 characters, is single-quoted into a shell
   argument (so: no apostrophes, no backticks), and always carries a blocked-report
   escape hatch so an impossible check terminates instead of looping.
-- The plan file self-destructs at the end of phase 2 — with a ticket, in its own commit
-  after the preservation commit; otherwise in the final commit when it is tracked there,
-  or with `rm`. Committing the plan is an offer the user can decline **only when there is
-  no ticket**, so nothing outside the ticket path may assume it is tracked.
+- **No turn or time cap in the condition.** Decided 2026-09-03. The `/goal` docs
+  suggest one, and it was considered: a turn is one stop attempt of unbounded size, so
+  a cap would count evaluator rejections, and real finished runs have gone into the
+  hundreds. This is a tool for complex work, and any number would be a blind guess that
+  ends a healthy run. The runaway case is bounded by the blocked-report hatch, which the
+  session reaches when a check genuinely cannot pass, and by the user's `/goal clear`.
+- The plan file self-destructs at the end of phase 2, always in its own commit after
+  the preservation commit — never in the work commit and never with a bare `rm`; when
+  the plan lives in a different repository than the work, both commits go to the plan's
+  repository.
+- **`/goal <plan-path>` alone cannot launch phase 2**, however self-sufficient the
+  plan. Three documented reasons: the evaluator is the small fast model and calls no
+  tools, so a bare path gives it nothing to judge and no way to open the file; the plan
+  deletes itself before the final judgement; and the escape hatch has to be in the
+  condition text or a blocked run cannot stop. So the full condition inlines the
+  criteria, the Handoff section carries the full command plus a short form (path,
+  protocol, closeout order, hatch — no criteria, and it says what that costs), and the
+  README shows a `pdca-run` shell function that runs the Handoff block from the plan
+  path. The launcher is a README opt-in like the status-line segment, not a plugin
+  script: phase 2 still needs no plugin, only the human launching does.
 - Before handoff, the plan is reviewed by a fresh `claude -p` process at phase 2's
   model and effort, in a loop capped at three rounds. The reviewer runs with
   `--permission-mode plan` so it is read-only by construction, and runs in the
   background — a foreground reviewer at xhigh effort outlives the 10-minute tool
-  timeout. A round that returns no verdict line is inconclusive and does not consume
-  one of the three.
+  timeout. Each round returns exactly one of two results: VETOED with at least one
+  blocker, or AGREED with no blockers and any number of nits; the verdict line follows
+  from the Blockers section, and the prompt says so. A round with no verdict line, or
+  one that contradicts its own Blockers section, is inconclusive and does not consume
+  one of the three. A disputed blocker is answered in the plan text, never only in the
+  round report, because the next round is a cold read that never sees the report.
+  Nits applied as the reviewer worded them do not reopen the review — the reviewer has
+  already classified them as not changing what it would do — but they reach the user
+  as a delta like any other change; a fix beyond the nit's wording is material and
+  re-enters review.
 - The handoff command is written into the plan's own `## Handoff` section before it
   is printed, so it survives the gap between phases. The plan is committed only
   *after* the handoff is in it — committing earlier puts a plan into history without
@@ -167,9 +286,10 @@ hard on verified facts and inlined acceptance criteria.
   Plugins cannot ship a `statusLine` — a plugin's own `settings.json` supports only
   `agent` and `subagentStatusLine` — and `/goal`'s `◎` indicator is hardcoded in the
   harness, so parity with it is not available. Instead the skill has the planning
-  session maintain `~/.cache/claude-pdca/<session-id>.status` (one line, updated on
-  step transitions and review rounds, leftovers swept after seven days, deleted when
-  the phase ends), and README.md documents the opt-in status-line segment that
+  session maintain `~/.cache/claude-pdca/<session-id>.status` (one line naming the current
+  step — `verify`, `iterate`, `review 2/3`, `handoff` — never its number, because the
+  loops re-enter earlier steps; updated on step transitions and review rounds,
+  leftovers swept after seven days, deleted when the phase ends), and README.md documents the opt-in status-line segment that
   displays it. When nothing reads the file, writing it is harmless — which is why the
   skill writes it unconditionally rather than asking whether the user's status line
   is wired up. The segment sanitizes with `tr -d '[:cntrl:]'`, not `[:print:]`: the
@@ -289,7 +409,7 @@ confirmed the model and effort checks and corrected the permission-mode one belo
 
 These are internal formats, not public API. If a release moves the transcript, the
 identity check degrades to self-report — which `references/preflight.md` already
-tells the executing session to fall back to. The snippet itself is in two places:
+tells the execution session to fall back to. The snippet itself is in two places:
 that file and `skills/plan/references/plan-template.md`.
 
 ## Facts About `/goal` This Plugin Depends On
@@ -299,8 +419,17 @@ Verified against Claude Code 2.1.247:
 - `/goal <condition>` installs a session-scoped Stop hook; a separate evaluator
   judges the condition after each turn and blocks stopping until it holds, then
   auto-clears. `/goal clear` stops early; bare `/goal` shows status.
+- The evaluator is Claude Code's small fast model — Haiku by default,
+  `ANTHROPIC_DEFAULT_HAIKU_MODEL` to change it, which also changes every other use of
+  that model. It receives the condition text and the conversation and **calls no
+  tools**: it cannot read files or run commands, so a condition has to be judgeable
+  from what the session surfaced. Checked against `goal.md` on 2026-09-02. This is why
+  `/goal <plan-path>` cannot work and why the criteria are inlined.
 - The condition is capped at 4000 characters and is handed to the session as its
   directive, with instructions not to pause to ask the user.
+- There is no `--goal` flag; `/goal …` as the positional prompt works in both
+  interactive and `-p` mode. Whether a plugin command or skill body could set a goal is
+  undocumented, and the plugin assumes not.
 - Requires a trusted workspace; unavailable when `disableAllHooks` or
   `allowManagedHooksOnly` is set.
 - Works non-interactively, so it can be passed as the positional prompt to `claude`.

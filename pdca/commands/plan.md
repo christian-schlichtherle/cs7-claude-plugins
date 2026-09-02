@@ -1,12 +1,12 @@
 ---
-description: Plan a piece of work interactively into a self-sufficient plan file, then hand it off to a fresh autonomous /goal session.
-argument-hint: "[model] [effort] <goal or path to existing plan>"
+description: Plan a piece of work interactively into a self-sufficient plan file, then hand it off to a fresh execution session driven by /goal.
+argument-hint: "[model] [effort] <goal, ticket, spec path, or plan path>"
 ---
 
 # PDCA Plan
 
-Run the two-phase PDCA cycle: an interactive **Plan** phase that produces a
-self-sufficient plan file, handed off to a fresh **Do/Check/Act** session driven by
+Run the two-phase PDCA cycle: an interactive **planning phase** that produces a
+self-sufficient plan file, handed off to a fresh **execution phase** driven by
 `/goal`.
 
 **Follow the `plan` skill.** It is the single source of truth for this workflow —
@@ -23,10 +23,13 @@ wrong.
   effort missing, so propose one and ask
 - `/pdca:plan add a health endpoint to the api service` — model and effort missing
 - `/pdca:plan opus max docs/plans/2026-08-27-cache-ttl.md` — reopen an existing plan
+- `/pdca:plan opus high docs/specs/cache-ttl.md` — a spec to plan against; a plan
+  is told from a spec by its frontmatter, not its path
 - `/pdca:plan opus high ACME-123` — a bare ticket key as the goal
 - `/pdca:plan` — no goal given, so interview for one
 
 The leading `opus high` names the model and effort for the *second* phase, not this
 one. The skill explains why that has to be settled before the plan is drafted.
 
-Every run asks for a Jira ticket; the skill says what happens with one.
+Every run asks for a Jira ticket; the skill says what happens with one, and with a
+spec.

@@ -15,7 +15,7 @@ So: fail in turn 1, not in turn 40.
 
 ## Failing loud has exactly one spelling here
 
-An autonomous session under a Stop hook cannot fail the way a script does. It cannot
+An execution session under a Stop hook cannot fail the way a script does. It cannot
 exit, and it must not quietly carry on — the hook blocks stopping until the goal
 condition holds, so a session that gives up without saying so just spins.
 
@@ -29,14 +29,26 @@ The report has to be actionable, because the person reading it was not there:
 ```markdown
 # BLOCKED: pre-flight
 
-Check 1 (executing model) failed.
+Check 1 (model) failed.
 Expected: claude-opus-5. Actual: claude-haiku-4-5-20251001.
 This plan was written for a high-effort reader and states intent rather than exact
 edits. Relaunch with the command in the Handoff section of the plan, which sets
---model opus --effort high. No work was done; the working tree is untouched.
+--model opus --effort high. No task was started; the working tree holds only this
+report and the plan's status line, committed together.
+
+Next: relaunch
 ```
 
-Three things the executing session must not do instead:
+The report is a message to the human, not the record — the Run Log is the record.
+Whichever session picks the plan up next consumes it: a relaunch's pre-flight, before
+its first check, folds the report into the Run Log and deletes it; a reopen does the
+same in phase 1. So a report never outlives the next pick-up, a finished run has none,
+and the `Next:` line says which pick-up the report expects. The goal condition's hatch
+requires a report *written in this session*, so an inherited one cannot end a relaunch
+in turn 1; the pre-flight step that consumes it is what keeps that from ever being
+tested.
+
+Three things the execution session must not do instead:
 
 - **Adapt.** Not "the model is smaller than planned, so I will be extra careful". The
   plan's altitude was chosen for a specific reader; a different reader needs a
@@ -239,11 +251,20 @@ usually enough — under phase 2's permission mode.
 Cheap, and it catches the launch that went off in the wrong directory or on the wrong
 branch:
 
-- The plan file exists at exactly the path the goal condition names.
+- The plan file exists at exactly the path the goal condition names, which is also
+  `plan_file` in its frontmatter.
 - The working directory is the repository the plan says it changes (`git remote -v`,
-  or a file that only exists there).
-- The branch is the one the plan expects, and the working tree is clean — or the plan
-  says explicitly why it will not be.
+  or a file that only exists there; `work_repo` in the frontmatter when that differs
+  from the repository holding the plan).
+- The branch is `branch` from the frontmatter, and the working tree is clean — or the
+  plan says explicitly why it will not be, or the plan's `status` is `executing` or
+  `blocked` and the only changes are the plan file itself, the blocked report the gate
+  has just consumed, and the files the Run Log names as work in progress. That last
+  case is an interrupted or blocked run resuming, which is what the Execution
+  Protocol's ticked boxes and started-lines exist for; anything else dirty is a failed
+  check. A branch
+  that does not exist is a failed check too, never a branch to create — when the plan
+  wanted one, phase 1 made it at handoff.
 - Every binary the tasks invoke is on `PATH`, and every environment variable and
   credential file they read is present.
 
@@ -265,7 +286,9 @@ Writing the Pre-Flight section is phase 1's job, and it is not boilerplate:
 
 - **Name the expected model, effort and permission mode literally**, in the spelling
   the checks produce — `claude-opus-5`, `high`, `auto` — so the comparison is a string
-  match and not a judgement call.
+  match and not a judgement call. The frontmatter's `executor` block carries the same
+  three values in the same spelling; the check names them again because a check has to
+  read on its own.
 - **Keep the goal check.** Check 1's first half — the last `goal_status` record
   naming this plan, `met:false` — is the gate's only proof that an evaluator is
   guarding the run. It is in the template; a plan that drops it has lost the check

@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Split a piece of work into an interactive planning phase that produces a self-sufficient plan file, and an autonomous implementation phase run by a fresh `/goal` session. Use this skill whenever the user wants to plan before implementing, wants a plan another session or another model can execute unattended, says the work is too big for one session, asks to "hand this off", "write a plan I can run later", "set this up so it can run autonomously", mentions PDCA, names a Jira ticket to implement, or types /pdca:plan. Also use it when the user is about to set a `/goal` by hand — a goal grounded in a verified plan beats one grounded in assumptions.
+description: Split a piece of work into an interactive planning phase that produces a self-sufficient plan file, and an autonomous execution phase run by a fresh `/goal` session. Use this skill whenever the user wants to plan before implementing, wants a plan another session or another model can execute unattended, says the work is too big for one session, asks to "hand this off", "write a plan I can run later", "set this up so it can run autonomously", mentions PDCA, names a Jira ticket to implement, or types /pdca:plan. Also use it when the user is about to set a `/goal` by hand — a goal grounded in a verified plan beats one grounded in assumptions.
 user-invocable: false
 ---
 
@@ -8,15 +8,22 @@ user-invocable: false
 
 This is the Deming PDCA cycle with a session boundary in the middle.
 
-- **Plan** — an interactive session with the user. Explore, verify assumptions by
-  actually running commands, and write a plan file good enough that nobody has to
-  babysit its execution.
-- **Do / Check / Act** — a *fresh* session, optionally on a different model and
-  effort level, that implements the plan file under `/goal` and does not stop until
-  a separate evaluator agrees the work is finished.
+- **Plan** — the **planning phase**: an interactive session with the user. Explore,
+  verify assumptions by actually running commands, and write a plan file good enough
+  that nobody has to babysit its execution.
+- **Do / Check / Act** — the **execution phase**: a *fresh* session, optionally
+  on a different model and effort level, that executes the plan file under `/goal`
+  and does not stop until a separate evaluator agrees the work is finished.
+
+"Phase 1" and "phase 2" below are shorthand for those two, and the sessions running
+them are the planning session and the execution session. The roles have fixed
+names as well: the **planner** is the model in phase 1; the **executor** is the model
+in phase 2; the **reviewer** is the executor's model reading the plan cold inside phase 1; and the
+**evaluator** is the small model behind the `/goal` Stop hook. The user ends the
+planning loop by saying **proceed**, and nothing else counts as that.
 
 The split exists because the two phases want opposite things. Planning wants the
-user in the loop, wants questions asked, wants to change its mind. Implementation
+user in the loop, wants questions asked, wants to change its mind. Execution
 wants a clean context, an unambiguous specification, and nobody interrupting. Trying
 to do both in one session gives you a context window half full of exploration debris
 and a user who has to approve every step.
@@ -31,7 +38,7 @@ while writing it.
 
 Claude Code's `/plan` mode is the wrong tool here, for two concrete reasons:
 
-1. It blocks what the Plan phase produces and some of what it checks. Read-only
+1. It blocks what the planning phase produces and some of what it checks. Read-only
    probes do run in plan mode — `kubectl get` and `grep` work fine, verified
    directly — but plan mode cannot write the plan file to `docs/plans/…`, cannot
    write spike files, and denies verification commands that touch state. The phase
@@ -48,6 +55,21 @@ Plan mode does have a place in this workflow, just not here: the reviewer in ste
 needs read-only exploration and must not touch the repository, which is exactly what
 plan mode enforces.
 
+## Git is not optional
+
+This workflow needs a git repository, and the plan is always tracked in it. The plan is
+committed at handoff, so phase 2 starts from a clean tree and the launch command
+survives; its final state is committed again before it is removed, because that commit
+is the record of the run once the file is gone. Without git there is nowhere for the
+plan to live, nothing for the pre-flight to compare against, and no run record. So the
+first thing step 4 verifies is `git rev-parse --show-toplevel`; if the working directory
+is not a repository, say so and stop. Do not `git init` on the user's behalf — that is
+their decision to make, not a gap to paper over.
+
+There is no untracked plan and no question about committing one. The only tracking
+question the workflow ever asks is whether the closeout pushes, and only when a ticket
+was named.
+
 ## Keep the status line posted
 
 `/goal` gets a progress badge for free in phase 2. Phase 1 gets nothing, and it is
@@ -59,13 +81,16 @@ the session id to find one with. So maintain a one-line status file for the phas
 
 ```bash
 mkdir -p ~/.cache/claude-pdca
-printf 'step 4/8 — verify' > ~/.cache/claude-pdca/"$CLAUDE_CODE_SESSION_ID".status
+printf 'verify' > ~/.cache/claude-pdca/"$CLAUDE_CODE_SESSION_ID".status
 ```
 
-Update it at every step transition, and within step 7 at every review round
-(`step 7/8 — review, round 2/3`); a reopened plan starts at `re-verifying a reopened
-plan`. Name where the session is *now*, not the furthest point reached — a re-entry
-from step 8 back into the iteration loop is `step 6` again.
+Update it at every step transition, and within step 7 at every review round. Name the
+step, not its number: the loops re-enter earlier steps, so a number would read "6 of
+8" twice with different meanings. The names are `interview`, `sources`, `verify`,
+`draft`, `iterate`, `review 2/3` (the round within the three), `handoff`, and
+`re-verify` for a reopened plan. Name where the session is *now*, not the furthest
+point reached — a re-entry from the handoff back into the iteration loop is `iterate`
+again.
 
 Two rules govern the file's lifetime. Sweep leftovers on the first write —
 `find ~/.cache/claude-pdca -name '*.status' -mtime +7 -delete` — because an abandoned
@@ -99,8 +124,13 @@ Then **echo the parse back in your first line** — `Planning for Opus 5 at high
 effort — goal: …` — so a misparse is obvious and costs one correction rather than a
 whole session.
 
-If the remainder is a path to an existing plan file, reopen that plan instead of
-starting a new one — see "Reopening a plan" below.
+If the remainder is a path to an existing file, read its frontmatter. A file whose
+frontmatter says `plugin: pdca` is a plan this workflow wrote: reopen it instead of
+starting a new one — see "Reopening a plan" below. Any other readable file — a spec, a
+design note, an RFC — is a **requirements source**: the work is to plan what it asks
+for, and step 3 reads it. A URL in the remainder is a source too, unless it is a
+ticket URL, which is the ticket. A source named alongside intent is both — the
+document, and an opening statement about what the user wants from it.
 
 If the remainder is a bare ticket key or ticket URL — `/pdca:plan opus high ACME-123` —
 that is the ticket, not the goal. Do not treat the key as a one-line goal and start
@@ -153,51 +183,58 @@ cannot write at the right altitude without knowing the audience.
 
 The ticket key ends up in the handoff command, in the commit prefix, and in the
 closeout that ends phase 2 — so ask now. Supplied at paste time it is merely a
-prefix; supplied now it is also requirements to plan against. And it settles one
-thing step 8 would otherwise have to ask: a plan with a ticket is committed, always,
-because git history is what the ticket's closeout comment links to.
+prefix; supplied now it is also requirements to plan against.
 
 All three of model, effort and mode are also what phase 2 checks itself against
 before it touches anything, so settling them here is what makes that gate possible
 at all. See `references/preflight.md`.
 
-### 3. Read the ticket and discuss its requirements
+A spec is not interviewed for. The tool has no fifth slot, and a spec the user has is
+one they hand over — on the command line, in the goal text, or pasted. Do ask, once,
+if step 4 turns up a document in the repository that reads like a spec for this goal;
+whether it is a source is the user's call.
 
-Only when a ticket was named in step 2. Skip to step 4 when the user said "none",
-and note in the plan that there is no ticket.
+### 3. Read the sources and discuss their requirements
 
-Fetch the ticket and read it properly — description, acceptance criteria, comments,
-linked issues — then put its requirements to the user as a numbered list and settle
-each one before planning. `references/jira.md` has how to fetch it, what to read, and
-the exact shape of the conversation.
+Only when there is at least one requirements source — a ticket from step 2, a spec
+from step 1. Skip to step 4 when there is none, and let the frontmatter say so:
+`ticket: none`, `sources: []`.
+
+Read every source properly. For a ticket that means description, acceptance criteria,
+comments, linked issues — `references/jira.md` has how to fetch it and what to read.
+For a spec file or URL it means the whole document, including the parts that read like
+background. Then put the requirements to the user as one numbered list across all
+sources, each item naming its source and carrying a proposed disposition, and settle
+each one before planning. `references/jira.md` has the exact shape of that
+conversation; a spec goes through the same one.
 
 Two rules govern the whole exchange, and both matter enough to state here:
 
-**The ticket is a request, not a specification.** The plan is allowed to come out
-different from it — most often in the non-functional half, the parts that say *how*
-rather than *what*: a named mechanism, a library, a metric, a split into phases, a
-performance number. Those are the author's guesses, written before anyone verified
-anything, and this phase is where things get verified. Where what you verified says
-otherwise, propose the deviation with the evidence. But every requirement is still
-raised explicitly — none quietly dropped because it looks tangential, none quietly
-adopted because it is written down. **The last word is the user's**, not the ticket
-author's and not yours.
+**A source is a request, not a contract** — even one titled "specification". The plan
+is allowed to come out different from it — most often in the non-functional half, the
+parts that say *how* rather than *what*: a named mechanism, a library, a metric, a
+split into phases, a performance number. Those are the author's guesses, written
+before anyone verified anything, and this phase is where things get verified. Where
+what you verified says otherwise, propose the deviation with the evidence. But every
+requirement is still raised explicitly — none quietly dropped because it looks
+tangential, none quietly adopted because it is written down. **The last word is the
+user's**, not the source's author's and not yours.
 
-**Where the plan and the ticket disagree, record the disagreement.** A requirement
-the user descopes, defers, or reverses is written into the plan's Ticket Requirements
-section *as* descoped, deferred or reversed, with the reason. That section is not
-bookkeeping: without it, phase 2 reads the ticket, sees a requirement the plan does
-not cover, and helpfully implements it — which is the exact failure the interactive
-phase exists to prevent.
+**Where the plan and a source disagree, record the disagreement.** A requirement the
+user descopes, defers, or reverses is written into the plan's Requirements section
+*as* descoped, deferred or reversed, with the reason and the source. That section is
+not bookkeeping: without it, phase 2 reads the ticket or the spec, sees a requirement
+the plan does not cover, and helpfully implements it — which is the exact failure the
+planning phase exists to prevent.
 
-Naming the ticket also settles, by itself, what happens to the plan at the end:
-phase 2 commits the finished plan and posts a comment linking the ticket to it at that
-commit. Jira cannot hold the file — the MCP server has no attachment upload and no way
-to link the plan from the issue — so git holds the artifact and the ticket gets the URL.
-That is a standing consequence of the answer given in step 2, not a further decision —
-do not ask the user, now or at handoff, what should be done with the plan or the ticket
-when the work is finished, and do not ask whether to commit the plan. What is *not*
-settled yet is mechanism: the comment channel, and whether the closeout pushes. Step 4
+Naming the ticket also settles, by itself, what the ticket gets at the end: phase 2
+preserves the finished plan in a commit of its own — it does that for every plan — and,
+with a ticket, posts a comment linking the ticket to the plan at that commit. Jira
+cannot hold the file — the MCP server has no attachment upload and no way to link the
+plan from the issue — so git holds the artifact and the ticket gets the URL. That is a
+standing consequence of the answer given in step 2, not a further decision — do not ask
+the user, now or at handoff, what should be done with the plan or the ticket when the
+work is finished. What is *not* settled yet is mechanism: the comment channel, and whether the closeout pushes. Step 4
 probes both, and `references/jira.md` says what to do when there is no channel — the
 only closeout questions that are warranted, and they are about mechanism, never about
 whether the closeout happens.
@@ -210,9 +247,11 @@ something that proves it, and record both the command and what it returned.
 The failure mode this prevents is specific and common: phase 2 opens the file,
 finds "the retention setting is configured in `values.yaml`", discovers it is not,
 and now has to improvise — unsupervised, with no way to ask. Every unverified
-assertion in the plan is a place where an autonomous run can quietly go wrong.
+assertion in the plan is a place where an execution session can quietly go wrong.
 
-Verify at minimum: that the files you name exist and contain what you say; that the
+Verify first that the working directory is a git repository — `git rev-parse
+--show-toplevel` — and stop if it is not; see "Git is not optional". Then verify at
+minimum: that the files you name exist and contain what you say; that the
 commands you prescribe exist and run in this environment; that the current state is
 what you think (config values, schema, cluster state, dependency versions); and that
 the acceptance checks pass *now* for the right reason, or fail *now* for the right
@@ -237,9 +276,9 @@ form), run it here, and record it as a pre-flight check in the plan. Those probe
 what turns a silent refusal at task 5 into a clean abort in turn 1;
 `references/preflight.md` has the catalogue and the reasoning.
 
-**The ticket closeout is one of those privileges.** If a ticket was named, phase 2
-finishes by committing the final plan, pushing it if that was agreed, and posting a
-comment linking to it — and none of that is guaranteed to work: an MCP server that
+**The closeout is one of those privileges.** Phase 2 finishes by committing the final
+plan and, when a ticket was named, pushing it if that was agreed and posting a comment
+linking to it — and none of that is guaranteed to work: an MCP server that
 needs interactive authentication, a token this session holds and the next one does not,
 an `auto` classifier that refuses an MCP write, a protected branch that rejects the
 push. Probe each, record the verified calls and identifiers in the plan, and work out
@@ -268,6 +307,16 @@ Follow `references/plan-template.md` — it is a fixed template, and its section
 exist to force out the gaps that make a plan unexecutable. Read it before writing
 your first draft.
 
+The file opens with the frontmatter the template prescribes. Three of its fields come
+from the plugin itself: read `"${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json"` and
+copy `name`, `version` and `repository` into `plugin`, `plugin_version` and
+`plugin_url`. If that variable is unset, this skill's own directory names the
+installed version — `~/.claude/plugins/cache/<marketplace>/pdca/<version>/`. Set
+`status: drafting`. The `executor` block takes the model, effort and mode from step 2
+in the literal spellings the pre-flight compares; `sources` and `ticket` record step
+3's inputs, `ticket: none` and `sources: []` when there were none. The fields step 8
+settles — `branch`, `closeout_push`, `permalink` — are written then, not guessed now.
+
 ### 6. Iterate with delta reports
 
 Each turn: update the file, then report **only what changed** and what is still
@@ -277,32 +326,32 @@ Prefer concrete open questions over generic ones. "Should the retention change
 apply to staging too, or dev only?" is answerable in three seconds; "any other
 requirements?" is not.
 
-Iterate until the user is satisfied. They decide when planning is done, not you.
+Iterate until the user says proceed. They decide when planning is done, not you.
 
 **Never reach the handoff in the same turn as the first draft.** Write the plan, then
 stop and hand control back — always, even when the plan looks finished and the goal
 was clear. This is not politeness; it is what makes the phase mean anything. The exit
-condition of this loop is that the user is satisfied, and satisfaction is something
-they state, not something you infer from a one-line goal and your own confidence. A
-plan nobody reviewed has skipped the only step the interactive phase exists for.
+condition of this loop is that the user says proceed, and that is something they say,
+not something you infer from a one-line goal and your own confidence. A plan nobody
+reviewed has skipped the only step the planning phase exists for.
 
-So: at least one full round-trip before step 7, and the user's go-ahead is an actual
-go-ahead. Silence is not one. Nor is the absence of objections to a plan they have not
-been given a chance to read.
+So: at least one full round-trip before step 7, and the proceed is one the user
+actually said. Silence is not one. Nor is the absence of objections to a plan they
+have not been given a chance to read.
 
 There is no exception and no non-interactive mode. If someone wants a plan handed
-straight to an autonomous run without review, they do not need this workflow at all —
+straight to an execution session without review, they do not need this workflow at all —
 they can set a `/goal` directly and skip the planning session entirely. Choosing
-`/pdca:plan` *is* choosing the interactive phase, so treat any pressure to skip it as
+`/pdca:plan` *is* choosing the planning phase, so treat any pressure to skip it as
 a sign the wrong tool was reached for, not as licence to hurry.
 
-### 7. Adversarial review by the executing model
+### 7. Adversarial review by the executor
 
-When the user signals they are happy with a version this loop has not already
-cleared, the plan is reviewed — not by you, but by a fresh `claude -p` process
-running **phase 2's model at phase 2's effort level**, which sees the plan and the
-repository and nothing else. (A go-ahead on the exact version the reviewer already
-cleared needs no new round — that is the fixpoint below.)
+When the user says proceed on a version this loop has not already cleared, the plan
+is reviewed — not by you, but by a fresh `claude -p` process running **phase 2's model
+at phase 2's effort level**, which sees the plan and the repository and nothing else.
+(A proceed on the exact version the reviewer already cleared needs no new round —
+that is the fixpoint below.)
 
 You cannot review your own plan for self-sufficiency, and the reason is structural
 rather than a matter of diligence: you remember the conversation. The constraint the
@@ -312,20 +361,25 @@ never written down. A reviewer holding your context reads past every such gap. A
 reviewer without it walks into them exactly as phase 2 would.
 
 Loop: review, fix the blockers, review again. Until the reviewer returns AGREED, or
-three rounds, whichever comes first. If it does not converge, stop and put both
+three rounds, whichever comes first. Each round returns exactly one of two results —
+VETOED with at least one blocker, or AGREED with none and any number of nits; a round
+that returns neither is inconclusive and does not count. If it does not converge, stop and put both
 positions to the user — a persistent disagreement between the planner and the
 executor is a finding in itself, and it is the user's to settle.
 
 AGREED ends the loop; it does not by itself reach the handoff. What it exits to
 depends on whether the review changed the plan:
 
-- **AGREED, plan unchanged** — the version the user approved in step 6 is
-  the version the reviewer cleared. Nothing new for the user to see; proceed to
-  step 8.
-- **AGREED after blockers were fixed** — the plan the user approved is not the plan
-  about to be handed off. Report the review's changes as a step 6 delta and hand
-  control back. Approval attaches to a version of the plan, not to the plan in the
-  abstract, and the review has just written a version the user has never seen.
+- **AGREED, plan unchanged** — no blockers were fixed on the way and no nits
+  applied: the version the user said proceed on in step 6 is the version the reviewer
+  cleared. Nothing new for the user to see; go on to step 8.
+- **AGREED after the plan changed** — blockers fixed in an earlier round, or nits
+  applied now — the plan the user said proceed on is not the plan about to be handed
+  off. Report the review's changes as a step 6 delta and hand control back. A proceed
+  attaches to a version of the plan, not to the plan in the abstract, and the review
+  has just written a version the user has never seen. Nits applied as the reviewer
+  worded them do not by themselves reopen the review; `references/review-loop.md`
+  says why.
 
 Expect afterthoughts at that point, and welcome them — returning here is an
 invitation to have them, not a signature to collect. They are step 6 resuming, and
@@ -335,10 +389,10 @@ loop with its own three rounds, though a re-review of a lightly edited plan usua
 returns AGREED in one.
 
 So the exit condition of the nested loops is a fixpoint: **one version of the plan
-that all three parties stand behind at once** — the user, whose go-ahead it carries;
-you, its author, who fixed the blockers you agreed with and recorded in your round
-reports why the rest are not blockers; and the executing model, whose AGREED came
-from reading that very version. The loops alternate until a single version holds
+that all three parties stand behind at once** — the user, whose proceed it carries;
+you, its author, who fixed the blockers you agreed with and recorded in the plan why
+the rest are not blockers; and the executor, whose AGREED came from
+reading that very version. The loops alternate until a single version holds
 all three, and only then does step 8 begin.
 
 The one exception is the user's override. When the loop does not converge and the
@@ -346,7 +400,7 @@ user settles the disagreement against the reviewer, their settlement is the exit
 the user outranks both models, and holding the handoff hostage to an AGREED that will
 never come would make the reviewer the authority instead. Record the overruled
 objection in the plan — Constraints & Non-Goals is the natural place — so phase 2
-knows the executing model raised it and the user decided against it, rather than
+knows the executor raised it and the user decided against it, rather than
 rediscovering the concern mid-run and treating it as news.
 
 Read `references/review-loop.md` before the first round; it has the exact command,
@@ -354,20 +408,21 @@ the reviewer prompt, and how to handle a verdict you disagree with.
 
 ### 8. Hand off
 
-The order below is not arbitrary. The decision in step 1 has to be *asked* first
+The order below is not arbitrary. The decision in item 1 has to be *asked* first
 because the goal condition depends on it, but the commit itself has to *happen* last,
 because the plan is still being written until the handoff is in it.
 
-Step 1 is also the **only** question this step asks, and which question it is depends
-on the ticket. Do not ask what should happen to the finished plan or the ticket at the
-end of phase 2 — the user answered that by naming the ticket: the final plan is
-committed and the outcome is commented with a link to it, exactly as the plan's Ticket
+Item 1 is also the **only** question this step asks, and it is asked only when a ticket
+was named. Do not ask whether to commit the plan — it is always committed, see "Git is
+not optional" — and do not ask what should happen to the finished plan or the ticket at
+the end of phase 2: the plan's final state is preserved in its own commit for every
+plan, and the user answered the ticket half by naming the ticket, exactly as the plan's
 Closeout section already prescribes. Re-asking a settled decision reads as the workflow
 not trusting its own record, and invites an answer that contradicts what the plan and
 the goal condition were built on.
 
 One question does not mean one possible reply, though. An answer that changes the
-plan — "actually, could it also…" — is not an answer to the step-1 question; it is
+plan — "actually, could it also…" — is not an answer to the item-1 question; it is
 step 6 resuming, and a material change goes back through step 7. The fixpoint from
 step 7 does not expire because the conversation moved on a step. And a re-entry —
 from here, or from the launch offer — rebuilds whatever this step had already
@@ -376,94 +431,118 @@ plan, and a plan already committed takes a follow-up commit. A handoff line
 pointing at acceptance criteria the plan no longer states is exactly the stale
 artifact this step exists to prevent.
 
-1. **Settle how the plan is tracked — decision only, no commit yet.** Whether the
-   plan ends up tracked decides how it can be removed at the end, so the condition
-   cannot be written until you know. Which question this is depends on the ticket:
+1. **Settle whether the closeout pushes — decision only, no commit yet.** Only when a
+   ticket was named; the condition cannot be written until you know. Recommend yes — an
+   unpushed preservation commit makes the comment's link dead until somebody pushes by
+   hand — and respect a no: some branches are protected, and an unattended session
+   writing to a shared branch is a real decision. A no means the comment carries the
+   SHA and a `git show` command instead of a URL, and the Handoff section says someone
+   must push afterwards. Without a ticket there is nothing to ask: the closeout still
+   makes its two commits and does not push, unless the user said otherwise while
+   iterating.
 
-   - **A ticket was named — do not ask whether to commit.** It is committed. Git
-     history is what the closeout comment links to, so an untracked plan would leave
-     the comment with nothing to point at and the run with no surviving record. Say
-     that it is being committed and why; the question here is instead **whether the
-     closeout pushes.** Recommend yes — an unpushed preservation commit makes the
-     comment's link dead until somebody pushes by hand — and respect a no: some
-     branches are protected, and an unattended session writing to a shared branch is a
-     real decision. A no means the comment carries the SHA and a `git show` command
-     instead of a URL, and the Handoff section says someone must push afterwards.
-   - **No ticket — ask whether to commit the plan.** Committing means phase 2 starts
-     from a clean tree, so its own `git status` is a trustworthy signal of its own
-     work, and it means the plan stays recoverable from history after it
-     self-destructs. Either answer is fine; the plan and the condition follow it.
+   Settle the branch here too, without a question. The plan works on the branch
+   planning happened on, and `branch` records it. Only when the user asked for the
+   work to go on a new branch — in the goal text or while iterating, never inferred
+   from a ticket or the repository's habits — create it now, before the commit in
+   item 4, so the plan lands on it: `git switch -c <name>`. Phase 2 never creates a
+   branch, so this is the only place one comes from. The checkout stays on that branch
+   afterwards — say so when you print the handoff, so the user is not surprised to
+   find themselves off their usual branch. Record in Rollback how the branch is
+   disposed of if the run fails.
 2. **Build the goal condition** per `references/goal-condition.md`. Read that file
    before writing the condition; the constraints there are not obvious.
 3. **Write the handoff command into the plan's Handoff section**, then print it.
    Terminal output is the most perishable place a command can live, and the gap
    between the two phases can be weeks. A plan file that carries its own launch
-   instruction can be picked up by whoever finds it.
-4. **Now commit** — always when a ticket was named, otherwise if that was agreed.
-   Follow the repository's commit convention, including the ticket prefix and signing
-   if that is what `git log` shows. Committing before step 3 would put a plan into
+   instruction can be picked up by whoever finds it. Below the full command, write
+   the short form the template shows — the one-line `/goal` a user can type into a
+   session they started by hand — and say what it gives up;
+   `references/goal-condition.md` has the words. In the same edit, finish the
+   frontmatter: `status: handed-off`, `branch` as `git branch --show-current` prints
+   it, `closeout_push` from the decision in item 1, `permalink` as the template worked
+   out in step 4 or `none`.
+4. **Now commit** — always. Follow the repository's commit convention, including the ticket prefix and signing
+   if that is what `git log` shows. Committing before item 3 would put a plan into
    history without its own launch command and leave phase 2 facing a dirty tree — both
    of which defeat the point.
 
-   When a ticket was named and the closeout pushes, push this commit too and build the
-   permalink for the plan at it. Give the user that URL to open: a link that resolves
+   When a ticket was named and the closeout pushes, push this commit too — a branch
+   created in item 1 goes up as `git push -u origin <branch>`, which sets the upstream
+   that phase 2's plain `git push` relies on and proves the remote accepts the new
+   branch — and build the permalink for the plan at it. Give the user that URL to open: a link that resolves
    here is the proof that the template recorded in the plan is the right one for this
    host, and it costs one click now instead of a dead link on the ticket weeks later.
 
    If the convention signs commits, this commit doubles as the live proof that
    signing works unattended: check it with `git log --show-signature -1`.
 
-   If the plan is staying untracked — only possible without a ticket — there is no
-   such commit, so probe separately —
-   a passphrase-protected key with no warm agent does not fail loudly in phase 2, it
-   *hangs* on a pinentry prompt nobody can answer, under a Stop hook that will not
-   let the session stop. Branch on `git config gpg.format`: for the gpg default,
-   `echo test | gpg --clearsign --batch --pinentry-mode error` (adding
-   `-u $(git config user.signingkey)` when that is set) fails immediately in exactly
-   the case that would otherwise hang; SSH-signing repositories need the equivalent
-   check for their key. Do not synthesize a throwaway commit to test this — this
-   phase does not mutate history.
-
-   Say plainly that a passing probe is not a guarantee: it says the agent is warm
-   *now*, not that it still will be when phase 2 launches days later. The
-   blocked-report hatch is phase 2's fallback if signing fails then.
-5. **Offer to launch the fresh session**, and if declined (or if launching is not
-   possible), print the command to copy. Either way, explain how the fresh session
-   is achieved — see below.
+   Say plainly that a signed commit now is not a guarantee: it says the agent is warm
+   *now*, not that it still will be when phase 2 launches days later — a
+   passphrase-protected key with no warm agent does not fail loudly then, it *hangs*
+   on a pinentry prompt nobody can answer. The blocked-report hatch is phase 2's
+   fallback if signing fails then, and the pre-flight's signing probe is what turns
+   the hang into a clean abort.
+5. **Offer to launch the execution session**, and if declined (or if launching
+   is not possible), print the command to copy. Either way, explain how a fresh
+   process is achieved — see below.
 
 ## Reopening a plan
 
-`/pdca:plan <path-to-plan>` reopens an existing plan. This covers two
-cases, and they want different treatment.
+`/pdca:plan <path>` with a file whose frontmatter says `plugin: pdca` reopens that
+plan. Its `status` says which case this is; read it, and do not infer the case from
+the file's age or its checkboxes.
 
-**Still iterating** — the plan was written recently and is being refined. Continue
-where you left off.
+**`drafting`** — planning never finished. Continue where it left off.
 
-**Coming back to it later** — the plan has been sitting, and both the repository and
-the ticket have moved on. Re-verify before doing anything else, and re-read the ticket
-as part of that: a comment added last week can change a requirement, and a ticket that
-has since been closed, split or reprioritized is a reason to stop and ask rather than
-to launch. Report what changed on the ticket alongside what drifted in the repository. This is cheap, because the Verified
-Context section records the command behind every fact: re-run them, along with the
-pre-flight probes, and report which still hold and which have drifted — an access
-token or a signing key that has expired since the plan was written shows up here as
-readily as a changed config value. Then bring the plan back to true — update
-the drifted facts, adjust the tasks and acceptance criteria that depended on them.
+**`handed-off`** — the plan was finished and has been sitting, and both the repository
+and the sources have moved on. Re-verify before doing anything else, and re-read the
+ticket and any spec as part of that: a comment added last week can change a
+requirement, and a ticket that has since been closed, split or reprioritized is a
+reason to stop and ask rather than to launch. Report what changed in the sources
+alongside what drifted in the repository. This is cheap, because the Verified Context
+section records the command behind every fact: re-run them, along with the pre-flight
+probes, and report which still hold and which have drifted — an access token or a
+signing key that has expired since the plan was written shows up here as readily as a
+changed config value. When the plan sits on a branch phase 1 created for it, bringing that branch up to date
+with its base — merge or rebase, whichever the repository's convention is — is part of
+the same re-verification: the facts are re-checked against the code the run will
+actually change, not against a base that has since moved. Then bring the plan back to
+true — update the drifted facts, adjust the tasks and acceptance criteria that depended
+on them — and set `status` back to `drafting` with the first edit.
 
-Both cases end the same way: back through steps 7 and 8 as usual — a plan brought
-back to true is a changed plan, and an unreviewed edit to a reviewed plan is an
-unreviewed plan — and the Handoff section is refreshed and printed. So "I lost the
-command you printed" is answered by reopening the plan, and comes with a freshness
-check attached.
+**`executing`** — a run is under way or was interrupted. Say so and ask before
+touching the file: relaunching the Handoff command resumes the run from the ticked
+boxes, which is what the Execution Protocol is written for; reopening abandons that
+run and starts the plan's life over. Only the user can say which.
+
+**`blocked`** — read the blocked report beside the plan first; it names what has to
+change and ends with a `Next:` line. `Next: relaunch` means the run expects the
+Handoff command once the environment is fixed, and a reopen is only needed if the user
+wants to change the plan anyway — say so. Once you are reopening: fold the report into
+the Run Log and delete it — a report never outlives the pick-up that reads it, and a
+leftover one is exactly what a relaunch must not find — then treat the plan as
+`handed-off`: re-verify, fix what the report names, and take it back through review.
+Partial work the report lists is the user's call: keep it as the new starting state
+and re-verify against it, or revert it. Ask, and record the answer in the Run Log.
+
+**`done`** — should not exist on disk; the file is deleted on success. If one is
+found, it is a stray copy. Say so and stop.
+
+Every reopen that changes the plan ends the same way: back through steps 7 and 8 as
+usual — a plan brought back to true is a changed plan, and an unreviewed edit to a
+reviewed plan is an unreviewed plan — and the Handoff section is refreshed and
+printed. So "I lost the command you printed" is answered by reopening the plan, and
+comes with a freshness check attached.
 
 A stale plan that gets executed anyway is not a disaster either: the Execution
-Protocol tells the executing session to check the Verified Context against reality
+Protocol tells the execution session to check the Verified Context against reality
 first and stop if it has diverged. But re-verifying while a human is present is
 strictly better than discovering the drift halfway through an unattended run.
 
 ## The handoff command
 
-A fresh session is a new `claude` process started in the working directory of the
+The execution session is a new `claude` process started in the working directory of the
 repository being changed — usually, but not always, the one where planning happened.
 When the plan and the work live in different repositories, the printed command takes
 the `cd <work-repo> && claude …` form. It shares the repository and nothing else: no
@@ -500,6 +579,11 @@ If the condition cannot be made shell-safe, print the two-step form instead: sta
 `claude --model … --effort … --permission-mode auto`, then paste the `/goal …` line
 as the first message. Same result, no quoting hazards.
 
+`/goal <plan-path>` on its own is not a launch, and the plan's Handoff section says
+so next to the short form it offers instead. The reasons are in
+`references/goal-condition.md`; the README shows a one-argument launcher that runs
+the Handoff command out of the file, which is the honest version of the same wish.
+
 Also tell the user, briefly: `/goal` shows status (turns elapsed, last evaluator
 reason), `/goal clear` stops the run early.
 
@@ -513,12 +597,13 @@ session from stopping. When it holds, the goal auto-clears and the session ends.
 
 Three consequences shape everything in `references/goal-condition.md`:
 
-- The condition is handed to the executing session **as its directive** — it is told
-  to start working and not to pause to ask the user. So the condition must be
+- The condition is handed to the execution session **as its directive** — it is
+  told to start working and not to pause to ask the user. So the condition must be
   self-contained.
-- The evaluator sees the **condition text** plus the conversation. Condition text
-  survives compaction; attachments and early transcript may not. Put what matters in
-  the condition.
+- The evaluator sees the **condition text** plus the conversation, and nothing else.
+  It is Claude Code's small fast model — Haiku by default — and it calls no tools, so
+  it cannot open the plan file; and condition text survives compaction while
+  attachments and early transcript may not. Put what matters in the condition.
 - The condition is capped at **4000 characters**.
 
 `/goal` also requires a trusted workspace and working hooks — it is unavailable if
@@ -540,6 +625,10 @@ specification.
   directory, branch and plan path are what the plan expects. Any failure ends the run
   right there as a blocked report: not an adaptation, and not a run that starts
   anyway. `preflight.md`
+- **Move the frontmatter's `status` as it goes** — `executing` when the gate
+  passes, `done` before the preservation commit, `blocked` beside the blocked report —
+  so the file says where it stands and a later reopen reads that instead of guessing.
+  `plan-template.md`
 - **Work the tasks in order**, ticking each checkbox and appending to the Run Log as it
   goes, so an interrupted run resumes from the file and the user can watch progress by
   reading it. `plan-template.md`
@@ -548,12 +637,17 @@ specification.
   judge from what is still visible in the transcript. `goal-condition.md`
 - **Treat a permission denial as a blocked report**, not an obstacle to route around: a
   denied command means the plan prescribed something phase 2 cannot do. `preflight.md`
-- **Commit on the current branch** with the agreed prefix. Never create a branch unless
-  the plan explicitly says to.
-- **Close out the ticket before removing the plan file**, and remove that file as the
-  final act — with a ticket, in a separate commit after the preservation commit, so the
-  commit the comment links to stays the last one in which the plan exists. `jira.md`
-- **Write the blocked report if a check genuinely cannot pass**, then stop.
+- **Commit as you go on the current branch** — the one `branch` names — with the
+  agreed prefix: a task, or a coherent slice of one, per commit. Never create a
+  branch: a plan that wanted one already sits on it, made by phase 1 at
+  handoff.
+- **Preserve the final plan in a commit of its own, close out the ticket if there is
+  one, then remove the file** as the final act in a separate commit — so the commit
+  holding the record, and linked from the ticket, stays the last one in which the plan
+  exists. `plan-template.md`, `jira.md`
+- **Write the blocked report if a check genuinely cannot pass**, commit it with the
+  plan, then stop — and on a relaunch, consume an inherited report before the first
+  check. `plan-template.md`, `preflight.md`
 
 That last one matters more than it looks. Without a reachable failure state, a plan
 with one impossible check turns into a session that cannot stop, retrying forever.
@@ -567,22 +661,23 @@ restate them, so that there is only one place for each to be wrong.
 
 One overlap is deliberate and is not drift. `plan-template.md` carries text meant to
 be *copied into the plan file* — the Execution Protocol, the Pre-Flight checks, the
-Ticket Closeout. Those copies are the artifact phase 2 reads, not a second statement
+Closeout. Those copies are the artifact phase 2 reads, not a second statement
 of a rule, because phase 2 runs with no plugin installed and can consult nothing but
 the plan and the repository.
 
-- `references/plan-template.md` — **owns the plan file's shape**: the template section
-  by section, with what each section is for. Read before writing a plan.
+- `references/plan-template.md` — **owns the plan file's shape**: the frontmatter
+  and its `status` lifecycle, then the template section by section, with what each
+  section is for. Read before writing a plan.
 - `references/preflight.md` — **owns the gate** phase 2 runs before task 1: how a
   session checks that its plan's `/goal` is driving it and its own model, effort and
   permission mode, which privileges to probe and how, and why a failure there is
   written up rather than worked around. Read before filling in a plan's Pre-Flight
   section.
-- `references/jira.md` — **owns the ticket side** of the workflow: why a ticket is a
-  request rather than a specification, how to fetch one and turn it into a requirements
-  conversation, how the plan records what the user decided against it, and the closeout
-  that commits the finished plan and links the ticket to it at the end of phase 2. Read
-  when a ticket is named.
+- `references/jira.md` — **owns the requirements sources**: why a ticket is a request
+  rather than a contract, how to fetch one and turn it into a requirements
+  conversation, how a spec file or URL goes through the same conversation, how the
+  plan records what the user decided, and the closeout that commits the finished plan
+  and links the ticket to it at the end of phase 2. Read when a source is named.
 - `references/goal-condition.md` — **owns the `/goal` condition**: the character
   budget, shell safety, the escape hatch, worked examples. Read before writing a
   handoff.
