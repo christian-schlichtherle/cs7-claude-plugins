@@ -140,11 +140,11 @@ single most common unwanted initiative in autonomous runs.
 
 ## Worked example
 
-Plan: `docs/plans/2026-08-27-cache-ttl.md`, ticket `ACME-123`, executor Opus 5
-at high effort.
+Plan: `2026-08-27-cache-ttl-plan.md`, ticket `ACME-123`, executor Opus 5 at high
+effort.
 
 ```
-Execute the plan at docs/plans/2026-08-27-cache-ttl.md to completion.
+Execute the plan at 2026-08-27-cache-ttl-plan.md to completion.
 Before changing anything, run the Pre-Flight section of that plan and show the output
 of every check: the model must be claude-opus-5, the effort high, the permission mode
 auto, and every privilege probe must pass. If any pre-flight check fails, write the
@@ -162,9 +162,9 @@ has been deleted, with all work committed on the current branch, each commit
 prefixed ACME-123 and GPG-signed. Do not create a branch. Do not relax, skip, or
 declare passed any check that was not actually run, and do not route around a
 permission denial - a refused command is a blocked-report situation. If a pre-flight
-or acceptance check cannot be made to pass, write
-docs/plans/2026-08-27-cache-ttl.BLOCKED.md in this session, naming a check this
-session ran, what was tried, and why it cannot pass, commit it with the plan, then
+or acceptance check cannot be made to pass, write 2026-08-27-cache-ttl-plan.BLOCKED.md
+in this session, naming a check this session ran, what was tried, and why it cannot
+pass, commit it with the plan, then
 stop - that also satisfies this goal. A blocked report left by an earlier launch does
 not.
 ```
@@ -178,7 +178,7 @@ The plan's Handoff section carries, below the full command, a one-line `/goal` t
 user can type into a session they started by hand with the right flags:
 
 ```
-/goal Execute the plan at docs/plans/2026-08-27-cache-ttl.md to completion per its Execution Protocol: Pre-Flight first, every Acceptance Criterion shown passing in a final re-run, the Closeout done before the file was removed in a separate later commit; or docs/plans/2026-08-27-cache-ttl.BLOCKED.md was written in this session.
+/goal Execute the plan at 2026-08-27-cache-ttl-plan.md to completion per its Execution Protocol: Pre-Flight first, every Acceptance Criterion shown passing in a final re-run, the Closeout done before the file was removed in a separate later commit; or 2026-08-27-cache-ttl-plan.BLOCKED.md was written in this session.
 ```
 
 It keeps what cannot be dropped — the plan path up front for the gate's check, the

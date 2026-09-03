@@ -40,11 +40,11 @@ Claude Code's `/plan` mode is the wrong tool here, for two concrete reasons:
 
 1. It blocks what the planning phase produces and some of what it checks. Read-only
    probes do run in plan mode — `kubectl get` and `grep` work fine, verified
-   directly — but plan mode cannot write the plan file to `docs/plans/…`, cannot
-   write spike files, and denies verification commands that touch state. The phase
-   needs all three. Plan mode's own plan is a different artifact entirely:
-   ephemeral, rendered for approval, never on disk. Only the file under
-   `docs/plans/…` is the plan file this skill means.
+   directly — but plan mode cannot write the plan file to the repository root,
+   cannot write spike files, and denies verification commands that touch state. The
+   phase needs all three. Plan mode's own plan is a different artifact entirely:
+   ephemeral, rendered for approval, never on disk. Only the file on disk at the
+   repository root is the plan file this skill means.
 2. It re-renders its whole plan in the transcript every turn. The plan file instead
    lives on disk, is edited in place, and each turn reports only the delta.
 
@@ -298,10 +298,17 @@ recognizing its own work.
 
 ### 5. Write the plan file
 
-Path: `docs/plans/<YYYY-MM-DD>-<slug>.md`, slug derived from the goal. If the
-repository already has a `docs/` directory, create `docs/plans/` under it as needed.
-If it has no `docs/` at all, do not invent one — put the plan at the repository root
-as `<YYYY-MM-DD>-<slug>.md`. Either way, say where you put it.
+Path: `<YYYY-MM-DD>-<slug>-plan.md` at the repository root, slug derived from the goal.
+
+The root is the whole directory rule — do not file it under `docs/`, `docs/plans/`, or
+any other directory, even where one already exists. The plan is short-lived: phase 2
+removes it in the Closeout, and a file at the root is the one both phases and the user
+can name without looking.
+
+The `-plan.md` ending is not decoration. At the root the plan sits beside `README.md`
+and whatever else lives there, and the suffix is what tells a reader — and the next
+session — that this file is a plan and not a spec, a note, or a report. Every plan
+ends this way, so a plan is recognizable before it is opened. Say where you put it.
 
 Follow `references/plan-template.md` — it is a fixed template, and its sections
 exist to force out the gaps that make a plan unexecutable. Read it before writing

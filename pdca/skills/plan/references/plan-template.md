@@ -28,7 +28,7 @@ the end of this file, is about writing the plan and is not a section of it.
 ````markdown
 ---
 plugin: pdca
-plugin_version: 0.6.0
+plugin_version: 0.7.0
 plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
 created: 2026-08-27
 status: handed-off
@@ -43,10 +43,10 @@ ticket:
   key: ACME-123
   url: https://acme.atlassian.net/browse/ACME-123
   cloud_id: a1b2c3d4-…
-plan_file: docs/plans/2026-08-27-cache-ttl.md
+plan_file: 2026-08-27-cache-ttl-plan.md
 branch: main
 closeout_push: true
-permalink: https://github.com/acme/api/blob/<sha>/docs/plans/2026-08-27-cache-ttl.md
+permalink: https://github.com/acme/api/blob/<sha>/2026-08-27-cache-ttl-plan.md
 ---
 
 # <Goal in one line>
@@ -108,9 +108,9 @@ the Execution Protocol and do not start the tasks. Model, effort and permission 
 are spelled out literally here, in the same spelling as the frontmatter's `executor`
 block, so the comparison is a string match, not a judgement.
 
-Before check 1: if `docs/plans/2026-08-27-cache-ttl.BLOCKED.md` exists, this is a
-relaunch. Fold that report into the Run Log below — its date, the check it named, what
-was tried, its `Next:` line — then delete it, in this same turn, and only then run the
+Before check 1: if `2026-08-27-cache-ttl-plan.BLOCKED.md` exists, this is a relaunch.
+Fold that report into the Run Log below — its date, the check it named, what was
+tried, its `Next:` line — then delete it, in this same turn, and only then run the
 checks. An inherited report never satisfies this plan's goal and is never left in
 place: the Run Log is the record, the report was the message.>
 
@@ -163,7 +163,7 @@ place: the Run Log is the record, the report was the message.>
      is deleted.
 
 3. **Ground.**
-   - This file exists at `docs/plans/2026-08-27-cache-ttl.md`, the `plan_file` in its
+   - This file exists at `2026-08-27-cache-ttl-plan.md`, the `plan_file` in its
      frontmatter.
    - `git remote -v` names the `api` repository, `git branch --show-current` prints
      `main`, and `git status --porcelain` is empty — or this is a resume: the
@@ -201,8 +201,8 @@ environment; you verified that in phase 1.>
 2. `kubectl -n staging get configmap api-config -o "jsonpath={.data.cacheTtlSeconds}"`
    prints `3600`.
 3. The final state of the plan was committed and pushed, and a comment on ACME-123
-   links to `docs/plans/2026-08-27-cache-ttl.md` at that commit — which is the last
-   commit before the one that deletes the file.
+   links to `2026-08-27-cache-ttl-plan.md` at that commit — which is the last commit
+   before the one that deletes the file.
 4. `git status --porcelain` is empty — everything committed, plan file gone.
 
 ## Rollback
@@ -232,7 +232,7 @@ where they would stand and run the rest.>
    `closeout_push` in the frontmatter says so:
 
    ```bash
-   git add docs/plans/2026-08-27-cache-ttl.md
+   git add 2026-08-27-cache-ttl-plan.md
    git commit -m "ACME-123: record final plan state"
    git push
    SHA=$(git rev-parse HEAD); echo "$SHA"
@@ -245,14 +245,14 @@ where they would stand and run the rest.>
    frontmatter:
 
    ```
-   https://github.com/acme/api/blob/$SHA/docs/plans/2026-08-27-cache-ttl.md
+   https://github.com/acme/api/blob/$SHA/2026-08-27-cache-ttl-plan.md
    ```
 
    Check the SHA and path are the ones just committed. A comment carrying a wrong URL
    looks like a record and is not.
 4. Post a comment on ACME-123 via the Atlassian MCP tool `addCommentToJiraIssue`
    (cloudId `a1b2c3d4-…`), containing: a Markdown link to that URL on the file name,
-   `[2026-08-27-cache-ttl.md](…)`; the outcome in one sentence; the commit SHAs and
+   `[2026-08-27-cache-ttl-plan.md](…)`; the outcome in one sentence; the commit SHAs and
    branch; each acceptance criterion as command → result; the ticket's rows of the
    Requirements table, so a reader sees which ticket requirements this run did not
    cover and that it was deliberate; and any deviation from this plan.
@@ -260,7 +260,7 @@ where they would stand and run the rest.>
    preservation commit was:
 
    ```bash
-   git rm docs/plans/2026-08-27-cache-ttl.md
+   git rm 2026-08-27-cache-ttl-plan.md
    git commit -m "ACME-123: remove plan file"
    git push
    ```
@@ -329,24 +329,23 @@ from what is written here plus the repository, and record what you decided.
    commits, preservation and deletion alike, go to the repository holding the plan,
    never to the one you are changing.
 10. If a criterion cannot be made to pass — or the run cannot finish for any other
-    reason: a denied command, a contradiction with the Verified Context that leaves
-    the Goal standing but the plan wrong, a run that has to stop clean at a task
-    boundary — write the blocked report at **exactly the path named in the goal
-    condition**: the plan path with `.md` replaced by `.BLOCKED.md`, so
-    `2026-08-27-cache-ttl.md` becomes `2026-08-27-cache-ttl.BLOCKED.md`. It names
-    the failing check, what you tried, and why it cannot pass; lists the working tree
-    as you leave it — every uncommitted file and the task it belongs to; and ends with
-    one line, `Next: relaunch` when the Handoff command can resume once the
-    environment is fixed, or `Next: reopen` when the plan itself has to change. Set
-    `status: blocked` in this file's frontmatter, bring the Run Log current, and
-    commit this file and the report together — the blocked commit, pushed when
-    `closeout_push` says so — leaving uncommitted only the work that has not reached
-    a commit boundary. Then stop. Getting the
-    path wrong is not cosmetic: the evaluator looks for the path the condition names,
-    so a different spelling means the report does not register and the session
-    cannot stop. Do not weaken a check, skip it, or declare success without it. A
-    report written by mistake — on an estimate rather than a check that ran — is
-    retracted in the same session: delete it, say so in the Run Log, and continue.
+    reason: a denied command, a contradiction with the Verified Context that leaves the
+    Goal standing but the plan wrong, a run that has to stop clean at a task boundary —
+    write the blocked report at **exactly the path named in the goal condition**: the
+    plan path with `.md` replaced by `.BLOCKED.md`, so `2026-08-27-cache-ttl-plan.md`
+    becomes `2026-08-27-cache-ttl-plan.BLOCKED.md`. It names the failing check, what you
+    tried, and why it cannot pass; lists the working tree as you leave it — every
+    uncommitted file and the task it belongs to; and ends with one line,
+    `Next: relaunch` when the Handoff command can resume once the environment is fixed,
+    or `Next: reopen` when the plan itself has to change. Set `status: blocked` in this
+    file's frontmatter, bring the Run Log current, and commit this file and the report
+    together — the blocked commit, pushed when `closeout_push` says so — leaving
+    uncommitted only the work that has not reached a commit boundary. Then stop. Getting
+    the path wrong is not cosmetic: the evaluator looks for the path the condition
+    names, so a different spelling means the report does not register and the session
+    cannot stop. Do not weaken a check, skip it, or declare success without it. A report
+    written by mistake — on an estimate rather than a check that ran — is retracted in
+    the same session: delete it, say so in the Run Log, and continue.
 
 ## Handoff
 
@@ -355,7 +354,7 @@ own launch instruction — terminal output is lost, a committed file is not. Kee
 in a fenced block so it can be copied straight out of the file.>
 
 ```bash
-claude --model opus --effort high --permission-mode auto '/goal Execute the plan at docs/plans/2026-08-27-cache-ttl.md to completion. Done when ...'
+claude --model opus --effort high --permission-mode auto '/goal Execute the plan at 2026-08-27-cache-ttl-plan.md to completion. Done when ...'
 ```
 
 If this plan file has been sitting for a while, do not paste that blindly — reopen it
@@ -366,11 +365,11 @@ Short form, for typing into a session already started with the flags above. The
 evaluator then holds only the plan path, the protocol and the escape hatch — not the
 acceptance criteria — so it has to trust this session's own account of what it ran.
 Prefer the full command; use this when the full one is not to hand. A bare
-`/goal docs/plans/2026-08-27-cache-ttl.md` is not a launch at all: the evaluator
-cannot open the file, so it would have nothing to judge.
+`/goal 2026-08-27-cache-ttl-plan.md` is not a launch at all: the evaluator cannot open
+the file, so it would have nothing to judge.
 
 ```
-/goal Execute the plan at docs/plans/2026-08-27-cache-ttl.md to completion per its Execution Protocol: Pre-Flight first, every Acceptance Criterion shown passing in a final re-run, the Closeout done before the file was removed in a separate later commit; or docs/plans/2026-08-27-cache-ttl.BLOCKED.md was written in this session.
+/goal Execute the plan at 2026-08-27-cache-ttl-plan.md to completion per its Execution Protocol: Pre-Flight first, every Acceptance Criterion shown passing in a final re-run, the Closeout done before the file was removed in a separate later commit; or 2026-08-27-cache-ttl-plan.BLOCKED.md was written in this session.
 ```
 
 ## Run Log

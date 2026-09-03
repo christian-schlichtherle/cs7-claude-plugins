@@ -339,7 +339,7 @@ dump, and not a single line either — the ticket is where this work becomes vis
 everyone who is not the developer who ran it.
 
 - **The link to the finished plan**, as a Markdown or HTML link on the file's own name —
-  `[2026-08-27-cache-ttl.md](https://github.com/acme/api/blob/<sha>/docs/plans/2026-08-27-cache-ttl.md)` —
+  `[2026-08-27-cache-ttl-plan.md](https://github.com/acme/api/blob/<sha>/2026-08-27-cache-ttl-plan.md)` —
   pointing at the preservation commit, the last commit before the one that deletes the
   file. Never a bare SHA where a link was possible: the point of the closeout is that a
   reader on the ticket can reach the record in one click.

@@ -42,11 +42,12 @@ decide goes into the plan as a requirements table naming every source, including
 requirements you dropped, so the execution phase does not helpfully implement
 them behind your back.
 
-Planning then proceeds interactively. Each turn updates
-`docs/plans/<date>-<slug>.md` and reports only what changed; you read the file when
-you want the whole picture. When you say proceed, the plan is handed to a fresh
-`claude -p` process running at phase 2's model and effort — which sees the plan and
-the repository and nothing else — and asked whether it could execute it unattended.
+Planning then proceeds interactively. Each turn updates `<date>-<slug>-plan.md` — at
+the repository root, never tucked under `docs/` — and reports only what changed; you
+read the file when you want the whole picture. When you say proceed, the plan is
+handed to a fresh `claude -p` process running at phase 2's model and effort — which
+sees the plan and the repository and nothing else — and asked whether it could
+execute it unattended.
 Its verdict is one word: VETOED, with at least one blocker to fix, after which it is
 asked again, up to three rounds; or AGREED, possibly with nits, which are applied
 without another round. If the review changed the plan, the changes come back to you
@@ -210,7 +211,7 @@ and in `git log`.
 If the plan has been sitting a while, reopen it rather than pasting the old command:
 
 ```
-/pdca:plan docs/plans/2026-08-27-cache-ttl.md
+/pdca:plan 2026-08-27-cache-ttl-plan.md
 ```
 
 The session reads the plan's `status` and acts on it rather than guessing from the
@@ -230,7 +231,7 @@ if the ground has moved.
 
 ## Launching a plan from its path
 
-`/goal docs/plans/2026-08-27-cache-ttl.md` on its own does not work, however
+`/goal 2026-08-27-cache-ttl-plan.md` on its own does not work, however
 self-sufficient the plan is, and the reason is the evaluator. It is Claude Code's small
 fast model, it reads only the condition text and the transcript, and it calls no tools
 — so a bare path gives it nothing to judge, it cannot open the file to find the

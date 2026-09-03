@@ -6,7 +6,7 @@ One command (`/pdca:plan`) and one skill (`plan`) implementing a PDCA
 cycle split across two sessions:
 
 - **Plan**, the planning phase — interactive, runs commands to verify its
-  assumptions, writes `docs/plans/<date>-<slug>.md`.
+  assumptions, writes `<date>-<slug>-plan.md` at the repository root.
 - **Do/Check/Act**, the execution phase — a fresh `claude` process under
   `/goal`, executing the plan unattended.
 

@@ -22,9 +22,9 @@ wrong.
 - `/pdca:plan sonnet rename the metrics client across both services` —
   effort missing, so propose one and ask
 - `/pdca:plan add a health endpoint to the api service` — model and effort missing
-- `/pdca:plan opus max docs/plans/2026-08-27-cache-ttl.md` — reopen an existing plan
-- `/pdca:plan opus high docs/specs/cache-ttl.md` — a spec to plan against; a plan
-  is told from a spec by its frontmatter, not its path
+- `/pdca:plan opus max 2026-08-27-cache-ttl-plan.md` — reopen an existing plan
+- `/pdca:plan opus high docs/specs/cache-ttl.md` — a spec to plan against; plans are
+  named `-plan.md`, but what settles it is the frontmatter, not the name
 - `/pdca:plan opus high ACME-123` — a bare ticket key as the goal
 - `/pdca:plan` — no goal given, so interview for one
 
