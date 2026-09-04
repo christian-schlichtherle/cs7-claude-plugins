@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Claude plugin repository published as a marketplace with two plugins:
 
-- `pdca` — two-phase PDCA development: one command (`/pdca:plan`) and one skill (`plan`) that split work into an interactive planning session and a fresh autonomous session driven by `/goal`. Pure Markdown, no scripts.
+- `pdca` — two-phase PDCA development: two commands (`/pdca:plan`, `/pdca:execute`) and two skills (`plan`, `execute`) that split work into an interactive planning session and a fresh autonomous session driven by `/goal`, launched as a background process. Pure Markdown, no scripts.
 - `gemini-media` — AI-powered image and video generation using Google's Gemini API, containing two skills: `generate-image` and `generate-video`.
 
 ## Running the Scripts

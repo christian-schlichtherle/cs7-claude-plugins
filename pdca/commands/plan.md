@@ -33,3 +33,5 @@ one. The skill explains why that has to be settled before the plan is drafted.
 
 Every run asks for a Jira ticket; the skill says what happens with one, and with a
 spec.
+
+Once the plan is handed off, `/pdca:execute <plan path>` launches it.

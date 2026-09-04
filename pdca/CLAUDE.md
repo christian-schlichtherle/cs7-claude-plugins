@@ -2,13 +2,16 @@
 
 ## How It Works
 
-One command (`/pdca:plan`) and one skill (`plan`) implementing a PDCA
-cycle split across two sessions:
+Two commands (`/pdca:plan`, `/pdca:execute`) and two skills (`plan`, `execute`)
+implementing a PDCA cycle split across two sessions:
 
 - **Plan**, the planning phase — interactive, runs commands to verify its
   assumptions, writes `<date>-<slug>-plan.md` at the repository root.
 - **Do/Check/Act**, the execution phase — a fresh `claude` process under
   `/goal`, executing the plan unattended.
+
+`/pdca:execute` is the bridge between them: it starts the execution session as a
+detached background process from the plan's own Handoff command.
 
 The plan file is the only interface between them, which is why the skill pushes so
 hard on verified facts and inlined acceptance criteria.
@@ -29,6 +32,7 @@ user's exit signal by three; these are the survivors, decided 2026-09-02.
 | The small model behind the `/goal` Stop hook | evaluator | |
 | The planner's last step | handoff | |
 | A human starting phase 2, maybe weeks later | launch | |
+| What a human launches with | `/pdca:execute`, the launcher | pdca-run, a launcher script |
 | The user's exit signal for the outer loop | proceed | go-ahead, satisfied, approved |
 | What a ticket or a spec is | a requirements source; a request, not a contract | a specification |
 | The artifact | the plan, the plan file | recipe, spec |
@@ -40,17 +44,19 @@ for a day and dropped for exactly that consistency.
 
 ## Conventions
 
-- **One palette entry, two files.** `/pdca:plan` is the command; the skill is
-  `user-invocable: false` so it does not also appear in the slash-command list.
-  Without that flag Claude Code shows `/pdca:plan` twice — once for the command with
-  its human-facing description, once for the skill with its triggering description.
-- **The skill is the single source of truth.** The command is a thin entry point: a
+- **One palette entry per command, two files each.** `/pdca:plan` and `/pdca:execute`
+  are the commands; the skill of the same name behind each is `user-invocable: false`
+  so it does not also appear in the slash-command list. Without that flag Claude Code
+  shows each command twice — once for the command with its human-facing description,
+  once for the skill with its triggering description.
+- **The skill is the single source of truth.** Each command is a thin entry point: a
   description, an argument hint, examples, and a pointer. Argument parsing, the
-  verification rules, the plan template and the goal-condition rules live in the skill
-  only. They were duplicated in both files once, and a review found the same two
-  defects had to be fixed twice — hence the split.
-- The skill stays model-invocable, which is what makes it trigger on intent
-  ("write me a plan I can run later") without the command being typed.
+  verification rules, the plan template, the goal-condition rules and the launch
+  procedure live in the skills only. They were duplicated in both files once, and a
+  review found the same two defects had to be fixed twice — hence the split.
+- The skills stay model-invocable, which is what makes them trigger on intent
+  ("write me a plan I can run later", "launch the plan") without the command being
+  typed.
 - Planning never reaches the handoff in the turn that drafts the plan. The
   interactive loop's exit condition is that the user says proceed, which they have to
   say — so the first draft always ends the turn. There is no waiver and no
@@ -270,10 +276,36 @@ for a day and dropped for exactly that consistency.
   deletes itself before the final judgement; and the escape hatch has to be in the
   condition text or a blocked run cannot stop. So the full condition inlines the
   criteria, the Handoff section carries the full command plus a short form (path,
-  protocol, closeout order, hatch — no criteria, and it says what that costs), and the
-  README shows a `pdca-run` shell function that runs the Handoff block from the plan
-  path. The launcher is a README opt-in like the status-line segment, not a plugin
-  script: phase 2 still needs no plugin, only the human launching does.
+  protocol, closeout order, hatch — no criteria, and it says what that costs), and
+  `/pdca:execute` runs the Handoff block from the plan path. Phase 2 still needs no
+  plugin: the launcher is for the human launching, not for the session launched.
+- **The launcher is a command, not a script and not a README shell function.** Decided
+  2026-09-04, replacing the `pdca-run` function the README carried. A plugin cannot put
+  anything on `PATH`, and its cache directory is versioned — this repo bumps the version
+  on every commit — so a script would need a hand-made symlink re-pointed after each
+  update; the README function was the same logic with no status dispatch and a copy for
+  every user to keep current. A command is installed with the plugin and updated with
+  it. The user's own suggestion; the executable-plan-file variant was rejected because a
+  polyglot plan loses GitHub rendering at the permalink, the frontmatter-first
+  convention the reopen relies on, the `-plan.md` rule, and puts identical launcher
+  code into every plan.
+- **`/pdca:execute` launches a new background process; it never works the plan in the
+  session it is typed into.** Two verified facts force this (below): a command body
+  cannot set a goal, and the session at hand is not the one the plan was written for.
+  The skill reads `status` and dispatches — `handed-off` launches; `executing` and
+  `blocked` with `Next: relaunch` resume, after `claude agents --json` shows no live
+  background session in this repository; `drafting`, `Next: reopen` and `done` refuse —
+  then takes the Handoff block, checks that it is one `claude` (or `cd … && claude`)
+  command whose `/goal` names this plan, inserts `--remote-control <basename>` into a
+  pre-0.8.0 plan that lacks it, and runs it with `--bg` and `--name <basename>` added
+  directly after `claude`. `--bg` is what makes a launch possible from inside a session
+  at all: it detaches, returns an id, and the positional `/goal …` runs as the new
+  process's first turn. The block is executed, so its shape is checked first: a plan is
+  a file in a repository, and the launcher must not `eval` arbitrary text found under a
+  heading. Step 8 of the `plan` skill follows the same skill for its launch offer, so
+  there is one launch procedure with two entry points. The launcher does not re-verify
+  the plan — it reports the plan's age and the commits since, and the reopen owns the
+  freshness check.
 - Before handoff, the plan is reviewed by a fresh `claude -p` process at phase 2's
   model and effort, in a loop capped at three rounds. The reviewer runs with
   `--permission-mode plan` so it is read-only by construction, and runs in the
@@ -367,9 +399,10 @@ confirmed the model and effort checks and corrected the permission-mode one belo
   `claude -p … "/goal …"`. Verified on 2026-08-27: two plain-prompt headless sessions
   carry the field, while the six `/goal`-prompt sessions of the end-to-end run carry no
   trace of it. Since 2026-09-04 the handoff launches interactively, with
-  `--remote-control`; whether an interactive session whose first prompt is a slash
-  command writes the `permission-mode` record has not been observed, so the gate keeps
-  its fallback chain and the first real launch should settle it.
+  `--remote-control`, and that shape does write the record: observed 2026-09-04 at
+  2.1.260, a `--bg --remote-control '/goal …'` launch carried one `permission-mode`
+  record with the launch mode. So the transcript answers for the handoff as now
+  launched; the argv fallback stays for sessions started some other way.
 - When the transcript is silent, the launch flags are the next source —
   `ps -o args= -p "$PPID"`, walking up the ancestry until the argv starts with `claude`,
   and matching `--permission-mode <mode>` or `--dangerously-skip-permissions`. This
@@ -459,12 +492,28 @@ Control and CLI reference pages of the documentation, checked 2026-09-04:
 - `remoteControlAtStartup` in `settings.json` and the `/remote-control` (`/rc`) slash
   command are the other ways to turn it on; the plugin relies on neither, because the
   Handoff command has to work on a machine configured however it is.
-- **Not yet observed:** that a positional `/goal …` prompt still runs as the first
-  turn when `--remote-control` is present. Nothing in the flag's description suggests
-  otherwise — it starts an ordinary interactive session — but the documentation is
-  silent, and no interactive launch has been made since the flag was added. The first
-  real handoff settles it; if the prompt were dropped, the session would sit idle with
-  Remote Control on and the short form in the Handoff section is what to paste.
+- `claude --bg` prints `backgrounded · <id>` and the `claude attach|logs|stop <id>`
+  lines; `claude agents` needs a TTY, `claude agents --json` does not and lists every
+  session with `pid`, `cwd`, `kind` (`interactive` or `background`), `startedAt`,
+  `sessionId`, `name`, `status` (`busy`/`idle`) and, for background sessions, `id` and
+  `state` (`done` once finished). A background session's `name` is generated from the
+  conversation unless `--name` sets it — which is why the launcher passes `--name`.
+  `claude stop <id>` then `claude rm <id>` remove one; a finished session lingers until
+  they are run. Observed 2026-09-04 at 2.1.260.
+- **Observed 2026-09-04 at 2.1.260**, with
+  `claude --bg --model haiku --effort low --permission-mode plan --remote-control <name> '/goal …'`
+  in a scratch repository: the positional `/goal …` prompt ran as the first turn — the
+  sentinel was written, the evaluator judged the goal and met it in one turn — Remote
+  Control connected and printed `/remote-control is active · … https://claude.ai/code/session_…`,
+  and the transcript carried a `permission-mode` record, so the gate's transcript check
+  works for the interactive launch. `--bg` returned at once with a short id for
+  `claude attach`, `logs`, `stop` and `rm`; the process outlived the launching shell and
+  stayed alive, idle, after the goal was met until stopped. Two things it did not
+  settle: `claude agents --json` showed an auto-generated session name rather than the
+  one given to `--remote-control` (that listing is what `--name` sets), and the name on
+  the claude.ai side was not checked. Also seen: the `haiku` alias produced a session
+  whose transcript said `claude-sonnet-5` — exactly the wrong-model launch the gate
+  exists to catch.
 
 ## Facts About `/goal` This Plugin Depends On
 
@@ -482,8 +531,11 @@ Verified against Claude Code 2.1.247:
 - The condition is capped at 4000 characters and is handed to the session as its
   directive, with instructions not to pause to ask the user.
 - There is no `--goal` flag; `/goal …` as the positional prompt works in both
-  interactive and `-p` mode. Whether a plugin command or skill body could set a goal is
-  undocumented, and the plugin assumes not.
+  interactive and `-p` mode. A command body **cannot** set a goal: verified 2026-09-04
+  at 2.1.260 — a project command whose body was a single `/goal …` line expanded into
+  the prompt as text, the model answered it, and the transcript holds no `goal_status`
+  record. Only the harness sets goals: a user typing `/goal`, or `/goal …` as the
+  positional prompt of a new process — which is why a launch is always a new process.
 - Requires a trusted workspace; unavailable when `disableAllHooks` or
   `allowManagedHooksOnly` is set.
 - Works non-interactively, so it can be passed as the positional prompt to `claude`.

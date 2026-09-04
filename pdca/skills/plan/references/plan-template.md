@@ -28,7 +28,7 @@ the end of this file, is about writing the plan and is not a section of it.
 ````markdown
 ---
 plugin: pdca
-plugin_version: 0.8.0
+plugin_version: 0.9.0
 plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
 created: 2026-08-27
 status: handed-off
@@ -140,11 +140,12 @@ place: the Run Log is the record, the report was the message.>
    described below; treat the goal check as unverifiable, and continue. Otherwise
    expect `"model":"claude-opus-5"`, `"permissionMode":"auto"`, `effort=high`.
 
-   The `permissionMode` line may print nothing when the session was started with a
-   slash command as its prompt — which is what the handoff launches. Fall back to the
-   launch flags, walking up from `$PPID` until the argv starts with `claude`, and
-   matching `--permission-mode <mode>` or `--dangerously-skip-permissions`. If neither
-   source answers, the mode is unverifiable: say so rather than assuming it.
+   The `permissionMode` line prints nothing in a headless (`-p`) session started with
+   a slash command as its prompt; the Handoff command launches interactively, where it
+   does print. If it is empty anyway, fall back to the launch flags, walking up from
+   `$PPID` until the argv starts with `claude`, and matching `--permission-mode <mode>`
+   or `--dangerously-skip-permissions`. If neither source answers, the mode is
+   unverifiable: say so rather than assuming it.
 
 2. **Privileges** — skip this group only if the mode above is `bypassPermissions`,
    and say in the Run Log that you skipped it.
@@ -351,15 +352,17 @@ from what is written here plus the repository, and record what you decided.
 
 <The verbatim command that starts phase 2. Written here so the plan file carries its
 own launch instruction — terminal output is lost, a committed file is not. Keep it
-in a fenced block so it can be copied straight out of the file.>
+in a fenced block, as one line of exactly this shape: `/pdca:execute <this file>`
+reads this block and runs it, and a human can copy it straight out of the file.>
 
 ```bash
 claude --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal Execute the plan at 2026-08-27-cache-ttl-plan.md to completion. Done when ...'
 ```
 
-If this plan file has been sitting for a while, do not paste that blindly — reopen it
-with `/pdca:plan <this file>` to re-verify the Verified Context and get a
-freshened handoff.
+`/pdca:execute <this file>` runs that command as a background session with Remote
+Control, so nothing needs pasting. If this plan file has been sitting for a while, do
+not launch it blindly — reopen it first with `/pdca:plan <this file>` to re-verify the
+Verified Context and get a freshened handoff.
 
 Short form, for typing into a session already started with the flags above. The
 evaluator then holds only the plan path, the protocol and the escape hatch — not the

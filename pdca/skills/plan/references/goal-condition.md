@@ -211,8 +211,8 @@ optional, and a bare `--remote-control` placed before the prompt would consume t
 `/goal …` text as the session name. The SKILL's handoff section has the reasoning.
 
 The frontmatter's `executor` block holds the same three flags, and the Handoff
-section holds the whole command — which is what lets a shell function launch a plan
-from its path alone; the README shows one. When the work is in a different repository
+section holds the whole command — which is what lets `/pdca:execute` launch a plan
+from its path alone. When the work is in a different repository
 than the plan, emit the `cd` form so the session starts where the changes belong:
 
 ```bash

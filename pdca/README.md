@@ -65,13 +65,15 @@ plan:
 claude --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal Execute the plan at …'
 ```
 
-Run that in the work repository's directory — usually the same one you planned in —
-and the execution phase begins with a pre-flight check. The session comes up with
-Remote Control on and named after the plan, so you can follow it from claude.ai or
-the mobile app while it runs — read along, send it a message, stop it with
-`/goal clear` — without being at the machine it runs on. The `claude` process *is*
-the session, though: the terminal you launched from has to stay open, and closing it
-takes the session offline. Before it changes anything,
+You do not paste that. `/pdca:execute <plan>` — from any session, the planning one
+included — runs it as a detached background process and hands you the id for
+`claude attach`, `claude logs` and `claude stop`. The session comes up with Remote
+Control on and named after the plan, so you can follow it from claude.ai or the mobile
+app while it runs — read along, send it a message, stop it with `/goal clear` —
+without being at the machine it runs on; only the machine has to stay up. The command
+stays in the plan for a human to run by hand in the work repository's directory, where
+the terminal then has to stay open. Either way the execution phase begins with a
+pre-flight check. Before it changes anything,
 it confirms a `/goal` naming this plan is what is driving it — a launch that lost
 the prefix runs with no evaluator guarding its completion, so it can stop half-done
 and nobody notices — that it is running on the model, effort level and permission
@@ -194,7 +196,7 @@ flowchart TD
         Eval -- "not yet" --> Work
     end
 
-    Handoff -. "you run the printed<br>command, maybe weeks later" .-> Gate
+    Handoff -. "/pdca:execute,<br>maybe weeks later" .-> Gate
     Gate -- "any check fails" --> Blocked(["Blocked report written —<br>the evaluator accepts it<br>as terminal; run ends"])
     Work -. "a check can<br>never pass" .-> Blocked
     Eval -- "holds" --> Done(["Session ends: work committed,<br>ticket closed out, plan file gone"])
@@ -227,8 +229,8 @@ spec, tells you what has drifted since, brings the plan back to true — and a b
 made for it up to date with its base — takes it back through the review, and reprints
 a fresh handoff. `blocked` reads the blocked report first, folds it into the Run Log,
 deletes it, and then does the same. `executing` means a run is under way or was
-interrupted, and the session asks before touching anything — relaunching resumes the
-run from its ticked boxes; reopening abandons it.
+interrupted, and the session asks before touching anything — relaunching with
+`/pdca:execute` resumes the run from its ticked boxes; reopening abandons it.
 
 And if a stale plan gets executed anyway, the execution session is told to check the
 Verified Context against reality before it starts, and to stop with a blocked report
@@ -244,25 +246,32 @@ criteria, and the plan deletes itself before the last judgement anyway. The full
 condition inlines the acceptance criteria so the evaluator holds them independently of
 the session it is judging.
 
-What does work is running the plan's own Handoff command from its path. The plan
-carries the command verbatim, so a shell function is all it takes:
+What does work is running the plan's own Handoff command, and `/pdca:execute` does
+that:
 
-```bash
-# Launch the execution phase for a plan by running its Handoff command.
-pdca-run() {
-  local plan=${1:?usage: pdca-run <plan-file>}
-  local cmd
-  cmd=$(awk '/^## Handoff/{h=1;next} h&&!b&&/^## /{exit} h&&/^```bash/{b=1;next} b&&/^```/{exit} b' "$plan")
-  [ -n "$cmd" ] || { echo "no Handoff command in $plan" >&2; return 1; }
-  printf '%s\n' "$cmd"
-  eval "$cmd"
-}
+```
+/pdca:execute 2026-08-27-cache-ttl-plan.md
 ```
 
-It runs whatever the Handoff block says, including the `cd` form when the work lives in
-another repository — which is fine, because the plan is a file you reviewed and had
-reviewed. If the plan has been sitting, reopen it first; the freshness check is the
-point of the reopen, and the launcher does not do it for you.
+It reads the plan's `status` and acts on it — `handed-off` launches; `executing`, or
+`blocked` with a report ending `Next: relaunch`, resumes; `drafting` and
+`Next: reopen` send you to `/pdca:plan` — refuses to launch while a run is already
+live in the repository, checks that the Handoff block is one `claude` command naming
+this plan, and starts it with `claude --bg`, so the process is detached from your
+terminal and you get an id back, plus the claude.ai link once Remote Control has
+connected. It runs whatever the block says, including the `cd` form when the work
+lives in another repository — which is fine, because the plan is a file you reviewed
+and had reviewed.
+
+The launch is always a new process, never work done in the session you type the
+command into. Nothing inside a session can set a `/goal` — a command body that says
+`/goal …` is just text to the model — and that session is not the one the plan was
+written for anyway. The `execute` skill spells this out. If the plan has been sitting,
+reopen it first; the launcher tells you how old the plan is and how far the branch has
+moved since, but the freshness check is the reopen's job, not its own.
+
+A finished run leaves its background session alive and idle; `claude agents` lists
+them and `claude rm <id>` removes one.
 
 For a session you started by hand with the right flags, the Handoff section also
 carries a short form — one `/goal` line naming the plan, its protocol and the escape

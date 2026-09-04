@@ -165,9 +165,10 @@ mode check was therefore dead in the one kind of session the gate exists to guar
 A headless session with a plain prompt does carry `"permissionMode":"…"` on its prompt
 record, next to `"promptSource":"sdk"`; an interactive session writes standalone
 `permission-mode` records; a headless `/goal`-prompt session writes neither. The
-handoff now launches interactively, with `--remote-control`, and whether an
-interactive session whose first prompt is a slash command writes the record has not
-been observed — so the check keeps the fallback below either way.
+handoff now launches interactively, with `--remote-control`, and that shape does write
+the record — observed 2026-09-04 at Claude Code 2.1.260 on a `--bg --remote-control
+'/goal …'` launch, one `permission-mode` record with the launch mode. The fallback
+below stays for sessions started some other way.
 
 When the transcript is silent, try the launch flags — walking up from `$PPID` until the
 argv starts with `claude`, since the immediate parent is usually a shell:

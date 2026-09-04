@@ -501,9 +501,13 @@ artifact this step exists to prevent.
    on a pinentry prompt nobody can answer. The blocked-report hatch is phase 2's
    fallback if signing fails then, and the pre-flight's signing probe is what turns
    the hang into a clean abort.
-5. **Offer to launch the execution session**, and if declined (or if launching
-   is not possible), print the command to copy. Either way, explain how a fresh
-   process is achieved — see below.
+5. **Offer to launch the execution session.** If the user accepts, follow the
+   `execute` skill: it starts the Handoff command as a new background process with
+   `claude --bg` and reports the id and the Remote Control URL. Nothing in this
+   session can set the goal, so a launch is always a new process — the `execute` skill
+   says why. If declined, say that `/pdca:execute <path>` does the same thing later,
+   and that the command itself sits in the plan to copy. Either way, explain briefly
+   how a fresh process is achieved — see below.
 
 ## Reopening a plan
 
@@ -530,14 +534,15 @@ true — update the drifted facts, adjust the tasks and acceptance criteria that
 on them — and set `status` back to `drafting` with the first edit.
 
 **`executing`** — a run is under way or was interrupted. Say so and ask before
-touching the file: relaunching the Handoff command resumes the run from the ticked
-boxes, which is what the Execution Protocol is written for; reopening abandons that
-run and starts the plan's life over. Only the user can say which.
+touching the file: relaunching — `/pdca:execute <path>` — resumes the run from the
+ticked boxes, which is what the Execution Protocol is written for; reopening abandons
+that run and starts the plan's life over. Only the user can say which.
 
 **`blocked`** — read the blocked report beside the plan first; it names what has to
 change and ends with a `Next:` line. `Next: relaunch` means the run expects the
-Handoff command once the environment is fixed, and a reopen is only needed if the user
-wants to change the plan anyway — say so. Once you are reopening: fold the report into
+Handoff command once the environment is fixed — `/pdca:execute <path>` runs it — and a
+reopen is only needed if the user wants to change the plan anyway — say so. Once you
+are reopening: fold the report into
 the Run Log and delete it — a report never outlives the pick-up that reads it, and a
 leftover one is exactly what a relaunch must not find — then treat the plan as
 `handed-off`: re-verify, fix what the report names, and take it back through review.
@@ -550,8 +555,9 @@ found, it is a stray copy. Say so and stop.
 Every reopen that changes the plan ends the same way: back through steps 7 and 8 as
 usual — a plan brought back to true is a changed plan, and an unreviewed edit to a
 reviewed plan is an unreviewed plan — and the Handoff section is refreshed and
-printed. So "I lost the command you printed" is answered by reopening the plan, and
-comes with a freshness check attached.
+printed. So "I lost the command you printed" has two answers: `/pdca:execute <path>`
+runs it out of the file, and a reopen refreshes it first — the freshness check is the
+reopen's whole point, and the launcher does not do it.
 
 A stale plan that gets executed anyway is not a disaster either: the Execution
 Protocol tells the execution session to check the Verified Context against reality
@@ -565,6 +571,11 @@ repository being changed — usually, but not always, the one where planning hap
 When the plan and the work live in different repositories, the printed command takes
 the `cd <work-repo> && claude …` form. It shares the repository and nothing else: no
 conversation history, no context from phase 1. That is the point.
+
+`/pdca:execute <path>` runs this command for the user — the `execute` skill owns how —
+adding `--bg` so the process is detached and `--name` so `claude agents` shows which
+plan is running. The command is written for a human as well, so it stays copyable
+exactly as it stands.
 
 ```bash
 claude --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal <condition>'
@@ -581,7 +592,7 @@ claude --model opus --effort high --permission-mode auto --remote-control 2026-0
   `--remote-control` directly before the prompt takes the `/goal …` text as the
   session name and starts the session with no prompt at all. The flag is not a
   pre-flight check — a launch without it does the same work, only unwatched — so what
-  makes "always" true is that the Handoff command carries it and the launcher runs
+  makes "always" true is that the Handoff command carries it and `/pdca:execute` runs
   the Handoff command. It does need a claude.ai login rather than an API key; step 4
   probes that. And it changes nothing about the permission mode: Remote Control lets a
   human answer a prompt from a phone, but it does not put one there, so the mode
@@ -613,8 +624,8 @@ paste the `/goal …` line as the first message. Same result, no quoting hazards
 
 `/goal <plan-path>` on its own is not a launch, and the plan's Handoff section says
 so next to the short form it offers instead. The reasons are in
-`references/goal-condition.md`; the README shows a one-argument launcher that runs
-the Handoff command out of the file, which is the honest version of the same wish.
+`references/goal-condition.md`; `/pdca:execute <plan-path>` is the honest version of
+the same wish — it runs the Handoff command out of the file.
 
 Also tell the user, briefly: `/goal` shows status (turns elapsed, last evaluator
 reason), `/goal clear` stops the run early.
@@ -646,6 +657,7 @@ Three consequences shape everything in `references/goal-condition.md`:
 Phase 2 needs no skill and no plugin: the goal condition points at the plan file, and
 the plan's own Execution Protocol section tells the reader how to behave. That section
 is not boilerplate you may drop — it is what makes the file self-sufficient.
+(`/pdca:execute` is for the human launching the session, not for the session launched.)
 
 You are writing for that session, so know what it will do. Each item below is
 prescribed in full by the reference that owns it; this list is the map, not the
@@ -716,3 +728,6 @@ the plan and the repository.
 - `references/review-loop.md` — **owns the adversarial review loop**: the reviewer
   command, the prompt that puts it in phase 2's position, and when to stop. Read
   before the first review round.
+
+The launch itself is owned by the sibling `execute` skill — what `/pdca:execute` runs —
+and step 8 follows it when the user accepts the offer to launch.
