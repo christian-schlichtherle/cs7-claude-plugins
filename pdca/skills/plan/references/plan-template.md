@@ -28,7 +28,7 @@ the end of this file, is about writing the plan and is not a section of it.
 ````markdown
 ---
 plugin: pdca
-plugin_version: 0.7.0
+plugin_version: 0.8.0
 plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
 created: 2026-08-27
 status: handed-off
@@ -140,11 +140,11 @@ place: the Run Log is the record, the report was the message.>
    described below; treat the goal check as unverifiable, and continue. Otherwise
    expect `"model":"claude-opus-5"`, `"permissionMode":"auto"`, `effort=high`.
 
-   The `permissionMode` line prints nothing when the session was started with a slash
-   command as its prompt — which is what the handoff launches (`claude -p … "/goal …"`).
-   Fall back to the launch flags, walking up from `$PPID` until the argv starts with
-   `claude`, and matching `--permission-mode <mode>` or `--dangerously-skip-permissions`.
-   If neither source answers, the mode is unverifiable: say so rather than assuming it.
+   The `permissionMode` line may print nothing when the session was started with a
+   slash command as its prompt — which is what the handoff launches. Fall back to the
+   launch flags, walking up from `$PPID` until the argv starts with `claude`, and
+   matching `--permission-mode <mode>` or `--dangerously-skip-permissions`. If neither
+   source answers, the mode is unverifiable: say so rather than assuming it.
 
 2. **Privileges** — skip this group only if the mode above is `bypassPermissions`,
    and say in the Run Log that you skipped it.
@@ -354,7 +354,7 @@ own launch instruction — terminal output is lost, a committed file is not. Kee
 in a fenced block so it can be copied straight out of the file.>
 
 ```bash
-claude --model opus --effort high --permission-mode auto '/goal Execute the plan at 2026-08-27-cache-ttl-plan.md to completion. Done when ...'
+claude --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal Execute the plan at 2026-08-27-cache-ttl-plan.md to completion. Done when ...'
 ```
 
 If this plan file has been sitting for a while, do not paste that blindly — reopen it

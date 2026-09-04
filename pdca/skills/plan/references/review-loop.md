@@ -94,6 +94,9 @@ when it finishes.
   and plan mode enforces that by construction rather than by asking nicely. If a
   read-only command it wants gets denied, it can still read files, which is enough
   to review a plan.
+- No `--remote-control`. That flag belongs to the execution session's launch, where
+  a human wants to look in; the reviewer is a headless background process, and the
+  flag is interactive-only in any case.
 
 Afterwards, confirm the reviewer changed nothing — compare `git status --porcelain`
 before and against after, rather than expecting it to be empty; the plan file itself

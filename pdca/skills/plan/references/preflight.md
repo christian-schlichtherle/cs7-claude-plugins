@@ -157,15 +157,17 @@ matching launch (B) passed the gate and completed the work, checking its identit
 writing anything. In all four the evaluator accepted the outcome at `iterations=1`, so a
 correct abort ends the run rather than spinning under the Stop hook.
 
-**One correction from that run.** The `permissionMode` line above prints nothing when
-the session was started with a **slash command** as its prompt — which is precisely what
-a phase 2 handoff launches: `claude -p … "/goal …"`. The mode check was therefore dead
-in the one kind of session the gate exists to guard.
+**One correction from that run.** The `permissionMode` line above printed nothing when
+the session was started with a **slash command** as its prompt — which is what a phase
+2 handoff launches, and those runs launched it headless: `claude -p … "/goal …"`. The
+mode check was therefore dead in the one kind of session the gate exists to guard.
 
-It is the slash-command prompt that does it, not headless-ness. A headless session with
-a plain prompt does carry `"permissionMode":"…"` on its prompt record, next to
-`"promptSource":"sdk"`; an interactive session writes standalone `permission-mode`
-records; a `/goal`-prompt session writes neither.
+A headless session with a plain prompt does carry `"permissionMode":"…"` on its prompt
+record, next to `"promptSource":"sdk"`; an interactive session writes standalone
+`permission-mode` records; a headless `/goal`-prompt session writes neither. The
+handoff now launches interactively, with `--remote-control`, and whether an
+interactive session whose first prompt is a slash command writes the record has not
+been observed — so the check keeps the fallback below either way.
 
 When the transcript is silent, try the launch flags — walking up from `$PPID` until the
 argv starts with `claude`, since the immediate parent is usually a shell:

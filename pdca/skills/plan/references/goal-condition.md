@@ -195,7 +195,7 @@ closeout clause when the plan has no ticket.
 ## Emitting the handoff
 
 ```bash
-claude --model opus --effort high --permission-mode auto '/goal Execute the plan at …'
+claude --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal Execute the plan at …'
 ```
 
 `--permission-mode auto` is not optional: a session that stops at a permission prompt
@@ -204,13 +204,19 @@ directions — it also denies, silently — so a prescribed command can be refus
 human to override. Phase 1 is what prevents that, by running every prescribed command
 under this mode first; see the SKILL's handoff section.
 
+`--remote-control <name>` is not optional either, and the name is the plan's file
+name without `.md`. It is what lets the user watch and steer the unattended session
+from claude.ai or the mobile app. Always give the name: the flag's argument is
+optional, and a bare `--remote-control` placed before the prompt would consume the
+`/goal …` text as the session name. The SKILL's handoff section has the reasoning.
+
 The frontmatter's `executor` block holds the same three flags, and the Handoff
 section holds the whole command — which is what lets a shell function launch a plan
 from its path alone; the README shows one. When the work is in a different repository
 than the plan, emit the `cd` form so the session starts where the changes belong:
 
 ```bash
-cd /path/to/work-repo && claude --model opus --effort high --permission-mode auto '/goal …'
+cd /path/to/work-repo && claude --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal …'
 ```
 
 If the ticket key is still unknown at handoff, leave it as a visible placeholder in

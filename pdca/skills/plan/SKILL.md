@@ -287,6 +287,17 @@ and give the user the resulting URL to click, which is the only honest proof the
 template is right. If there is no comment channel, say so now and let the user choose
 the fallback — see `references/jira.md`.
 
+**Remote Control is a launch-time privilege too, and the one that is only a warning.**
+The handoff starts phase 2 with `--remote-control` — see "The handoff command" — and
+that needs a claude.ai subscription login: `claude auth status` prints
+`"authMethod": "claude.ai"` and `"apiProvider": "firstParty"`. An API key, a Bedrock
+or Vertex login, a custom `ANTHROPIC_BASE_URL`, or any of the variables that switch
+off non-essential traffic (`DISABLE_TELEMETRY`, `DO_NOT_TRACK`,
+`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, `DISABLE_GROWTHBOOK`) blocks it. When the
+probe fails, tell the user and keep the flag: a session whose Remote Control cannot
+connect still starts, says so on screen, and does the work — it only runs unwatched.
+So this is not a plan defect and does not become a pre-flight check.
+
 You may prototype throwaway spikes to de-risk an assumption — a scratch script, a
 quick patch to see whether something compiles. Restore the working tree before the
 handoff; phase 2 must start from a state you understand. Apart from spikes, the plan
@@ -556,11 +567,25 @@ the `cd <work-repo> && claude …` form. It shares the repository and nothing el
 conversation history, no context from phase 1. That is the point.
 
 ```bash
-claude --model opus --effort high --permission-mode auto '/goal <condition>'
+claude --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal <condition>'
 ```
 
 - `--model` / `--effort` — as settled in phase 1, step 2 (handoff parameters). These
   are why the plan was written at the altitude it was.
+- `--remote-control <name>` — **always**, and always named. Phase 2 is the phase with
+  nobody at the terminal, and Remote Control is what lets the user look in on it from
+  claude.ai or the mobile app while it runs — read the transcript, send a message,
+  type `/goal clear` — without being where it was launched. The name is the plan's
+  file name without `.md`, so a user with several runs going can tell them apart in
+  the session list. Never emit the flag bare: its argument is optional, and a bare
+  `--remote-control` directly before the prompt takes the `/goal …` text as the
+  session name and starts the session with no prompt at all. The flag is not a
+  pre-flight check — a launch without it does the same work, only unwatched — so what
+  makes "always" true is that the Handoff command carries it and the launcher runs
+  the Handoff command. It does need a claude.ai login rather than an API key; step 4
+  probes that. And it changes nothing about the permission mode: Remote Control lets a
+  human answer a prompt from a phone, but it does not put one there, so the mode
+  stays `auto`.
 - `--permission-mode auto` — **required**, but understand what it does. Auto decides
   without asking, and it decides in *both* directions: it allows without a prompt,
   and it also silently denies. Without it the session stops at the first write and
@@ -583,8 +608,8 @@ claude --model opus --effort high --permission-mode auto '/goal <condition>'
   immediately.
 
 If the condition cannot be made shell-safe, print the two-step form instead: start
-`claude --model … --effort … --permission-mode auto`, then paste the `/goal …` line
-as the first message. Same result, no quoting hazards.
+`claude --model … --effort … --permission-mode auto --remote-control <name>`, then
+paste the `/goal …` line as the first message. Same result, no quoting hazards.
 
 `/goal <plan-path>` on its own is not a launch, and the plan's Handoff section says
 so next to the short form it offers instead. The reasons are in

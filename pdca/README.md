@@ -62,11 +62,16 @@ does the session write the launch command into the plan, print it, and commit th
 plan:
 
 ```bash
-claude --model opus --effort high --permission-mode auto '/goal Execute the plan at …'
+claude --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal Execute the plan at …'
 ```
 
 Run that in the work repository's directory — usually the same one you planned in —
-and the execution phase begins with a pre-flight check. Before it changes anything,
+and the execution phase begins with a pre-flight check. The session comes up with
+Remote Control on and named after the plan, so you can follow it from claude.ai or
+the mobile app while it runs — read along, send it a message, stop it with
+`/goal clear` — without being at the machine it runs on. The `claude` process *is*
+the session, though: the terminal you launched from has to stay open, and closing it
+takes the session offline. Before it changes anything,
 it confirms a `/goal` naming this plan is what is driving it — a launch that lost
 the prefix runs with no evaluator guarding its completion, so it can stop half-done
 and nobody notices — that it is running on the model, effort level and permission
@@ -296,6 +301,12 @@ session at handoff; the execution session never creates branches.
 
 `/goal` needs a trusted workspace and working hooks — it is unavailable when
 `disableAllHooks` or `allowManagedHooksOnly` is set.
+
+Remote Control, which the execution session always starts with, needs a claude.ai
+subscription login. With an API key, Bedrock or Vertex the session still starts and
+does the work — it says at startup that Remote Control could not connect, and runs
+unwatched. The planning session checks `claude auth status` and tells you which case
+you are in.
 
 The ticket side is optional and degrades cleanly. Reading a ticket needs an Atlassian
 MCP server, a CLI, or you pasting it. The closeout needs a comment channel — the MCP

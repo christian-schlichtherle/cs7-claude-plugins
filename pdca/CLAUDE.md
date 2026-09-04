@@ -80,6 +80,19 @@ for a day and dropped for exactly that consistency.
   escalates; an execution session cannot answer permission prompts. Auto decides
   without asking in *both* directions, though — it also denies silently — so phase 1
   must run every prescribed command under that mode before prescribing it.
+- **Phase 2 always runs with `--remote-control <plan-basename>`.** Decided 2026-09-04.
+  It is the unattended phase, and Remote Control is what lets the user follow and
+  steer it — including `/goal clear` — from claude.ai or the mobile app. The name is
+  the plan's file name without `.md`, and it is never omitted: the flag's argument is
+  optional, so a bare `--remote-control` directly before the prompt would consume the
+  `/goal …` text as the session name. It is not a pre-flight check — a session whose
+  Remote Control cannot connect starts anyway, says so, and does the same work
+  unwatched — so "always" is enforced by the Handoff command carrying the flag and the
+  launcher running the Handoff command. Phase 1 probes `claude auth status` for a
+  claude.ai login and warns when there is none. The reviewer never gets the flag: it
+  is a headless `-p` process, and the flag is interactive-only. The permission mode
+  stays `auto` regardless — a phone can answer a prompt, but nobody is guaranteed to
+  be holding it.
 - Phase 2 opens with a pre-flight gate, and the gate is the reason model, effort and
   permission mode are settled in phase 1 step 2 rather than at handoff. The plan names
   all three literally; phase 2 reads its own back and compares. The gate also checks
@@ -350,10 +363,13 @@ confirmed the model and effort checks and corrected the permission-mode one belo
   record per turn; a headless session started with a *plain* prompt carries
   `"permissionMode":"…"` as a field on its prompt record, beside `"promptSource":"sdk"`;
   and a headless session whose prompt is a **slash command** records neither. That last
-  case is the one that matters, because it is exactly what a phase 2 handoff launches —
+  case was the one that mattered while the handoff launched headless —
   `claude -p … "/goal …"`. Verified on 2026-08-27: two plain-prompt headless sessions
   carry the field, while the six `/goal`-prompt sessions of the end-to-end run carry no
-  trace of it. The distinction is the slash-command prompt, not headless-ness.
+  trace of it. Since 2026-09-04 the handoff launches interactively, with
+  `--remote-control`; whether an interactive session whose first prompt is a slash
+  command writes the `permission-mode` record has not been observed, so the gate keeps
+  its fallback chain and the first real launch should settle it.
 - When the transcript is silent, the launch flags are the next source —
   `ps -o args= -p "$PPID"`, walking up the ancestry until the argv starts with `claude`,
   and matching `--permission-mode <mode>` or `--dangerously-skip-permissions`. This
@@ -411,6 +427,44 @@ These are internal formats, not public API. If a release moves the transcript, t
 identity check degrades to self-report — which `references/preflight.md` already
 tells the execution session to fall back to. The snippet itself is in two places:
 that file and `skills/plan/references/plan-template.md`.
+
+## Facts About Remote Control This Plugin Depends On
+
+From `claude --help` at Claude Code 2.1.260, `claude auth status`, and the Remote
+Control and CLI reference pages of the documentation, checked 2026-09-04:
+
+- `--remote-control [name]` (alias `--rc`) starts an **interactive** session with Remote
+  Control enabled; `claude remote-control` is a different thing — server mode, serving
+  sessions to several remote connections — and the plugin does not use it. `-p` is
+  non-interactive, so the two are not combined; the handoff carries no `-p`.
+- The `[name]` argument is optional and is taken from the next token when that token
+  does not start with `-`. This is why the handoff always names the session: a bare
+  flag placed before the `/goal …` prompt would swallow the prompt. `--name <name>` and
+  `--remote-control-session-name-prefix <prefix>` (env
+  `CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX`, default hostname) exist as well; the
+  plugin uses the flag's own argument because it removes the hazard by construction.
+- Requires a claude.ai subscription login (Pro, Max, Team, Enterprise). Not available
+  with an API key, Bedrock, Vertex or Foundry, behind a custom `ANTHROPIC_BASE_URL`, or
+  when `DISABLE_TELEMETRY`, `DO_NOT_TRACK`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`
+  or `DISABLE_GROWTHBOOK` is set. `claude auth status` prints the login as JSON by
+  default — `"authMethod": "claude.ai"`, `"apiProvider": "firstParty"` — which is the
+  phase 1 probe.
+- Failure behavior differs by form: the flag starts the interactive session locally and
+  shows a Remote Control failure notification shortly after launch; server mode exits.
+  So a handoff on an account that cannot use Remote Control still runs, unwatched.
+- One remote session per interactive process. The local `claude` process is the
+  session: closing the terminal takes it offline, and it retries the connection
+  indefinitely while the process lives. Permission prompts and `AskUserQuestion`
+  dialogs forwarded to a remote device stay open until answered.
+- `remoteControlAtStartup` in `settings.json` and the `/remote-control` (`/rc`) slash
+  command are the other ways to turn it on; the plugin relies on neither, because the
+  Handoff command has to work on a machine configured however it is.
+- **Not yet observed:** that a positional `/goal …` prompt still runs as the first
+  turn when `--remote-control` is present. Nothing in the flag's description suggests
+  otherwise — it starts an ordinary interactive session — but the documentation is
+  silent, and no interactive launch has been made since the flag was added. The first
+  real handoff settles it; if the prompt were dropped, the session would sit idle with
+  Remote Control on and the short form in the Handoff section is what to paste.
 
 ## Facts About `/goal` This Plugin Depends On
 
