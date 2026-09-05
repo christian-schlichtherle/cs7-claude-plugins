@@ -1,6 +1,6 @@
 ---
-name: plan
 description: Split a piece of work into an interactive planning phase that produces a self-sufficient plan file, and an autonomous execution phase run by a fresh `/goal` session. Use this skill whenever the user wants to plan before implementing, wants a plan another session or another model can execute unattended, says the work is too big for one session, asks to "hand this off", "write a plan I can run later", "set this up so it can run autonomously", mentions PDCA, names a Jira ticket to implement, or types /pdca:plan. Also use it when the user is about to set a `/goal` by hand — a goal grounded in a verified plan beats one grounded in assumptions.
+name: plan
 user-invocable: false
 ---
 
@@ -539,8 +539,8 @@ ticked boxes, which is what the Execution Protocol is written for; reopening aba
 that run and starts the plan's life over. Only the user can say which.
 
 **`blocked`** — read the blocked report beside the plan first; it names what has to
-change and ends with a `Next:` line. `Next: relaunch` means the run expects the
-Handoff command once the environment is fixed — `/pdca:execute <path>` runs it — and a
+change and carries `next` in its frontmatter. `next: relaunch` means the run expects
+the Handoff command once the environment is fixed — `/pdca:execute <path>` runs it — and a
 reopen is only needed if the user wants to change the plan anyway — say so. Once you
 are reopening: fold the report into
 the Run Log and delete it — a report never outlives the pick-up that reads it, and a

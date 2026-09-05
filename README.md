@@ -65,7 +65,10 @@ Generate and edit images and videos directly from Claude Code using Google's Gem
 
 ## Installation
 
-Both plugins need [Claude Code](https://claude.ai/code) v1.0.33+. Add the marketplace once:
+`gemini-media` needs [Claude Code](https://claude.ai/code) v1.0.33+. `pdca` needs
+v2.1.260+, the version its launch path was verified against — it depends on `/goal`,
+on `claude --bg` with `--remote-control`, and on `claude agents --json`. Add the
+marketplace once:
 
 ```bash
 claude plugin marketplace add christian-schlichtherle/cs7-claude-plugins

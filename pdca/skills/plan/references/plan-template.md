@@ -27,26 +27,27 @@ the end of this file, is about writing the plan and is not a section of it.
 
 ````markdown
 ---
-plugin: pdca
-plugin_version: 0.9.0
-plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
+branch: main
+closeout_push: true
 created: 2026-08-27
-status: handed-off
 executor:
-  model: claude-opus-5
   effort: high
+  model: claude-opus-5
   permission_mode: auto
+permalink: https://github.com/acme/api/blob/<sha>/2026-08-27-cache-ttl-plan.md
+plan_file: 2026-08-27-cache-ttl-plan.md
+plugin: pdca
+plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
+plugin_version: 0.10.0
 sources:
   - ACME-123
   - docs/specs/cache-ttl.md
+status: handed-off
 ticket:
-  key: ACME-123
-  url: https://acme.atlassian.net/browse/ACME-123
   cloud_id: a1b2c3d4-…
-plan_file: 2026-08-27-cache-ttl-plan.md
-branch: main
-closeout_push: true
-permalink: https://github.com/acme/api/blob/<sha>/2026-08-27-cache-ttl-plan.md
+  key: ACME-123
+  type: jira
+  url: https://acme.atlassian.net/browse/ACME-123
 ---
 
 # <Goal in one line>
@@ -109,8 +110,8 @@ are spelled out literally here, in the same spelling as the frontmatter's `execu
 block, so the comparison is a string match, not a judgement.
 
 Before check 1: if `2026-08-27-cache-ttl-plan.BLOCKED.md` exists, this is a relaunch.
-Fold that report into the Run Log below — its date, the check it named, what was
-tried, its `Next:` line — then delete it, in this same turn, and only then run the
+Fold that report into the Run Log below — its `date`, the check it named, what was
+tried, its `next` — then delete it, in this same turn, and only then run the
 checks. An inherited report never satisfies this plan's goal and is never left in
 place: the Run Log is the record, the report was the message.>
 
@@ -336,9 +337,10 @@ from what is written here plus the repository, and record what you decided.
     plan path with `.md` replaced by `.BLOCKED.md`, so `2026-08-27-cache-ttl-plan.md`
     becomes `2026-08-27-cache-ttl-plan.BLOCKED.md`. It names the failing check, what you
     tried, and why it cannot pass; lists the working tree as you leave it — every
-    uncommitted file and the task it belongs to; and ends with one line,
-    `Next: relaunch` when the Handoff command can resume once the environment is fixed,
-    or `Next: reopen` when the plan itself has to change. Set `status: blocked` in this
+    uncommitted file and the task it belongs to; and opens with a frontmatter block of
+    exactly two keys, alphabetically — `date:` the day the run stopped, and `next:`
+    `relaunch` when the Handoff command can resume once the environment is fixed, or
+    `reopen` when the plan itself has to change. Set `status: blocked` in this
     file's frontmatter, bring the Run Log current, and commit this file and the report
     together — the blocked commit, pushed when `closeout_push` says so — leaving
     uncommitted only the work that has not reached a commit boundary. Then stop. Getting
@@ -388,21 +390,23 @@ The frontmatter is the plan's data: what produced it, who it is for, what it was
 planned from, and where it stands. Everything a reader or a session might want to
 look up without reading prose lives here, and nothing else does — an instruction is a
 sentence in a section, not a key. GitHub renders the block as a table at the top of
-the file, so it costs the human reader nothing.
+the file, so it costs the human reader nothing. The keys are written in alphabetical
+order, nested ones too — no key group carries meaning, so a fixed order is one less
+thing to decide and one less way for two plans to differ.
 
 | Key | Written by | Meaning |
 |---|---|---|
-| `plugin`, `plugin_version`, `plugin_url` | phase 1, first draft | Provenance, copied from the plugin's own `.claude-plugin/plugin.json` (`name`, `version`, `repository`). `plugin: pdca` is also how `/pdca:plan <path>` tells a plan to reopen from a spec to plan against; the version tells a reopen which template wrote the file. |
-| `created` | phase 1, first draft | Date of the first draft. Never updated. |
-| `status` | both phases | The plan's state — see below. |
-| `executor` | phase 1, first draft | Model, effort and permission mode for phase 2, in the spellings the pre-flight compares: `claude-opus-5`, `high`, `auto`. |
-| `sources` | phase 1, first draft | Every requirements source the plan was planned from: ticket keys, spec paths, URLs. `[]` when there were none. |
-| `ticket` | phase 1, first draft | `key`, `url` and `cloud_id` of the Jira ticket, or `none`. Present even when `none`, so an absent ticket can be told from a forgotten one. |
-| `plan_file` | phase 1, first draft | This file's path, relative to the repository holding it. |
-| `work_repo` | phase 1, first draft | Only when the work lives in a different repository than the plan: its path. Absent otherwise. |
 | `branch` | phase 1, handoff | The branch the plan expects at launch; the Ground check compares. Normally the branch planning happened on. When the user asked for the work to go on a new branch, phase 1 created it at handoff and committed the plan on it, and this names it. |
 | `closeout_push` | phase 1, handoff | Whether the closeout pushes its two commits. Asked only when a ticket was named; `false` otherwise, and `false` when there is no remote. |
+| `created` | phase 1, first draft | Date of the first draft. Never updated. |
+| `executor` | phase 1, first draft | Model, effort and permission mode for phase 2, in the spellings the pre-flight compares: `claude-opus-5`, `high`, `auto`. |
 | `permalink` | phase 1, handoff | The host's permalink form with everything but `<sha>` filled in, or `none` when there is no remote. |
+| `plan_file` | phase 1, first draft | This file's path, relative to the repository holding it. |
+| `plugin`, `plugin_url`, `plugin_version` | phase 1, first draft | Provenance, copied from the plugin's own `.claude-plugin/plugin.json` (`name`, `version`, `repository`). `plugin: pdca` is also how `/pdca:plan <path>` tells a plan to reopen from a spec to plan against; the version tells a reopen which template wrote the file. |
+| `sources` | phase 1, first draft | Every requirements source the plan was planned from: ticket keys, spec paths, URLs. `[]` when there were none. |
+| `status` | both phases | The plan's state — see below. |
+| `ticket` | phase 1, first draft | `type`, `key`, `url` and `cloud_id` of the ticket, or `none`. Present even when `none`, so an absent ticket can be told from a forgotten one. `type` names the tracker: `jira` is the only value this plugin supports, and `cloud_id` is its key alone — a plan whose `type` is anything else gets no ticket steps in its Closeout, and phase 1 says so rather than improvising an integration. |
+| `work_repo` | phase 1, first draft | Only when the work lives in a different repository than the plan: its path. Absent otherwise. |
 
 `status` takes exactly these values, and the file's state is read from it, never
 inferred from its age or its checkboxes:

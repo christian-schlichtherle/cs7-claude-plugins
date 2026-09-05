@@ -113,8 +113,8 @@ ticket at the start was the decision, and neither phase brings it back to you.
 
 If a check turns out to be impossible, it writes a `.BLOCKED.md` report next to the
 plan, commits the two together, and stops, rather than retrying forever. The report
-lists the working tree it leaves behind and ends with `Next: relaunch` or
-`Next: reopen`. It is a message, not the record: whichever session picks the plan up
+lists the working tree it leaves behind, and its frontmatter carries `next: relaunch`
+or `next: reopen`. It is a message, not the record: whichever session picks the plan up
 next — a relaunch's pre-flight or a reopen — folds it into the plan's Run Log and
 deletes it, so a finished run never leaves one behind. And a leftover report cannot
 end a relaunch early, because the goal only accepts a report written in that session.
@@ -124,8 +124,9 @@ end a relaunch early, because the goal only accepts a report written in that ses
 Every plan opens with YAML frontmatter — the file's data, rendered by GitHub as a
 table at the top — and the prose sections follow. The frontmatter says which plugin
 version wrote the plan and when, which model, effort and permission mode it was
-written for, which sources it was planned from, which ticket it closes out, where the
-file lives, and its `status`. The status is the one piece of
+written for, which sources it was planned from, which ticket in which tracker it closes
+out, where the file lives, and its `status`. Its keys are in alphabetical order, nested
+ones too, so two plans differ only where they mean to. The status is the one piece of
 state the file carries, and it is moved by whichever phase moves the plan:
 
 ```mermaid
@@ -254,8 +255,8 @@ that:
 ```
 
 It reads the plan's `status` and acts on it — `handed-off` launches; `executing`, or
-`blocked` with a report ending `Next: relaunch`, resumes; `drafting` and
-`Next: reopen` send you to `/pdca:plan` — refuses to launch while a run is already
+`blocked` with a report whose `next` is `relaunch`, resumes; `drafting` and
+`next: reopen` send you to `/pdca:plan` — refuses to launch while a run is already
 live in the repository, checks that the Handoff block is one `claude` command naming
 this plan, and starts it with `claude --bg`, so the process is detached from your
 terminal and you get an id back, plus the claude.ai link once Remote Control has

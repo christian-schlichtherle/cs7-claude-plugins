@@ -1,6 +1,6 @@
 ---
-description: Plan a piece of work interactively into a self-sufficient plan file, then hand it off to a fresh execution session driven by /goal.
 argument-hint: "[model] [effort] <goal, ticket, spec path, or plan path>"
+description: Plan a piece of work interactively into a self-sufficient plan file, then hand it off to a fresh execution session driven by /goal.
 ---
 
 # PDCA Plan

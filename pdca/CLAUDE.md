@@ -49,6 +49,11 @@ for a day and dropped for exactly that consistency.
   so it does not also appear in the slash-command list. Without that flag Claude Code
   shows each command twice — once for the command with its human-facing description,
   once for the skill with its triggering description.
+- **Frontmatter keys are sorted alphabetically, nested ones too.** Every YAML
+  frontmatter block this plugin writes or ships — the plan file, the blocked report,
+  the skills, the commands. No key group in any of them carries meaning by position,
+  so a fixed order removes a decision from every writer and a diff from every review.
+  Decided 2026-09-05.
 - **The skill is the single source of truth.** Each command is a thin entry point: a
   description, an argument hint, examples, and a pointer. Argument parsing, the
   verification rules, the plan template, the goal-condition rules and the launch
@@ -156,7 +161,10 @@ for a day and dropped for exactly that consistency.
   fields `branch`, `closeout_push`, `permalink`. Instructions such as "do
   not create a branch" are sentences in sections, never keys. Provenance earns its
   place because the plan self-destructs: a reader at the permalink weeks later learns
-  what wrote the file, and a reopen learns which template did. GitHub renders the
+  what wrote the file, and a reopen learns which template did. `ticket.type` names the
+  tracker — `jira` is the only value the plugin supports, added 2026-09-05 — because
+  `cloud_id` is Atlassian's alone, and a block that says which tracker it describes
+  beats one whose type has to be inferred from which optional keys are present. GitHub renders the
   block as a table, so the human reader loses nothing.
 - **`status` is the only state the plan file records**, and it is read, never
   inferred. `drafting` → `handed-off` (phase 1, with the Handoff section) →
@@ -234,15 +242,20 @@ for a day and dropped for exactly that consistency.
 - **The blocked report is a message; the Run Log is the record.** Decided 2026-09-03
   after the art-backend-nt runs left two reports behind for good and one plan had to
   invent the rule itself. A blocked run commits the plan and the report together and
-  leaves only work short of a commit boundary uncommitted; the report lists the tree and ends with `Next: relaunch`
-  or `Next: reopen`. Whichever session picks the plan up next — a relaunch's pre-flight
+  leaves only work short of a commit boundary uncommitted; the report lists the tree and
+  carries `next: relaunch` or `next: reopen` in a frontmatter block of two keys, `next`
+  and `date` — frontmatter rather than a closing line because `next` is the one field a
+  reader parses, `/pdca:execute` dispatches on it the way it dispatches on the plan's
+  `status`, and a keyed field survives a postscript; on the report rather than beside
+  `status: blocked` on the plan because it describes one blockage and would go stale
+  there, while the report is deleted whole. Decided 2026-09-05. Whichever session picks the plan up next — a relaunch's pre-flight
   before its first check, or a reopen — folds the report into the Run Log and deletes
   it, so a report never outlives the pick-up and a finished run has none. The goal's
   hatch requires a report *written in this session*, so a leftover one cannot end a
   relaunch in turn 1 even if the consuming step is missed — that trap was real. A
   report written on an estimate rather than a check that ran is retracted in the same
   session. A boundary stop — a run that cannot finish everything and stops clean at a
-  task boundary — is the same mechanism with `Next: relaunch`; the Run Log's
+  task boundary — is the same mechanism with `next: relaunch`; the Run Log's
   started-lines tell the resume which task was cut mid-way.
 - **The closeout writes a comment, nothing else.** No transition, no field edits, no
   worklog; and a blocked run says nothing on the ticket by default, because an
@@ -293,8 +306,8 @@ for a day and dropped for exactly that consistency.
   session it is typed into.** Two verified facts force this (below): a command body
   cannot set a goal, and the session at hand is not the one the plan was written for.
   The skill reads `status` and dispatches — `handed-off` launches; `executing` and
-  `blocked` with `Next: relaunch` resume, after `claude agents --json` shows no live
-  background session in this repository; `drafting`, `Next: reopen` and `done` refuse —
+  `blocked` with `next: relaunch` resume, after `claude agents --json` shows no live
+  background session in this repository; `drafting`, `next: reopen` and `done` refuse —
   then takes the Handoff block, checks that it is one `claude` (or `cd … && claude`)
   command whose `/goal` names this plan, inserts `--remote-control <basename>` into a
   pre-0.8.0 plan that lacks it, and runs it with `--bg` and `--name <basename>` added
@@ -548,3 +561,36 @@ them, all four need updating:
 2. `skills/plan/references/goal-condition.md`, the opening section.
 3. `README.md`, section "Requirements".
 4. This file, above.
+
+## Facts About `auto` Mode This Plugin Depends On
+
+From the Claude Code documentation
+([permission modes](https://code.claude.com/docs/en/permission-modes)), read
+2026-09-05. `skills/plan/references/preflight.md`, group 2, is the copy phase 2 loads;
+this section is why it says what it says.
+
+- **The classifier is not the session's model.** It runs on Sonnet 5 by default rather
+  than on the `/model` selection, a server-side configured model takes precedence, and
+  it falls back to the session's model when that is Sonnet 4.6 or when `availableModels`
+  excludes Sonnet 5, or to an Opus model on Fable. The session's first auto-mode request
+  settles it, after which it does not change. So the plan's `executor.model` does not
+  move the verdicts — a plan is not made more or less likely to be refused by choosing
+  Opus over Sonnet.
+- **The classifier does not see the plan.** It reads user messages, tool calls other
+  than read-only lookups, and CLAUDE.md; tool results are stripped. The execution
+  session obtains the plan by reading the file, so every justification the plan offers
+  is invisible to the thing judging the commands. This is the structural reason an
+  unattended run trips refusals an interactive one does not, and it is why standing
+  intent belongs in the work repository's CLAUDE.md rather than in the plan.
+- **Repeated blocks fall back to prompting.** Three consecutive blocks, or twenty in a
+  session, pause auto mode and Claude Code resumes prompting; the thresholds are not
+  configurable, an allowed action resets the consecutive counter, and the total counter
+  persists for the session. In the background session `/pdca:execute` launches this is a
+  prompt with nobody in front of it: the run neither fails nor stops — the Stop hook
+  holds it — so it stalls. Remote Control is the recovery. The pre-flight gate cannot
+  catch this one, because nothing is wrong at turn 1.
+- **Allow rules resolve before the classifier, but broad ones are dropped on entering
+  auto mode**: blanket `Bash(*)` and `PowerShell(*)`, wildcarded interpreters like
+  `Bash(python*)`, package-manager run commands, and `Agent` and `Monitor` rules. Narrow
+  rules such as `Bash(npm test)` stay in effect, which makes them the one reliable way
+  to take a prescribed command out of the classifier's hands.

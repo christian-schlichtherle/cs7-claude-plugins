@@ -1,6 +1,6 @@
 ---
-description: Launch or resume a plan's execution phase as a fresh background claude session — the plan's own Handoff command under /goal, with Remote Control — and report how to reach it.
 argument-hint: "[plan path]"
+description: Launch or resume a plan's execution phase as a fresh background claude session — the plan's own Handoff command under /goal, with Remote Control — and report how to reach it.
 ---
 
 # PDCA Execute
@@ -18,7 +18,7 @@ wrong.
 
 - `/pdca:execute 2026-08-27-cache-ttl-plan.md` — launch a handed-off plan
 - `/pdca:execute 2026-08-27-cache-ttl-plan.md` on a plan whose `status` is `executing`,
-  or `blocked` with a report ending `Next: relaunch` — resume the run where it stopped
+  or `blocked` with a report whose `next` is `relaunch` — resume the run where it stopped
 - `/pdca:execute` — the one `*-plan.md` at the repository root
 
 What it will not do: execute the plan in this session. A `/goal` can only be set by

@@ -1,6 +1,6 @@
 ---
-name: execute
 description: Launch or resume the execution phase of a pdca plan file as a fresh background `claude` session that runs the plan's own Handoff command under `/goal` with Remote Control. Use this skill whenever the user wants to start, launch, run, kick off, resume or relaunch a plan file, says "execute the plan", asks how to launch a plan without pasting the handoff command, has fixed what a blocked report named and wants the run to continue, accepts the launch offer at the end of the planning phase, or types /pdca:execute. Never execute a plan inside the current session — this skill starts a new process, and says why.
+name: execute
 user-invocable: false
 ---
 
@@ -48,7 +48,7 @@ one correction here and a whole run later.
 |---|---|---|
 | `handed-off` | Planning finished; no run yet | Launch: steps 3 to 6. |
 | `executing` | A run is under way, or was interrupted | Step 3 first: if a run is live, do not start a second one. Otherwise launch — the Execution Protocol resumes from the ticked boxes and the Run Log's last started-line. Say that it is a resume. |
-| `blocked` | A run stopped itself and left a report | Read the `.BLOCKED.md` beside the plan. `Next: relaunch` → launch; the pre-flight consumes the report before its first check. `Next: reopen` → stop: the plan has to change, and `/pdca:plan <path>` is how. A missing report, or one without a `Next:` line, is something to say and ask about, not to guess past. |
+| `blocked` | A run stopped itself and left a report | Read the `.BLOCKED.md` beside the plan and its frontmatter `next`. `next: relaunch` → launch; the pre-flight consumes the report before its first check. `next: reopen` → stop: the plan has to change, and `/pdca:plan <path>` is how. A report written before 0.10.0 has no frontmatter and ends with a `Next:` line instead — read that. A missing report, or one with neither, is something to say and ask about, not to guess past. |
 | `drafting` | Planning never finished | Stop. Nothing to launch; `/pdca:plan <path>` continues planning. |
 | `done` | Should not exist on disk | A stray copy. Stop and say so. |
 

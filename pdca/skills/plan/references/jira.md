@@ -309,9 +309,12 @@ with the read-only
 `GET /rest/api/3/mypermissions?issueKey=<key>&permissions=ADD_COMMENTS`, which returns
 `havePermission` and writes nothing.
 
-Record in the plan — `key`, `url` and `cloud_id` in the frontmatter's `ticket` block, the
-permalink template in `permalink`, the exact comment call or command in the Ticket
-Closeout section. Phase 2 should be executing recorded commands,
+Record in the plan — `type: jira`, `key`, `url` and `cloud_id` in the frontmatter's
+`ticket` block, the permalink template in `permalink`, the exact comment call or command
+in the Ticket Closeout section. `type` is what makes the rest of the block readable
+without guessing: `cloud_id` is a Jira key, and a later tracker would bring its own,
+so the block says which tracker it describes instead of leaving a reader to infer it
+from which optional keys happen to be present. Phase 2 should be executing recorded commands,
 not improvising an integration.
 
 ### When there is no comment channel

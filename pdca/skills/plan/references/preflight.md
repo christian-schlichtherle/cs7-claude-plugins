@@ -27,6 +27,11 @@ it is reached in the first turn rather than after hours of work.
 The report has to be actionable, because the person reading it was not there:
 
 ```markdown
+---
+date: 2026-08-27
+next: relaunch
+---
+
 # BLOCKED: pre-flight
 
 Check 1 (model) failed.
@@ -35,15 +40,32 @@ This plan was written for a high-effort reader and states intent rather than exa
 edits. Relaunch with the command in the Handoff section of the plan, which sets
 --model opus --effort high. No task was started; the working tree holds only this
 report and the plan's status line, committed together.
-
-Next: relaunch
 ```
+
+Two frontmatter keys, and no more, in alphabetical order as every frontmatter block in
+this plugin is. `date` is the day the run stopped, which the pick-up folds into the Run
+Log; `next` is `relaunch` when the Handoff command can resume once the environment is
+fixed, or `reopen` when the plan itself has to change. Everything else the reader needs
+is prose, and everything else a consumer might want is already somewhere better: the
+plan path is the report's own filename with `.BLOCKED.md` back to `.md`, the blocked
+commit cannot name its own sha, and the failing session's id belongs in the Run Log,
+which survives the report. Where the run stopped is the heading —
+`# BLOCKED: pre-flight`, `# BLOCKED: task 4`.
+
+`next` is frontmatter rather than a closing line because it is the one thing in the
+report a reader has to *parse*: `/pdca:execute` dispatches on it exactly as it
+dispatches on the plan's `status`, and a keyed field survives a postscript where a
+last-line convention does not. It stays on the report rather than moving to the plan's
+frontmatter next to `status: blocked` because it describes one blockage, not the plan:
+on the plan it could go stale — a `next: relaunch` left behind on a reopened
+`handed-off` plan is exactly the leftover this design fights — while on the report it
+cannot, because the report is deleted whole.
 
 The report is a message to the human, not the record — the Run Log is the record.
 Whichever session picks the plan up next consumes it: a relaunch's pre-flight, before
 its first check, folds the report into the Run Log and deletes it; a reopen does the
 same in phase 1. So a report never outlives the next pick-up, a finished run has none,
-and the `Next:` line says which pick-up the report expects. The goal condition's hatch
+and `next` says which pick-up the report expects. The goal condition's hatch
 requires a report *written in this session*, so an inherited one cannot end a relaunch
 in turn 1; the pre-flight step that consumes it is what keeps that from ever being
 tested.
@@ -248,6 +270,47 @@ server that needs interactive authentication, or a token that expired between th
 phases, refuses at the moment of use. `auto` can also decline an MCP write outright. If
 the plan prescribes a tool call, phase 1 makes one — a read against the same server is
 usually enough — under phase 2's permission mode.
+
+**The one failure this gate cannot catch, and what to do about it.** Probing covers the
+commands the plan names. It does not cover what happens when `auto` refuses *repeatedly*
+during the run: after 3 consecutive blocks, or 20 across the session, auto mode pauses
+and Claude Code goes back to prompting, and the thresholds are not configurable
+([permission modes](https://code.claude.com/docs/en/permission-modes), read 2026-09-05).
+In the background session the handoff launches, that prompt has nobody in front of it.
+The run does not fail and cannot stop — the Stop hook holds it — so it stalls,
+which is worse than the blocked report. Remote Control is the recovery: attach and
+answer the prompt. A run that keeps tripping the classifier is telling you the plan was
+prescribed against a mode it does not actually fit; the answer is a phase-1 fix, not a
+mid-run escalation.
+
+Three levers, in the order to try them:
+
+- **Reshape the refused command.** A probe denied under phase 2's mode is the signal,
+  and it arrives while a human is still in the room.
+- **Narrow allow rules** in the work repository's `.claude/settings.json`. Rules resolve
+  before the classifier sees the call, so a rule like `Bash(npm test)` takes the command
+  out of its hands entirely. Only narrow ones: entering auto mode drops blanket
+  `Bash(*)`, wildcarded interpreters like `Bash(python*)`, package-manager run commands,
+  and `Agent` and `Monitor` rules. A plan that depends on such an entry names it as a
+  precondition in group 4 and checks that it is present.
+- **Give the classifier the context it can actually see.** It reads user messages,
+  non-read-only tool calls and CLAUDE.md — and tool results are stripped, so the plan
+  file, which the session obtains by reading it, is invisible to it. Every justification
+  the plan offers for an unusual command is therefore not available to the thing judging
+  that command. Standing intent that has to reach it belongs in the work repository's
+  CLAUDE.md.
+
+Switching the plan to `bypassPermissions` is a fourth lever and a different kind of
+decision — the user's, made in phase 1 and recorded in `executor.permission_mode`, never
+a hedge added at launch "in case `auto` gets in the way". See `plan/SKILL.md` on the
+permission mode for why an unattended run is the worst place to turn the layer off.
+
+The classifier itself is not the session's model, so none of this moves when the plan
+picks a different `executor.model`: it runs on Sonnet 5 by default rather than on the
+`/model` selection, with a server-side override taking precedence, falling back to the
+session's model when that is Sonnet 4.6 or when `availableModels` excludes Sonnet 5, and
+to an Opus model on Fable. What differs between an interactive session and an unattended
+one is not the judge but what the judge has read.
 
 ### 3. Ground — that this is the right place
 
