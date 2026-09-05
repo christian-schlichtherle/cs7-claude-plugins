@@ -38,7 +38,7 @@ permalink: https://github.com/acme/api/blob/<sha>/2026-08-27-cache-ttl-plan.md
 plan_file: 2026-08-27-cache-ttl-plan.md
 plugin: pdca
 plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
-plugin_version: 0.10.0
+plugin_version: 0.11.0
 sources:
   - ACME-123
   - docs/specs/cache-ttl.md
@@ -153,8 +153,6 @@ place: the Run Log is the record, the report was the message.>
    - `kubectl auth can-i update configmap -n staging` prints `yes`.
    - `helm -n staging upgrade api charts/api -f charts/api/values-staging.yaml --dry-run`
      exits 0. If it is denied rather than failing, that is a pre-flight failure.
-   - `echo test | gpg --clearsign --batch --pinentry-mode error` exits 0 — commits
-     here are signed, and a cold agent hangs rather than failing.
    - The ticket comment channel answers: a read against the Atlassian MCP server
      succeeds under this permission mode (or, on the REST fallback,
      `GET /rest/api/3/mypermissions?issueKey=ACME-123&permissions=ADD_COMMENTS`
@@ -313,8 +311,7 @@ from what is written here plus the repository, and record what you decided.
    the Run Log before deciding anything. Then proceed only if the plan's Goal still
    makes sense; otherwise treat it as blocked.
 7. Commit as you go, on the current branch — `branch` in the frontmatter, which the
-   gate confirmed — with the ticket prefix and the signing convention this plan
-   records: a task, or a coherent slice of one, per commit, so progress is durable and
+   gate confirmed — with the ticket prefix this plan records: a task, or a coherent slice of one, per commit, so progress is durable and
    a resume or a rollback has real boundaries to work with. Never create a branch: when this plan wanted one, the planning session created it
    at handoff and this file already sits on it.
 8. Run the **Closeout** section — after the commit in step 7 and before you remove

@@ -78,7 +78,7 @@ it confirms a `/goal` naming this plan is what is driving it — a launch that l
 the prefix runs with no evaluator guarding its completion, so it can stop half-done
 and nobody notices — that it is running on the model, effort level and permission
 mode the plan was written for, that every privilege the plan needs is actually
-available — a passwordless sudo, a warm signing key, a cluster role — and that it
+available — a passwordless sudo, a cluster role, a live token — and that it
 is in the right repository on the right branch. If any of that is wrong it writes
 a `.BLOCKED.md` naming the mismatch and stops immediately, rather than producing
 plausible-looking work on the wrong model and going wrong somewhere nobody is

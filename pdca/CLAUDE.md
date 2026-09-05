@@ -54,6 +54,16 @@ for a day and dropped for exactly that consistency.
   the skills, the commands. No key group in any of them carries meaning by position,
   so a fixed order removes a decision from every writer and a diff from every review.
   Decided 2026-09-05.
+- **Commit signing is not pdca's concern, and is not mentioned anywhere in the
+  artifact.** Whether commits are signed is git configuration — `commit.gpgsign`, which
+  a user sets globally once — so a prescribed command needs no `-S`, a plan records
+  nothing about it, and the pre-flight does not probe it. Removed 2026-09-05 along with
+  the probe that motivated this: `gpg --clearsign --batch --pinentry-mode error` reports
+  a failure wherever a pinentry answers without a human, which aborted runnable plans
+  over a cold agent cache that signing never needed. Verified that day on macOS —
+  `pinentry-mac`, `default-cache-ttl 600`, the signing key's keygrips in the login
+  keychain: once the cache lapses the probe fails while the commit still succeeds
+  unprompted. Do not re-add it in any form.
 - **The skill is the single source of truth.** Each command is a thin entry point: a
   description, an argument hint, examples, and a pointer. Argument parsing, the
   verification rules, the plan template, the goal-condition rules and the launch

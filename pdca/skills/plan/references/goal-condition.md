@@ -159,7 +159,7 @@ pushed in this session, and a comment was posted to ACME-123 in this session con
 link to that plan file at that commit, and only then was the plan file deleted in a
 separate later commit; git status --porcelain is empty; and the plan file
 has been deleted, with all work committed on the current branch, each commit
-prefixed ACME-123 and GPG-signed. Do not create a branch. Do not relax, skip, or
+prefixed ACME-123. Do not create a branch. Do not relax, skip, or
 declare passed any check that was not actually run, and do not route around a
 permission denial - a refused command is a blocked-report situation. If a pre-flight
 or acceptance check cannot be made to pass, write 2026-08-27-cache-ttl-plan.BLOCKED.md

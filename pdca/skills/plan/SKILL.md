@@ -267,10 +267,10 @@ user-approved mode escalation in the plan. A prescribed command phase 2 cannot r
 makes its acceptance criterion unreachable.
 
 **Enumerate the privileges the tasks need, and probe each one.** Read back through
-what the plan will prescribe: every command that signs, pushes, writes outside the
+what the plan will prescribe: every command that pushes, writes outside the
 repository, touches a cluster, or reaches the network needs something this session
-happens to have and phase 2 may not — a warm signing agent, a cluster role, a live
-token, passwordless sudo. For each, find the cheapest command that proves the right
+happens to have and phase 2 may not — a cluster role, a live token, passwordless
+sudo. For each, find the cheapest command that proves the right
 exists without exercising it (`sudo -n true`, `kubectl auth can-i …`, a `--dry-run`
 form), run it here, and record it as a pre-flight check in the plan. Those probes are
 what turns a silent refusal at task 5 into a clean abort in turn 1;
@@ -480,8 +480,8 @@ artifact this step exists to prevent.
    frontmatter: `status: handed-off`, `branch` as `git branch --show-current` prints
    it, `closeout_push` from the decision in item 1, `permalink` as the template worked
    out in step 4 or `none`.
-4. **Now commit** — always. Follow the repository's commit convention, including the ticket prefix and signing
-   if that is what `git log` shows. Committing before item 3 would put a plan into
+4. **Now commit** — always. Follow the repository's commit convention, including the
+   ticket prefix if that is what `git log` shows. Committing before item 3 would put a plan into
    history without its own launch command and leave phase 2 facing a dirty tree — both
    of which defeat the point.
 
@@ -492,15 +492,6 @@ artifact this step exists to prevent.
    here is the proof that the template recorded in the plan is the right one for this
    host, and it costs one click now instead of a dead link on the ticket weeks later.
 
-   If the convention signs commits, this commit doubles as the live proof that
-   signing works unattended: check it with `git log --show-signature -1`.
-
-   Say plainly that a signed commit now is not a guarantee: it says the agent is warm
-   *now*, not that it still will be when phase 2 launches days later — a
-   passphrase-protected key with no warm agent does not fail loudly then, it *hangs*
-   on a pinentry prompt nobody can answer. The blocked-report hatch is phase 2's
-   fallback if signing fails then, and the pre-flight's signing probe is what turns
-   the hang into a clean abort.
 5. **Offer to launch the execution session.** If the user accepts, follow the
    `execute` skill: it starts the Handoff command as a new background process with
    `claude --bg` and reports the id and the Remote Control URL. Nothing in this
@@ -524,9 +515,9 @@ requirement, and a ticket that has since been closed, split or reprioritized is 
 reason to stop and ask rather than to launch. Report what changed in the sources
 alongside what drifted in the repository. This is cheap, because the Verified Context
 section records the command behind every fact: re-run them, along with the pre-flight
-probes, and report which still hold and which have drifted — an access token or a
-signing key that has expired since the plan was written shows up here as readily as a
-changed config value. When the plan sits on a branch phase 1 created for it, bringing that branch up to date
+probes, and report which still hold and which have drifted — an access token that has
+expired since the plan was written shows up here as readily as a changed config
+value. When the plan sits on a branch phase 1 created for it, bringing that branch up to date
 with its base — merge or rebase, whichever the repository's convention is — is part of
 the same re-verification: the facts are re-checked against the code the run will
 actually change, not against a base that has since moved. Then bring the plan back to

@@ -231,8 +231,7 @@ explicitly rather than silently omitting it.
 Under any other mode — `auto` in particular — every elevated thing the plan requires
 is proved **now**. Two separate gates can refuse a command, and both are silent:
 
-- **The right itself** — passwordless sudo, a cluster role, a valid cloud token, a
-  usable signing key.
+- **The right itself** — passwordless sudo, a cluster role, a valid cloud token.
 - **The classifier** — `auto` judges the command as written. It refuses things a
   human would wave through, and it refuses them without a prompt.
 
@@ -245,7 +244,6 @@ command has a rehearsal form, that is the probe:
 |---|---|
 | `sudo` anything | `sudo -n true` — a sudo that would prompt hangs an unattended run |
 | A cluster mutation | `kubectl auth can-i <verb> <resource> -n <ns>`, or the real command with `--dry-run=server` |
-| A signed commit | `echo test \| gpg --clearsign --batch --pinentry-mode error` (SSH signing: the equivalent key check) |
 | A push | `git push --dry-run` |
 | GitHub API access | `gh auth status` |
 | Cloud API access | `aws sts get-caller-identity`, or the provider equivalent |
@@ -257,12 +255,11 @@ command has a rehearsal form, that is the probe:
 A probe that needed manual approval, or came back denied, is a failed pre-flight — not
 a note to keep in mind.
 
-Two of those rows are worth a word on why they are fatal rather than cosmetic. A cold
-signing key does not fail, it *hangs*. And a closeout that cannot run means the plan
-file — the record of the entire run, including everything the run is about to append to
-it — has nowhere to go before it is deleted; a push that is refused is the same failure
-wearing a different hat, since the ticket comment then links to a commit no reader can
-reach. Both are cheaper to catch here than
+The last two rows are worth a word on why they are fatal rather than cosmetic. A
+closeout that cannot run means the plan file — the record of the entire run, including
+everything the run is about to append to it — has nowhere to go before it is deleted;
+a push that is refused is the same failure wearing a different hat, since the ticket
+comment then links to a commit no reader can reach. Both are cheaper to catch here than
 anywhere else in the workflow.
 
 MCP tool calls are probed the same way as shell commands, and for the same reason: a
@@ -360,8 +357,8 @@ Writing the Pre-Flight section is phase 1's job, and it is not boilerplate:
   guarding the run. It is in the template; a plan that drops it has lost the check
   that makes every other check enforceable.
 - **Enumerate the privileges from the tasks, not from imagination.** Read back through
-  the plan; every command that writes outside the tree, touches a cluster, signs,
-  pushes, or reaches the network earns a probe.
+  the plan; every command that writes outside the tree, touches a cluster, pushes, or
+  reaches the network earns a probe.
 - **Run every probe yourself, under phase 2's permission mode.** This is the same rule
   that governs prescribed commands generally, and it applies with more force here: a
   probe that is itself denied turns the gate into a false alarm that ends the run
