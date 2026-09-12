@@ -38,7 +38,7 @@ permalink: https://github.com/acme/api/blob/<sha>/2026-08-27-cache-ttl-plan.md
 plan_file: 2026-08-27-cache-ttl-plan.md
 plugin: pdca
 plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
-plugin_version: 0.11.0
+plugin_version: 0.12.0
 review_rounds: 10
 sources:
   - ACME-123

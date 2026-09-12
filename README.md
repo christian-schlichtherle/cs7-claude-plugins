@@ -14,8 +14,9 @@ The plan file is the only interface between the phases, which is why the skill p
 
 | Command | Purpose |
 |---|---|
-| `/pdca:plan [model] [effort] <goal or plan path>` | Plan interactively, then hand off to an autonomous run |
+| `/pdca:plan [model] [effort] [rounds] <goal or plan path>` | Plan interactively, then hand off to an autonomous run |
 | `/pdca:execute [plan path]` | Launch or resume that run as a detached background session with Remote Control |
+| `/pdca:review [model] [effort] [rounds] <path…> [reader statement]` | Review any file or directory cold, by a fresh process in the reader's position, until it agrees or the budget is spent |
 
 **Skills:**
 
@@ -23,8 +24,10 @@ The plan file is the only interface between the phases, which is why the skill p
 |---|---|---|
 | `plan` | "plan before implementing", "write a plan I can run later", "too big for one session", "hand this off", "PDCA" | Verified-context planning, adversarial review by the executing model, `/goal` condition construction, resumable plan files |
 | `execute` | "execute the plan", "launch the plan", "resume the run", "relaunch after the blocked report" | Status-aware launch of the plan's own Handoff command as a fresh `claude --bg` process, double-launch guard, attach/logs/stop handles |
+| `review` | "review this cold", "have a fresh model review it", "adversarial review", "what would a reader who cannot ask me trip over" | The adversarial loop on any deliverable: a cold `claude -p` reviewer in plan mode, a prompt template filled from a lens, a round budget, a machine-readable closing line |
 
-- Before handoff, the plan is reviewed by a fresh `claude -p` at phase 2's model and effort — it sees the plan and the repo and nothing else — looping until both models agree or three rounds pass
+- Before handoff, the plan is reviewed by a fresh `claude -p` at phase 2's model and effort — it sees the plan and the repo and nothing else — looping until both models agree or the round budget runs out, and a plan the executor vetoed is never handed off
+- That review is a skill of its own: `/pdca:review [model] [effort] [rounds] <path…>` runs the same loop on a runbook, a spec, a README, an RFC or a whole directory, with the opinions — who is reading, what counts as a blocker — supplied as a lens rather than hardcoded
 - The goal condition inlines the acceptance criteria, stays inside the 4000-character cap, is shell-safe, and always carries a blocked-report escape hatch so an impossible check terminates instead of looping
 - The handoff command is written into the plan itself, so it survives weeks between the two phases; `/pdca:execute <plan>` runs it as a detached background session with Remote Control on, so you can follow the run from claude.ai or your phone
 - The autonomous session opens with a pre-flight gate — that a `/goal` naming its plan is driving it, on the right model, effort and permission mode, on the right branch, with every privilege the tasks need — all confirmed before anything changes; a mismatch is a blocked report in turn 1, not an adaptation

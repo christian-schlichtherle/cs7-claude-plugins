@@ -2,8 +2,8 @@
 
 ## How It Works
 
-Two commands (`/pdca:plan`, `/pdca:execute`) and two skills (`plan`, `execute`)
-implementing a PDCA cycle split across two sessions:
+Three commands (`/pdca:plan`, `/pdca:execute`, `/pdca:review`) and three skills
+(`plan`, `execute`, `review`) implementing a PDCA cycle split across two sessions:
 
 - **Plan**, the planning phase — interactive, runs commands to verify its
   assumptions, writes `<date>-<slug>-plan.md` at the repository root.
@@ -15,6 +15,10 @@ detached background process from the plan's own Handoff command.
 
 The plan file is the only interface between them, which is why the skill pushes so
 hard on verified facts and inlined acceptance criteria.
+
+`/pdca:review` is the adversarial review loop on its own, for any deliverable a
+reader has to act on without asking its author. `/pdca:plan` runs the same loop
+through the same skill.
 
 ## Vocabulary
 
@@ -44,11 +48,31 @@ for a day and dropped for exactly that consistency.
 
 ## Conventions
 
-- **One palette entry per command, two files each.** `/pdca:plan` and `/pdca:execute`
-  are the commands; the skill of the same name behind each is `user-invocable: false`
-  so it does not also appear in the slash-command list. Without that flag Claude Code
+- **One palette entry per command, two files each.** `/pdca:plan`, `/pdca:execute` and
+  `/pdca:review` are the commands; the skill of the same name behind each is
+  `user-invocable: false` so it does not also appear in the slash-command list. Without that flag Claude Code
   shows each command twice — once for the command with its human-facing description,
   once for the skill with its triggering description.
+- **The review loop has a round budget the user sets, and the user cannot override a
+  veto.** Both decided 2026-09-12, when the loop moved into the `review` skill. The
+  fixed cap of three became a budget with a default of ten because agreement had
+  regularly taken more rounds than that, so stopping there reported a non-convergence
+  that was really a loop cut short; the number is now the user's, asked for in the
+  step 2 interview and recorded as `review_rounds`. The override went because the plan is a
+  contract between the user, the planner and the executor: handing off over a standing
+  veto gives phase 2 a document one of the three has already said it cannot execute.
+  A review that will not converge leaves the plan a draft — the user edits it, raises
+  the budget, or stops — and the next cold round judges whatever they wrote.
+- **The `review` skill owns the mechanics; every opinion is a lens slot.** The loop,
+  the reviewer command, the verdict rules, the budget and the report are the skill's.
+  Who is reading, what the artifact is called, what is exempt, what counts as a
+  blocker, what success means, what a gap costs, what nits do not gate and how a
+  disagreed blocker is answered are eight `## <slot>` sections in a lens file. `plan`
+  fills every one of them from `skills/plan/references/executor-lens.md`, so no default
+  in the review skill can reach a plan review, and `plan` is the reference caller:
+  standalone use adapts through lens slots, never by changing the mechanics. A change
+  to the loop that would alter what the executor lens assembles is a change to
+  `/pdca:plan` and is reviewed as one.
 - **Frontmatter keys are sorted alphabetically, nested ones too.** Every YAML
   frontmatter block this plugin writes or ships — the plan file, the blocked report,
   the skills, the commands. No key group in any of them carries meaning by position,
@@ -84,13 +108,12 @@ for a day and dropped for exactly that consistency.
   review that fixed blockers returns its changes to the user as a delta — their
   proceed attached to a version the review has since rewritten. User afterthoughts —
   there, or at any point in the handoff step before launch — reopen the iteration,
-  and a material change re-enters the review with a fresh three-round budget. Only
+  and a material change re-enters the review with a fresh round budget. Only
   an AGREED on a plan the review did not touch exits straight to the handoff, because
-  that version is exactly the one the user already said proceed on. The one exception is
-  the user's override: when the review does not converge, the user settles the
-  disagreement and their settlement is the exit — the user outranks both models —
-  with the overruled
-  objection recorded in the plan so phase 2 knows it was seen, not missed. A
+  that version is exactly the one the user already said proceed on. There is no
+  exception: a review that does not converge leaves the plan a draft, and the user
+  edits it, raises the budget, or stops. They outrank both models by deciding what the
+  plan says, not by launching a plan the executor refused to sign. A
   re-entry from the handoff step rebuilds whatever was already built there: the goal
   condition, the Handoff section, and a follow-up commit when the plan was already
   committed. README.md carries the Mermaid diagram of the loop nest.
@@ -137,6 +160,11 @@ for a day and dropped for exactly that consistency.
   parameter unsettled; the tool's "Other" field still takes a ticket key, URL, or
   full model ID as free text. Parameters already on the command line are not
   re-asked.
+- **The step 2 interview has five candidate questions and the tool holds four**, so
+  when all five are missing it takes two `AskUserQuestion` calls: model, effort,
+  permission mode and ticket first, the review loop's round budget second. Asking is
+  unconditional and cheap because the user picks options rather than composing a reply;
+  a parameter nobody settles is one phase 2 discovers at its pre-flight gate.
 - **The ticket is asked for on every run**, unconditionally, and the answer may be
   "none". Given one, phase 1 reads it and turns it into a requirements conversation
   whose outcome is the plan's `## Requirements` table. That table records every
@@ -148,8 +176,8 @@ for a day and dropped for exactly that consistency.
 - **A spec is an input, never an output.** `/pdca:plan` receives specifications; it
   does not write them, and there is no `/pdca:spec`. A spec file, a URL or a paste is a
   requirements source beside the ticket and goes through the same conversation, with
-  the same table. It is not interviewed for — the interview is at the tool's four-question
-  capacity, and a spec the user has is one they hand over. The plan stays self-contained
+  the same table. It is not interviewed for — the interview already takes two calls, and
+  a spec the user has is one they hand over. The plan stays self-contained
   regardless: it condenses every source into the Requirements table, because phase 2 may
   not be able to reach a Confluence page and a plan that only points at a spec has lost
   the property the design rests on. A path on the command line is told apart by the
@@ -330,14 +358,15 @@ for a day and dropped for exactly that consistency.
   the plan — it reports the plan's age and the commits since, and the reopen owns the
   freshness check.
 - Before handoff, the plan is reviewed by a fresh `claude -p` process at phase 2's
-  model and effort, in a loop capped at three rounds. The reviewer runs with
+  model and effort, in a loop capped by the round budget, default ten, that step 2
+  interviewed for and the plan records as `review_rounds`. The reviewer runs with
   `--permission-mode plan` so it is read-only by construction, and runs in the
   background — a foreground reviewer at xhigh effort outlives the 10-minute tool
   timeout. Each round returns exactly one of two results: VETOED with at least one
   blocker, or AGREED with no blockers and any number of nits; the verdict line follows
   from the Blockers section, and the prompt says so. A round with no verdict line, or
   one that contradicts its own Blockers section, is inconclusive and does not consume
-  one of the three. A disputed blocker is answered in the plan text, never only in the
+  one of the budget. A blocker the planner disagrees with is answered in the plan text, never only in the
   round report, because the next round is a cold read that never sees the report.
   Nits applied as the reviewer worded them do not reopen the review — the reviewer has
   already classified them as not changing what it would do — but they reach the user
@@ -355,8 +384,9 @@ for a day and dropped for exactly that consistency.
   `agent` and `subagentStatusLine` — and `/goal`'s `◎` indicator is hardcoded in the
   harness, so parity with it is not available. Instead the skill has the planning
   session maintain `~/.cache/claude-pdca/<session-id>.status` (one line naming the current
-  step — `verify`, `iterate`, `review 2/3`, `handoff` — never its number, because the
-  loops re-enter earlier steps; updated on step transitions and review rounds,
+  step — `verify`, `iterate`, `review 2/10`, `handoff` — never its number, because the
+  loops re-enter earlier steps; updated on step transitions, and by the `review` skill
+  at every round while the review runs;
   leftovers swept after seven days, deleted when the phase ends), and README.md documents the opt-in status-line segment that
   displays it. When nothing reads the file, writing it is harmless — which is why the
   skill writes it unconditionally rather than asking whether the user's status line
@@ -599,8 +629,58 @@ this section is why it says what it says.
   prompt with nobody in front of it: the run neither fails nor stops — the Stop hook
   holds it — so it stalls. Remote Control is the recovery. The pre-flight gate cannot
   catch this one, because nothing is wrong at turn 1.
+- **`auto` is unavailable under Haiku.** A session launched with
+  `--model haiku … --permission-mode auto` prints `auto mode unavailable for this model`
+  and falls back to manual mode, where its first Bash call sits at
+  `This command requires approval` with nobody to answer; four headless Haiku sessions
+  started that way refused every file mutation, including an in-repo `touch`. Observed
+  2026-09-12 on 2.1.269. Consequence for a plan whose `executor.model` is `haiku`: its
+  permission mode cannot be `auto`, so an unattended run of it is not possible as
+  written — the pre-flight gate catches it, and teaching the step 2 interview to catch
+  it earlier is an open decision. A Haiku *reviewer* is unaffected: it runs in plan
+  mode, which Haiku has.
+- **The classifier refuses to launch a bypass child.** A `claude --bg …` launch whose
+  prompt asked the new session to run
+  `claude -p … --permission-mode bypassPermissions …` was denied with
+  `Permission … denied by the Claude Code auto mode classifier. Reason: [Create Unsafe Agents]`.
+  Observed 2026-09-12. Consequence: nothing this plugin prescribes uses
+  `bypassPermissions`, in a plan or in a probe.
 - **Allow rules resolve before the classifier, but broad ones are dropped on entering
   auto mode**: blanket `Bash(*)` and `PowerShell(*)`, wildcarded interpreters like
   `Bash(python*)`, package-manager run commands, and `Agent` and `Monitor` rules. Narrow
   rules such as `Bash(npm test)` stay in effect, which makes them the one reliable way
   to take a prescribed command out of the classifier's hands.
+
+## Facts About Plugin Loading This Plugin Depends On
+
+Observed on Claude Code 2.1.269, 2026-09-12, with a scratch copy of `pdca/` loaded
+through `--plugin-dir` into headless sessions. The documentation
+([plugins reference](https://code.claude.com/docs/en/plugins-reference), "Where
+Variables Are Expanded") agrees where it speaks; what a same-named command and skill
+resolve to is undocumented, so the observation is the fact.
+
+- **`--plugin-dir <path>` merges into an installed plugin of the same name rather than
+  colliding with it.** A copy carrying an extra `commands/probe.md`, loaded beside the
+  installed `pdca`, listed `/pdca:plan`, `/pdca:execute` and `/pdca:probe` — no
+  duplicates, one pdca plugin. This is how an edited tree is tested before it is
+  pushed, since the marketplace's `autoUpdate` means every session on the machine runs
+  the last pushed version until then.
+- **A plugin command works as the `-p` prompt.** `claude -p … "/pdca:probe"` ran the
+  command body and printed what it asked for. That is what makes a headless smoke test
+  of a command possible at all.
+- **`${CLAUDE_PLUGIN_ROOT}` and `${CLAUDE_SKILL_DIR}` are expanded in the Markdown the
+  model is given** — command bodies and skill bodies alike — not in the shell. In a
+  Bash call the variable is unset (`echo "${CLAUDE_PLUGIN_ROOT:-unset}"` prints
+  `unset`). `${CLAUDE_SKILL_DIR}` names the skill's own directory.
+- **The Skill tool resolves a name a command shares to the *command* body.**
+  `Skill(pdca:execute)` returned the command body, first line `# PDCA Execute`, not
+  `skills/execute/SKILL.md`. A skill with no same-named command is listed as
+  `pdca:<name>` and loads through the Skill tool normally, even at
+  `user-invocable: false`. Consequence: a command reaches its sibling skill file only
+  by a path it names literally — hence `${CLAUDE_PLUGIN_ROOT}/skills/<name>/SKILL.md`
+  in `commands/review.md` and in the `plan` skill's pointers. "Follow the `execute`
+  skill" with no path works only where the model already knows the plugin's directory.
+- **A plan-mode session will not read outside the project directory.** Asked to read a
+  file under `mktemp -d`, a `--permission-mode plan` reviewer answered that the path is
+  outside the project directory. Consequence: an artifact under review has to live
+  inside the repository; only the prompt and the verdict go to scratch.

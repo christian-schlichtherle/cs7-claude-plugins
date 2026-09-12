@@ -42,6 +42,20 @@ decide goes into the plan as a requirements table naming every source, including
 requirements you dropped, so the execution phase does not helpfully implement
 them behind your back.
 
+That review is available on its own, for anything a reader has to act on without
+being able to ask you:
+
+```
+/pdca:review sonnet xhigh docs/runbook.md for an operator following it at 3am
+```
+
+Same loop, same isolation: a fresh process reads the file and the repository cold and
+comes back with blockers or agreement, round after round until it agrees or the budget
+— `/pdca:review sonnet xhigh 5 docs/` — is spent. What is being reviewed and who is
+reading it are the two things it needs; leave any of the model, the effort, the budget
+or the reader off and it asks. A runbook, a spec, a README, an RFC, a whole directory.
+Not a plan file — those go through `/pdca:plan`, which owns the exit.
+
 Planning then proceeds interactively. Each turn updates `<date>-<slug>-plan.md` — at
 the repository root, never tucked under `docs/` — and reports only what changed; you
 read the file when you want the whole picture. When you say proceed, the plan is
@@ -49,15 +63,17 @@ handed to a fresh `claude -p` process running at phase 2's model and effort — 
 sees the plan and the repository and nothing else — and asked whether it could
 execute it unattended.
 Its verdict is one word: VETOED, with at least one blocker to fix, after which it is
-asked again, up to three rounds; or AGREED, possibly with nits, which are applied
+asked again, up to the round budget you chose, ten by default; or AGREED, possibly
+with nits, which are applied
 without another round. If the review changed the plan, the changes come back to you
 before anything else happens — your proceed
 was given to a version the review has since rewritten. Afterthoughts at that point
 reopen the iteration, and a materially changed plan goes through review again. The
 two loops alternate until a single version of the plan is one that all three parties
-stand behind: you, the planning session, and the model that will execute it — or, if
-the review will not converge, until you settle the disagreement yourself: you
-outrank both models, and the overruled objection is recorded in the plan. Only then
+stand behind: you, the planning session, and the model that will execute it. If the
+budget runs out first, both positions are put to you and the plan stays a draft — you
+edit it, which starts a fresh round on what you wrote, or you raise the budget, or you
+stop. A plan the executor vetoed is never handed off. Only then
 does the session write the launch command into the plan, print it, and commit the
 plan:
 
@@ -156,11 +172,13 @@ any other status says exactly what to do with it — see "Coming back to a plan 
 The harness is three loops in total. The planning session nests the first two: you
 drive the outer one, and it exits only when you *say* proceed — never by inference,
 and never in the same turn as the first draft; the adversarial reviewer
-drives the inner one. A plan reaches the handoff only when a single version of it is
+drives the inner one, which is the `review` skill behind `/pdca:review`, run with the
+plan skill's own `executor-lens.md` so that it reads as the model about to execute
+the plan. A plan reaches the handoff only when a single version of it is
 one that all three parties stand behind at once — you, the planning session, and the
-model that will execute it. The one exception is your override: a review that will
-not converge is settled by you, and your settlement is the exit, with the overruled
-objection recorded in the plan. The third loop is `/goal` itself: in the execution session,
+model that will execute it. There is no exception: a review that will not converge
+puts both positions to you and leaves the plan a draft. You settle it by editing the
+plan, which the next cold round then judges; by raising the budget; or by stopping. The third loop is `/goal` itself: in the execution session,
 an evaluator judges the goal condition after every turn and blocks stopping until it
 holds — or until the session proves it cannot, in the blocked report.
 
@@ -172,21 +190,20 @@ flowchart TD
         Happy -- "answers, changes,<br>afterthoughts" --> Draft
     end
 
-    subgraph Inner["Inner loop — adversarial review"]
+    subgraph Inner["Inner loop — adversarial review (the review skill)"]
         Reviewer["Fresh claude -p at phase 2's<br>model and effort, read-only"] --> Verdict{"Verdict?"}
         Verdict -- "VETOED:<br>fix the blockers" --> Reviewer
     end
 
-    Start(["/pdca:plan"]) --> Interview["Interview: model, effort,<br>permission mode, ticket"]
+    Start(["/pdca:plan"]) --> Interview["Interview: model, effort,<br>permission mode, ticket,<br>review round budget"]
     Interview --> Sources["Read the sources —<br>ticket, spec — and settle<br>every requirement"]
     Sources --> Explore["Explore and verify"]
     Explore --> Draft
 
     Happy -- "proceed — version not<br>yet cleared by review" --> Reviewer
     Happy -- "proceed — version already<br>cleared by review" --> Handoff
-    Verdict -- "no convergence<br>after three rounds" --> Settle["Both positions<br>put to you"]
-    Settle -- "you side with<br>the reviewer" --> Draft
-    Settle -- "you overrule — objection<br>recorded in the plan" --> Handoff
+    Verdict -- "budget spent,<br>no convergence" --> Settle["Both positions<br>put to you"]
+    Settle -- "you edit the plan,<br>or raise the budget" --> Draft
     Verdict -- "AGREED —<br>plan unchanged" --> Handoff["Handoff: commit decision,<br>goal condition, launch command"]
     Verdict -- "AGREED — but the review<br>changed the plan" --> Delta
     Handoff -. "afterthought that<br>changes the plan" .-> Draft
@@ -284,7 +301,7 @@ Phase 2 shows its progress natively — `/goal` has a built-in `◎` indicator. 
 can show its progress too, but Claude Code plugins cannot ship a status line, so this
 part is an opt-in. The planning session maintains a one-line status file at
 `~/.cache/claude-pdca/<session-id>.status` — the current step by name (`verify`,
-`iterate`, `review 2/3`, `handoff`, …), updated at every step transition and review
+`iterate`, `review 2/10`, `handoff`, …), updated at every step transition and review
 round, deleted when planning ends — and your own status-line command displays it. Add a segment like this to the script your `statusLine` setting names:
 
 ```bash

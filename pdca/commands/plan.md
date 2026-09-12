@@ -1,5 +1,5 @@
 ---
-argument-hint: "[model] [effort] <goal, ticket, spec path, or plan path>"
+argument-hint: "[model] [effort] [rounds] <goal, ticket, spec path, or plan path>"
 description: Plan a piece of work interactively into a self-sufficient plan file, then hand it off to a fresh execution session driven by /goal.
 ---
 
@@ -22,6 +22,8 @@ wrong.
 - `/pdca:plan sonnet rename the metrics client across both services` —
   effort missing, so propose one and ask
 - `/pdca:plan add a health endpoint to the api service` — model and effort missing
+- `/pdca:plan opus high 20 raise the staging cache TTL` — twenty rounds for the
+  adversarial review instead of the default ten
 - `/pdca:plan opus max 2026-08-27-cache-ttl-plan.md` — reopen an existing plan
 - `/pdca:plan opus high docs/specs/cache-ttl.md` — a spec to plan against; plans are
   named `-plan.md`, but what settles it is the frontmatter, not the name
@@ -29,7 +31,8 @@ wrong.
 - `/pdca:plan` — no goal given, so interview for one
 
 The leading `opus high` names the model and effort for the *second* phase, not this
-one. The skill explains why that has to be settled before the plan is drafted.
+one, and a number after them is the review loop's round budget. The skill explains why
+those have to be settled before the plan is drafted.
 
 Every run asks for a Jira ticket; the skill says what happens with one, and with a
 spec.
