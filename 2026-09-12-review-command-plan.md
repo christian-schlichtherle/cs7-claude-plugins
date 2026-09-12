@@ -13,7 +13,7 @@ plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
 plugin_version: 0.11.0
 review_rounds: 10
 sources: []
-status: handed-off
+status: executing
 ticket: none
 ---
 
@@ -412,7 +412,7 @@ end of task 2, before anything else is touched, so a mismatch is found while the
 are the only ones that changed. Tasks 1–4 each end in a commit; task 5 changes nothing
 and ends in a Run Log entry instead.
 
-- [ ] **1. Create the `review` skill.** Three files under `pdca/skills/review/`:
+- [x] **1. Create the `review` skill.** Three files under `pdca/skills/review/`:
   - `SKILL.md` — frontmatter `description`, `name: review`, `user-invocable: false`, keys
     alphabetical; a description that triggers on intent ("review this cold", "have a fresh
     model review it", "adversarial review", "what would a reader who cannot ask me trip
@@ -458,7 +458,7 @@ and ends in a Run Log entry instead.
   - Verify: `test -f pdca/skills/review/SKILL.md && test -f pdca/skills/review/references/prompt-template.md && test -f pdca/skills/review/references/default-lens.md && grep -c 'user-invocable: false' pdca/skills/review/SKILL.md`
     prints `1`. Commit.
 
-- [ ] **2. Move the plan skill onto it.**
+- [x] **2. Move the plan skill onto it.**
   - Write `pdca/skills/plan/references/executor-lens.md`: the eight `## <slot>` sections
     carrying today's exact wording from the fenced block (`reader` = the opening paragraph
     through "a wrong guess runs unsupervised."; `noun` = `plan`; `exempt` = the Handoff
@@ -504,7 +504,7 @@ and ends in a Run Log entry instead.
     files that mention the cap and the override are task 4's — so it is task 4's check.
     Commit.
 
-- [ ] **3. Create the command.** `pdca/commands/review.md` in the shape of
+- [x] **3. Create the command.** `pdca/commands/review.md` in the shape of
   `commands/execute.md`: frontmatter `argument-hint: "[model] [effort] [rounds] <path…> [reader statement]"`
   and a `description` for the palette (cold adversarial review of any file or directory by
   a fresh process in the reader's position, until agreement or the round budget, ten by
@@ -515,7 +515,7 @@ and ends in a Run Log entry instead.
   path that triggers the interview, a plan file that is redirected), and what it will not do (review a plan file; act as a one-shot
   proofreader). Verify: criteria 5 and 11. Commit.
 
-- [ ] **4. Documentation and version.** `pdca/CLAUDE.md`, `pdca/README.md`, root
+- [x] **4. Documentation and version.** `pdca/CLAUDE.md`, `pdca/README.md`, root
   `README.md`, `.claude-plugin/marketplace.json`, `pdca/.claude-plugin/plugin.json` →
   `0.12.0` (the minor number: a new command and two changed rules), the template's
   frontmatter example → `0.12.0`, and `pdca/commands/plan.md` — its `argument-hint`
@@ -540,7 +540,7 @@ and ends in a Run Log entry instead.
   `executor.model` of `haiku`; the classifier's `Create Unsafe Agents` refusal of a
   bypass child. Verify: criteria 2, 7, 9 and 12. Commit, with `Bump pdca to 0.12.0.` in the body.
 
-- [ ] **5. Smoke-test the command headlessly.** Write the fixture
+- [x] **5. Smoke-test the command headlessly.** Write the fixture
   `pdca-review-fixture.md` at the repository root with exactly this content:
 
   ```markdown
@@ -750,3 +750,22 @@ open the file, so it would have nothing to judge.
 ```
 
 ## Run Log
+
+- 2026-09-12 — Pre-Flight run in the first turn, all four groups passed. No inherited blocked report. Check 1: transcript found, last `goal_status` `"met":false` with this plan's condition, `"model":"claude-opus-5"`, `"permissionMode":"auto"`, `effort=high`. Check 2: `HARNESS-OK`, `INNER-OK`, scratch `/var/folders/qb/9yzsm8_13wq7mxsf8k0z98h40000gp/T/tmp.2dOXCuYBCQ` writable (`hi`), `python3 -c` with a file argument printed `{`, `--plugin-dir ./pdca` listed `/pdca:plan` and `/pdca:execute`, `git push --dry-run` printed `Everything up-to-date` and exited 0. Check 3: plan file present, remote `christian-schlichtherle/cs7-claude-plugins`, branch `main`, working tree clean. Check 4: `PRE-OK`, `61`, `19`, `0.11.0`. Status set to `executing`.
+
+- 2026-09-12 — Task 1 started: `pdca/skills/review/`.
+- 2026-09-12 — Task 1 finished. `SKILL.md`, `references/prompt-template.md` and `references/default-lens.md` written. The template was derived mechanically from the 61-line block at `ebf5f58` by ten unique-substring replacements, so nothing but the slot spans moved. `pdca/skills/plan/references/executor-lens.md` was written in the same turn (it belongs to task 2's commit) purely so criterion 3 could be run before anything else was touched: the assembler extracted verbatim from `SKILL.md` printed `PROMPT-IDENTICAL` against the `ebf5f58` block. The default lens, with `{{statement}}` and `{{noun}}` filled, assembles cleanly and its empty `exempt` collapses to a single blank line. Task verification printed `1`. Checkbox ticked.
+
+- 2026-09-12 — Task 2 started.
+- 2026-09-12 — Task 2 finished. `pdca/skills/plan/references/executor-lens.md` committed here (written during task 1 to test criterion 3 early); `review-loop.md` removed with `git rm`; `pdca/skills/plan/SKILL.md` edited in steps 1, 2, 5, 7 and 8, in "Keep the status line posted", in "Reopening a plan" and in References; `plan-template.md` gained `review_rounds: 10` in the frontmatter example and a row in the field table. Verification: criterion 2 printed `0`, criterion 3 `PROMPT-IDENTICAL`, criterion 4 `19`, criterion 10 `2` and `5`. Checkbox ticked.
+
+- 2026-09-12 — Task 3 started.
+- 2026-09-12 — Task 3 finished. `pdca/commands/review.md` written in the shape of `commands/execute.md`, pointing at `${CLAUDE_PLUGIN_ROOT}/skills/review/SKILL.md` and carrying five examples. Verification: criterion 11 printed `1` and `1`; criterion 5, a headless Haiku session with `--plugin-dir ./pdca`, listed `/pdca:plan`, `/pdca:execute`, `/pdca:review`. Checkbox ticked.
+
+- 2026-09-12 — Task 4 started.
+- 2026-09-12 — Task 4 finished. `pdca/CLAUDE.md`: three commands and three skills, the palette convention, the AGREED bullet without its exception, the review bullet on the round budget, the status-line names, the interview bullet (five candidates, two calls) and its line 151 capacity clause, a dated convention for the two decisions and the ownership rule, the Haiku `auto` and `Create Unsafe Agents` facts, and a new "Facts About Plugin Loading" section. `pdca/README.md`: a `/pdca:review` paragraph in Usage, the budget in place of three rounds, the override gone from the prose, from "The three loops" and from the diagram edge, the inner-loop subgraph named after the review skill, `review 2/10`. Root `README.md`: a `/pdca:review` row in each table, `[rounds]` in the `/pdca:plan` row, and two bullets. `.claude-plugin/marketplace.json`: one clause. `plugin.json` → `0.12.0`, `plan-template.md` → `0.12.0`. `pdca/commands/plan.md`: the `argument-hint` and an example with a budget. Verification: criterion 2 printed `0`, criterion 7 `0.12.0` and `1`, criterion 9 `0` and `0`, criterion 12 `1` and `3`. Checkbox ticked.
+
+- 2026-09-12 — Task 5 started. Fixture written at the repository root; scratch `/var/folders/qb/9yzsm8_13wq7mxsf8k0z98h40000gp/T/tmp.YsDksSzRMM`.
+- 2026-09-12 — Task 5, first attempt: the harness exited 0 but ended its turn without waiting for the reviewer it had backgrounded (`smoke.txt` held one line, "I'll wait for that to complete rather than poll further"), so no closing line was printed and the criterion 6 grep returned `0`. `claude agents --json` showed no lingering harness and the fixture was untouched, so criterion 6's retry clause was taken: same command, same background shape, once.
+- 2026-09-12 — Task 5 finished. The retry ran the whole loop. Round 1 VETOED with 4 blockers (missing script path, missing subcommand and flags, missing env var name, missing output folder), all fixed in the fixture; round 2 AGREED with 2 nits applied. Closing line: `Review of pdca-review-fixture.md: AGREED after 2 round(s)`; `tail -1` printed `exit=0`; the closing-line grep printed `1`. Fixture removed, after which `git status --porcelain` showed only this plan file. No commit — the tree is as task 4 left it. Checkbox ticked.
+- 2026-09-12 — Worth recording for a future change to the `review` skill, though outside this plan's scope: a Sonnet harness at `low` effort can end its turn after backgrounding the reviewer instead of waiting for it. The loop is correct, but a headless caller needs to be told to wait; the skill's "Headless sessions" section is where that belongs.
