@@ -6,6 +6,8 @@ A [Claude Code](https://claude.ai/code) plugin marketplace providing two-phase P
 
 ### pdca
 
+*A new level of Zen.*
+
 Two-phase development, the Deming PDCA cycle with a session boundary in the middle. **Plan** is an interactive session that verifies its assumptions by running commands and produces a self-sufficient plan file. **Do / Check / Act** is a *fresh* session — optionally a different model at a different effort level — that implements that plan unattended under Claude Code's `/goal`.
 
 The plan file is the only interface between the phases, which is why the skill pushes on facts recorded with the command that verified them, acceptance criteria that are runnable commands, and an execution protocol the executing session can follow alone.

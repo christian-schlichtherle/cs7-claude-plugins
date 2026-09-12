@@ -3,6 +3,8 @@
 Two-phase development harness for Claude Code: plan interactively, execute
 autonomously.
 
+*A new level of Zen.*
+
 ## The idea
 
 This is the Deming PDCA cycle with a session boundary in the middle.
