@@ -13,7 +13,7 @@ plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
 plugin_version: 0.11.0
 review_rounds: 10
 sources: []
-status: executing
+status: done
 ticket: none
 ---
 
@@ -769,3 +769,29 @@ open the file, so it would have nothing to judge.
 - 2026-09-12 — Task 5, first attempt: the harness exited 0 but ended its turn without waiting for the reviewer it had backgrounded (`smoke.txt` held one line, "I'll wait for that to complete rather than poll further"), so no closing line was printed and the criterion 6 grep returned `0`. `claude agents --json` showed no lingering harness and the fixture was untouched, so criterion 6's retry clause was taken: same command, same background shape, once.
 - 2026-09-12 — Task 5 finished. The retry ran the whole loop. Round 1 VETOED with 4 blockers (missing script path, missing subcommand and flags, missing env var name, missing output folder), all fixed in the fixture; round 2 AGREED with 2 nits applied. Closing line: `Review of pdca-review-fixture.md: AGREED after 2 round(s)`; `tail -1` printed `exit=0`; the closing-line grep printed `1`. Fixture removed, after which `git status --porcelain` showed only this plan file. No commit — the tree is as task 4 left it. Checkbox ticked.
 - 2026-09-12 — Worth recording for a future change to the `review` skill, though outside this plan's scope: a Sonnet harness at `low` effort can end its turn after backgrounding the reviewer instead of waiting for it. The loop is correct, but a headless caller needs to be told to wait; the skill's "Headless sessions" section is where that belongs.
+
+- 2026-09-12 — Final re-run of the Acceptance Criteria, immediately before the closeout, every command shown in the session. 1 `LAYOUT-OK`. 2 `0`. 3 `PROMPT-IDENTICAL`, the assembler taken verbatim out of `pdca/skills/review/SKILL.md` and given the template, the executor lens and the literal `<path>`. 4 `19`. 5 a headless Haiku session with `--plugin-dir ./pdca` listed `/pdca:plan`, `/pdca:execute`, `/pdca:review`. 6 re-run in the background with the fixture rewritten exactly as task 5 writes it: `tail -1` printed `exit=0`, the closing-line grep printed `1`, and after removing the fixture `git status --porcelain` showed only this plan file. 7 `0.12.0` and `1`. 9 `0` and `0`. 10 `2` and `5`. 11 `1` and `1`. 12 `1` and `3`. Criterion 8 is the closeout itself and is verified after the deletion commit.
+- 2026-09-12 — The final criterion 6 run took the other exit: round 1 VETOED with 3 blockers, all fixed; round 2 VETOED again with 2 more, one of which the harness judged a stretch and one a fair miss; the budget of 2 was spent, so it stopped and put both positions up rather than proceeding. Closing line `Review of pdca-review-fixture.md: VETOED after 2 round(s), not converged`, which criterion 6 accepts. Between them the two passing runs exercised both exits the new rule allows — an AGREED, and a spent budget that ends in front of the user instead of in a handoff — which is the behaviour this plan changed.
+- 2026-09-12 — Closeout, step 2, done in two commits rather than one. The script that was to set `status: done` and append this outcome asserted on `status: executing` appearing twice — the Pre-Flight section quotes it — and wrote nothing, while the `git commit` and `git push` in the same shell invocation ran regardless. Commit `931c2ae` therefore preserved the file with every checkbox ticked and the Run Log through task 5, but without the final state. It was already pushed, and `main` is never force-pushed, so the correction is this commit: the last commit in which this file exists, and the one the deletion commit sits directly above.
+
+## Outcome
+
+Done. The adversarial review loop is a skill of its own with a command in front of it,
+and `/pdca:plan` runs the same loop through it.
+
+- `pdca/skills/review/` — `SKILL.md`, `references/prompt-template.md` with eight
+  `{{slot}}` markers, `references/default-lens.md` as a fillable lens template.
+- `pdca/skills/plan/references/executor-lens.md` replaces `references/review-loop.md`,
+  and assembles byte for byte the prompt `/pdca:plan` sent at `ebf5f58`.
+- `pdca/commands/review.md` — `/pdca:review [model] [effort] [rounds] <path…> [reader statement]`.
+- The three-round cap is a round budget, default ten, interviewed for in step 2 and
+  recorded as `review_rounds`; the user's override is gone, so a review that does not
+  converge leaves the plan a draft.
+- `pdca` is at `0.12.0`; the marketplace's auto-update carries it to this machine once
+  the closeout has pushed.
+
+Four work commits on `main`, one per task, plus the preservation commits and the
+deletion commit that follows them. Nothing was relaxed or skipped; the one failure this
+run hit — a headless harness that ended its turn without waiting for the reviewer it
+had backgrounded — was retried exactly as criterion 6 prescribes and is recorded above
+as something for a future change to the `review` skill to address.
