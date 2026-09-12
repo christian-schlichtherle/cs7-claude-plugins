@@ -39,6 +39,7 @@ plan_file: 2026-08-27-cache-ttl-plan.md
 plugin: pdca
 plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
 plugin_version: 0.11.0
+review_rounds: 10
 sources:
   - ACME-123
   - docs/specs/cache-ttl.md
@@ -400,6 +401,7 @@ thing to decide and one less way for two plans to differ.
 | `permalink` | phase 1, handoff | The host's permalink form with everything but `<sha>` filled in, or `none` when there is no remote. |
 | `plan_file` | phase 1, first draft | This file's path, relative to the repository holding it. |
 | `plugin`, `plugin_url`, `plugin_version` | phase 1, first draft | Provenance, copied from the plugin's own `.claude-plugin/plugin.json` (`name`, `version`, `repository`). `plugin: pdca` is also how `/pdca:plan <path>` tells a plan to reopen from a spec to plan against; the version tells a reopen which template wrote the file. |
+| `review_rounds` | phase 1, first draft | The review loop's round budget, from the step 2 interview — how many conclusive rounds step 7 may spend before it stops and puts both positions to the user. A reopen reuses it; a plan written before 0.12.0 has none and is asked for it. |
 | `sources` | phase 1, first draft | Every requirements source the plan was planned from: ticket keys, spec paths, URLs. `[]` when there were none. |
 | `status` | both phases | The plan's state — see below. |
 | `ticket` | phase 1, first draft | `type`, `key`, `url` and `cloud_id` of the ticket, or `none`. Present even when `none`, so an absent ticket can be told from a forgotten one. `type` names the tracker: `jira` is the only value this plugin supports, and `cloud_id` is its key alone — a plan whose `type` is anything else gets no ticket steps in its Closeout, and phase 1 says so rather than improvising an integration. |

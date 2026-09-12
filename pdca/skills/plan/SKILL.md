@@ -84,11 +84,13 @@ mkdir -p ~/.cache/claude-pdca
 printf 'verify' > ~/.cache/claude-pdca/"$CLAUDE_CODE_SESSION_ID".status
 ```
 
-Update it at every step transition, and within step 7 at every review round. Name the
+Update it at every step transition. Name the
 step, not its number: the loops re-enter earlier steps, so a number would read "6 of
 8" twice with different meanings. The names are `interview`, `sources`, `verify`,
-`draft`, `iterate`, `review 2/3` (the round within the three), `handoff`, and
-`re-verify` for a reopened plan. Name where the session is *now*, not the furthest
+`draft`, `iterate`, `review 2/10` (the round within the round budget), `handoff`, and
+`re-verify` for a reopened plan. Step 7's rounds are the one exception: the `review`
+skill writes `review N/<budget>` itself at every round, so leave that file to it while
+the loop is running and pick the names up again at the handoff. Name where the session is *now*, not the furthest
 point reached — a re-entry from the handoff back into the iteration loop is `iterate`
 again.
 
@@ -104,7 +106,7 @@ is fine — the plugin's README carries the segment they opt into.
 
 ### 1. Parse the invocation
 
-The command takes `[model] [effort] <goal or plan path>`. The grammar is
+The command takes `[model] [effort] [rounds] <goal or plan path>`. The grammar is
 deliberately rigid, because a clever rule here is worse than a predictable one:
 
 - A leading **model** token — `fable`, `opus`, `sonnet`, `haiku`, or a full model ID
@@ -112,17 +114,21 @@ deliberately rigid, because a clever rule here is worse than a predictable one:
 - An **effort** token — `low`, `medium`, `high`, `xhigh`, `max` — is consumed *only
   when it immediately follows a model token*. A bare leading effort word is always
   goal text.
+- An **integer** is consumed as the review loop's round budget *only when it
+  immediately follows an effort token*, for the same reason and with the same
+  deliberate cost: a bare leading number is goal text.
 - Everything remaining is the goal.
 
-So `opus max harden the retry path` parses as model `opus`, effort `max`; and
-`max out the connection pool` is entirely a goal, which is the case a looser rule
-gets wrong. The deliberate cost: you cannot pass effort without a model —
-`high fix the login bug` reads as a goal. Nothing is lost, because step 2 asks for
-missing effort anyway.
+So `opus max harden the retry path` parses as model `opus`, effort `max`; `opus high 20
+harden the retry path` adds a round budget of `20`; and `max out the connection pool`
+is entirely a goal, which is the case a looser rule gets wrong. The deliberate cost:
+you cannot pass effort without a model, nor a budget without both —
+`high fix the login bug` reads as a goal, and so does `10 retries is too many`.
+Nothing is lost, because step 2 asks for whatever is missing anyway.
 
 Then **echo the parse back in your first line** — `Planning for Opus 5 at high
-effort — goal: …` — so a misparse is obvious and costs one correction rather than a
-whole session.
+effort, review budget 10 — goal: …` — so a misparse is obvious and costs one
+correction rather than a whole session.
 
 If the remainder is a path to an existing file, read its frontmatter. A file whose
 frontmatter says `plugin: pdca` is a plan this workflow wrote: reopen it instead of
@@ -149,8 +155,10 @@ it is the thing you ask questions about.
 ### 2. Settle the handoff parameters before planning, not after
 
 Ask for anything missing **now**, as an interview: one `AskUserQuestion` call with
-one question per missing parameter — model, effort, permission mode, ticket is at
-most four, which is exactly what the tool holds. The user steps through them picking
+one question per missing parameter. There are five candidates — model, effort,
+permission mode, ticket, review round budget — and the tool holds four questions, so
+when all five are missing the interview takes two calls: model, effort, permission
+mode and ticket first, the round budget second. The user steps through them picking
 options instead of composing a free-form reply, which is what makes asking cheap
 enough to do unconditionally: a marked recommendation is one keystroke to accept, and
 a composed reply invites the partial answer that leaves a parameter unsettled. Put
@@ -161,6 +169,11 @@ express — a ticket key, a full model ID — arrives through the interview's fr
 The parameters:
 
 - **Model and effort for phase 2.** Propose `opus` at `high` when unspecified.
+- **Round budget for the review loop.** How many conclusive rounds step 7 may spend
+  before it stops and puts both positions to the user. Recommend `10`, then offer `5`
+  and `20`; any other number arrives through "Other". It is written into the plan's
+  frontmatter as `review_rounds` at the first draft, so a reopen reuses it instead of
+  asking again, and step 7 passes it to the `review` skill.
 - **Permission mode for phase 2.** `auto` unless the user asks for something else.
   Settle it now rather than at handoff: the mode decides what phase 1 has to prove
   can run unattended, and it is written into the plan literally so phase 2 can check
@@ -189,8 +202,8 @@ All three of model, effort and mode are also what phase 2 checks itself against
 before it touches anything, so settling them here is what makes that gate possible
 at all. See `references/preflight.md`.
 
-A spec is not interviewed for. The tool has no fifth slot, and a spec the user has is
-one they hand over — on the command line, in the goal text, or pasted. Do ask, once,
+A spec is not interviewed for: the interview is already at two calls, and a spec the
+user has is one they hand over — on the command line, in the goal text, or pasted. Do ask, once,
 if step 4 turns up a document in the repository that reads like a spec for this goal;
 whether it is a source is the user's call.
 
@@ -331,7 +344,8 @@ copy `name`, `version` and `repository` into `plugin`, `plugin_version` and
 `plugin_url`. If that variable is unset, this skill's own directory names the
 installed version — `~/.claude/plugins/cache/<marketplace>/pdca/<version>/`. Set
 `status: drafting`. The `executor` block takes the model, effort and mode from step 2
-in the literal spellings the pre-flight compares; `sources` and `ticket` record step
+in the literal spellings the pre-flight compares; `review_rounds` takes the round
+budget from step 2; `sources` and `ticket` record step
 3's inputs, `ticket: none` and `sources: []` when there were none. The fields step 8
 settles — `branch`, `closeout_push`, `permalink` — are written then, not guessed now.
 
@@ -378,12 +392,22 @@ in this repository — you read all of that back into the plan without noticing 
 never written down. A reviewer holding your context reads past every such gap. A
 reviewer without it walks into them exactly as phase 2 would.
 
-Loop: review, fix the blockers, review again. Until the reviewer returns AGREED, or
-three rounds, whichever comes first. Each round returns exactly one of two results —
-VETOED with at least one blocker, or AGREED with none and any number of nits; a round
-that returns neither is inconclusive and does not count. If it does not converge, stop and put both
-positions to the user — a persistent disagreement between the planner and the
-executor is a finding in itself, and it is the user's to settle.
+The loop itself — the reviewer command, the verdict rules, the cold re-reads, the
+inconclusive-round rule, the per-round report — belongs to the sibling `review` skill.
+Two things about it are this step's and are not delegated. One is the paragraph
+above: the reviewer is **phase 2's model at phase 2's effort**, because a plan is
+self-sufficient or not for a particular reader, and that is the reader. The other is
+the budget, which is the plan's own `review_rounds`, the number step 2 settled and
+this step passes in: review, fix the blockers, review again, until the reviewer
+returns AGREED or the budget is spent.
+
+If it does not converge, stop and put both positions to the user — a persistent
+disagreement between the planner and the executor is a finding in itself, and it is
+the user's to settle. Their settlement is not an exit: the plan is a contract between
+the user, the planner and the executor, so a plan the executor vetoed is never handed
+off. The user edits the plan, which writes their decision into it and re-enters this
+step as a fresh loop with a fresh budget; or they raise the budget and the loop
+continues; or they leave the plan as it is, `status: drafting`.
 
 AGREED ends the loop; it does not by itself reach the handoff. What it exits to
 depends on whether the review changed the plan:
@@ -396,14 +420,14 @@ depends on whether the review changed the plan:
   off. Report the review's changes as a step 6 delta and hand control back. A proceed
   attaches to a version of the plan, not to the plan in the abstract, and the review
   has just written a version the user has never seen. Nits applied as the reviewer
-  worded them do not by themselves reopen the review; `references/review-loop.md`
-  says why.
+  worded them do not by themselves reopen the review; the `review` skill's
+  "Handling the verdict" says why.
 
 Expect afterthoughts at that point, and welcome them — returning here is an
 invitation to have them, not a signature to collect. They are step 6 resuming, and
 a change that alters what phase 2 would do goes back through this step: an
 unreviewed edit to a reviewed plan is an unreviewed plan. Each re-entry is a fresh
-loop with its own three rounds, though a re-review of a lightly edited plan usually
+loop with its own budget, though a re-review of a lightly edited plan usually
 returns AGREED in one.
 
 So the exit condition of the nested loops is a fixpoint: **one version of the plan
@@ -413,16 +437,17 @@ the rest are not blockers; and the executor, whose AGREED came from
 reading that very version. The loops alternate until a single version holds
 all three, and only then does step 8 begin.
 
-The one exception is the user's override. When the loop does not converge and the
-user settles the disagreement against the reviewer, their settlement is the exit —
-the user outranks both models, and holding the handoff hostage to an AGREED that will
-never come would make the reviewer the authority instead. Record the overruled
-objection in the plan — Constraints & Non-Goals is the natural place — so phase 2
-knows the executor raised it and the user decided against it, rather than
-rediscovering the concern mid-run and treating it as news.
+There is no exception to the fixpoint. The user outranks both models by deciding what
+the plan says, not by launching a plan the executor refused to sign: a proceed over a
+standing veto hands phase 2 a document one of the three parties has already said it
+cannot execute, which is the exact failure this step exists to catch. Editing the plan
+is how such a disagreement is settled, and the next cold round is what judges the
+settlement.
 
-Read `references/review-loop.md` before the first round; it has the exact command,
-the reviewer prompt, and how to handle a verdict you disagree with.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/review/SKILL.md` and
+`${CLAUDE_PLUGIN_ROOT}/skills/plan/references/executor-lens.md` before the first
+round: the skill has the exact command, the loop and how to handle a verdict you
+disagree with, and the lens carries what a plan review looks for.
 
 ### 8. Hand off
 
@@ -493,7 +518,8 @@ artifact this step exists to prevent.
    host, and it costs one click now instead of a dead link on the ticket weeks later.
 
 5. **Offer to launch the execution session.** If the user accepts, follow the
-   `execute` skill: it starts the Handoff command as a new background process with
+   `execute` skill — `${CLAUDE_PLUGIN_ROOT}/skills/execute/SKILL.md`: it starts the
+   Handoff command as a new background process with
    `claude --bg` and reports the id and the Remote Control URL. Nothing in this
    session can set the goal, so a launch is always a new process — the `execute` skill
    says why. If declined, say that `/pdca:execute <path>` does the same thing later,
@@ -505,6 +531,10 @@ artifact this step exists to prevent.
 `/pdca:plan <path>` with a file whose frontmatter says `plugin: pdca` reopens that
 plan. Its `status` says which case this is; read it, and do not infer the case from
 the file's age or its checkboxes.
+
+A reopen reuses the plan's own `review_rounds` for step 7 rather than asking for it
+again. A plan written before plugin 0.12.0 has no such field: ask for the budget as
+step 2 would, and write it in with the first edit.
 
 **`drafting`** — planning never finished. Continue where it left off.
 
@@ -716,9 +746,14 @@ the plan and the repository.
 - `references/goal-condition.md` — **owns the `/goal` condition**: the character
   budget, shell safety, the escape hatch, worked examples. Read before writing a
   handoff.
-- `references/review-loop.md` — **owns the adversarial review loop**: the reviewer
-  command, the prompt that puts it in phase 2's position, and when to stop. Read
-  before the first review round.
+- `references/executor-lens.md` — **owns what a plan review looks for**: the eight
+  lens slots the `review` skill's prompt template is filled from, carrying this
+  plugin's opinions about who is reading a plan, what is exempt from review, what
+  counts as a blocker, and where a blocker the planner disagrees with is answered.
+  Read before the first review round.
 
 The launch itself is owned by the sibling `execute` skill — what `/pdca:execute` runs —
-and step 8 follows it when the user accepts the offer to launch.
+and step 8 follows it when the user accepts the offer to launch. The review loop is
+owned the same way, by the sibling `review` skill — what `/pdca:review` runs — which
+step 7 follows, handing it the executor lens and the plan's `review_rounds`; this
+skill keeps only what an AGREED exits to, and the fixpoint.
