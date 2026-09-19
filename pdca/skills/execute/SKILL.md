@@ -48,7 +48,7 @@ one correction here and a whole run later.
 |---|---|---|
 | `handed-off` | Planning finished; no run yet | Launch: steps 3 to 6. |
 | `executing` | A run is under way, or was interrupted | Step 3 first: if a run is live, do not start a second one. Otherwise launch — the Execution Protocol resumes from the ticked boxes and the Run Log's last started-line. Say that it is a resume. |
-| `blocked` | A run stopped itself and left a report | Read the `.BLOCKED.md` beside the plan and its frontmatter `next`. `next: relaunch` → launch; the pre-flight consumes the report before its first check. `next: reopen` → stop: the plan has to change, and `/pdca:plan <path>` is how. A report written before 0.10.0 has no frontmatter and ends with a `Next:` line instead — read that. A missing report, or one with neither, is something to say and ask about, not to guess past. |
+| `blocked` | A run stopped itself and left a report | Read the report the plan's `blocked_report` names — on a plan blocked before 0.13.0 there is no such key, and the report is the plan path with `.md` replaced by `.BLOCKED.md` — and its frontmatter `next`. `next: relaunch` → launch; the pre-flight consumes the report before its first check. `next: reopen` → stop: the plan has to change, and `/pdca:plan <path>` is how. A report written before 0.10.0 has no frontmatter and ends with a `Next:` line instead — read that. A missing report, or one with neither, is something to say and ask about, not to guess past. |
 | `drafting` | Planning never finished | Stop. Nothing to launch; `/pdca:plan <path>` continues planning. |
 | `done` | Should not exist on disk | A stray copy. Stop and say so. |
 

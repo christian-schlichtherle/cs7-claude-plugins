@@ -348,6 +348,8 @@ in the literal spellings the pre-flight compares; `review_rounds` takes the roun
 budget from step 2; `sources` and `ticket` record step
 3's inputs, `ticket: none` and `sources: []` when there were none. The fields step 8
 settles — `branch`, `closeout_push`, `permalink` — are written then, not guessed now.
+`blocked_report` is phase 2's alone: a plan being drafted has no report, and the key
+appears only when a run leaves one.
 
 ### 6. Iterate with delta reports
 
@@ -559,13 +561,16 @@ touching the file: relaunching — `/pdca:execute <path>` — resumes the run fr
 ticked boxes, which is what the Execution Protocol is written for; reopening abandons
 that run and starts the plan's life over. Only the user can say which.
 
-**`blocked`** — read the blocked report beside the plan first; it names what has to
-change and carries `next` in its frontmatter. `next: relaunch` means the run expects
+**`blocked`** — read the blocked report first: the plan's `blocked_report` names it,
+and on a plan blocked before plugin 0.13.0 it is the plan path with `.md` replaced by
+`.BLOCKED.md`. It names what has to change, points back at the plan through its own
+`plan_file`, and carries `next` in its frontmatter. `next: relaunch` means the run expects
 the Handoff command once the environment is fixed — `/pdca:execute <path>` runs it — and a
 reopen is only needed if the user wants to change the plan anyway — say so. Once you
 are reopening: fold the report into
-the Run Log and delete it — a report never outlives the pick-up that reads it, and a
-leftover one is exactly what a relaunch must not find — then treat the plan as
+the Run Log, delete it, and clear `blocked_report` as you set the status — a report
+never outlives the pick-up that reads it, a leftover one is exactly what a relaunch must
+not find, and the key goes with the file it names — then treat the plan as
 `handed-off`: re-verify, fix what the report names, and take it back through review.
 Partial work the report lists is the user's call: keep it as the new starting state
 and re-verify against it, or revert it. Ask, and record the answer in the Run Log.
@@ -691,9 +696,9 @@ specification.
   right there as a blocked report: not an adaptation, and not a run that starts
   anyway. `preflight.md`
 - **Move the frontmatter's `status` as it goes** — `executing` when the gate
-  passes, `done` before the preservation commit, `blocked` beside the blocked report —
-  so the file says where it stands and a later reopen reads that instead of guessing.
-  `plan-template.md`
+  passes, `done` before the preservation commit, `blocked` beside the blocked report,
+  with `blocked_report` naming it — so the file says where it stands and a later reopen
+  reads that instead of guessing. `plan-template.md`
 - **Work the tasks in order**, ticking each checkbox and appending to the Run Log as it
   goes, so an interrupted run resumes from the file and the user can watch progress by
   reading it. `plan-template.md`
@@ -711,8 +716,9 @@ specification.
   holding the record, and linked from the ticket, stays the last one in which the plan
   exists. `plan-template.md`, `jira.md`
 - **Write the blocked report if a check genuinely cannot pass**, commit it with the
-  plan, then stop — and on a relaunch, consume an inherited report before the first
-  check. `plan-template.md`, `preflight.md`
+  plan — each naming the other, `blocked_report` on the plan and `plan_file` on the
+  report — then stop; and on a relaunch, consume an inherited report, and the key that
+  names it, before the first check. `plan-template.md`, `preflight.md`
 
 That last one matters more than it looks. Without a reachable failure state, a plan
 with one impossible check turns into a session that cannot stop, retrying forever.

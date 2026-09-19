@@ -9,7 +9,8 @@ Run the two-phase PDCA cycle: an interactive **planning phase** that produces a
 self-sufficient plan file, handed off to a fresh **execution phase** driven by
 `/goal`.
 
-**Follow the `plan` skill.** It is the single source of truth for this workflow —
+**Follow the `plan` skill** — read `${CLAUDE_PLUGIN_ROOT}/skills/plan/SKILL.md`. It is
+the single source of truth for this workflow —
 argument parsing, what to verify before writing anything, the plan template, the
 rules for constructing the goal condition, and the reasoning behind all of it. Read
 it before starting, and do not re-derive its rules from this file: this file

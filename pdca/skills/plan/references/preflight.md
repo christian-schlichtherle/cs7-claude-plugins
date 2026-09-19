@@ -30,6 +30,7 @@ The report has to be actionable, because the person reading it was not there:
 ---
 date: 2026-08-27
 next: relaunch
+plan_file: 2026-08-27-cache-ttl-plan.md
 ---
 
 # BLOCKED: pre-flight
@@ -42,15 +43,24 @@ edits. Relaunch with the command in the Handoff section of the plan, which sets
 report and the plan's status line, committed together.
 ```
 
-Two frontmatter keys, and no more, in alphabetical order as every frontmatter block in
-this plugin is. `date` is the day the run stopped, which the pick-up folds into the Run
-Log; `next` is `relaunch` when the Handoff command can resume once the environment is
-fixed, or `reopen` when the plan itself has to change. Everything else the reader needs
-is prose, and everything else a consumer might want is already somewhere better: the
-plan path is the report's own filename with `.BLOCKED.md` back to `.md`, the blocked
-commit cannot name its own sha, and the failing session's id belongs in the Run Log,
-which survives the report. Where the run stopped is the heading —
-`# BLOCKED: pre-flight`, `# BLOCKED: task 4`.
+Three frontmatter keys, and no more, in alphabetical order as every frontmatter block
+in this plugin is. `date` is the day the run stopped, which the pick-up folds into the
+Run Log; `next` is `relaunch` when the Handoff command can resume once the environment is
+fixed, or `reopen` when the plan itself has to change; `plan_file` is the plan this
+report belongs to. Everything else the reader needs is prose, and everything else a
+consumer might want is already somewhere better: the blocked commit cannot name its own
+sha, and the failing session's id belongs in the Run Log, which survives the report.
+Where the run stopped is the heading — `# BLOCKED: pre-flight`, `# BLOCKED: task 4`.
+
+`plan_file` is stated rather than derived. It was derivable — the report's own filename
+with `.BLOCKED.md` back to `.md` — and that convention still fixes where the report is
+written, because the goal condition names that exact path. But deriving it made the
+naming convention load-bearing for a second job, and left a report that is quoted,
+attached or moved unable to say what it is about. A named relation costs one line and
+reads the same to a human and to a parser. Added 2026-09-19 with the plan's
+`blocked_report`, which is the same relation from the other side: the plan names its
+report, the report names its plan, and neither reader has to do string surgery on a
+filename to get from one to the other.
 
 `next` is frontmatter rather than a closing line because it is the one thing in the
 report a reader has to *parse*: `/pdca:execute` dispatches on it exactly as it
@@ -60,6 +70,14 @@ frontmatter next to `status: blocked` because it describes one blockage, not the
 on the plan it could go stale — a `next: relaunch` left behind on a reopened
 `handed-off` plan is exactly the leftover this design fights — while on the report it
 cannot, because the report is deleted whole.
+
+The link is the one thing that does live on both sides, and for the reason `next` does
+not. `blocked_report` says nothing about the blockage; it says only that this plan and
+that report belong together, which is true for exactly as long as both files exist. It
+is written in the same commit as `status: blocked` and removed in the same turn as the
+report, by the same session doing the consuming, so there is no state in which a plan
+names a report that is gone — the staleness `next` would have brought is not reachable
+here.
 
 The report is a message to the human, not the record — the Run Log is the record.
 Whichever session picks the plan up next consumes it: a relaunch's pre-flight, before
@@ -196,7 +214,13 @@ When the transcript is silent, try the launch flags — walking up from `$PPID` 
 argv starts with `claude`, since the immediate parent is usually a shell:
 
 ```bash
-ps -o args= -p "$PPID" | grep -o -- '--permission-mode [a-zA-Z]*\|--dangerously-skip-permissions'
+p=$PPID
+while [ "$p" -gt 1 ]; do
+  a=$(ps -o args= -p "$p")
+  case $a in claude*) break;; esac
+  p=$(ps -o ppid= -p "$p" | tr -d ' ')
+done
+echo "$a" | grep -o -- '--permission-mode [a-zA-Z]*\|--dangerously-skip-permissions'
 ```
 
 This is not a general answer either, and it fails quietly. It reports only what was

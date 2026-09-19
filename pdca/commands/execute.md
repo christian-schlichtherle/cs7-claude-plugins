@@ -7,7 +7,8 @@ description: Launch or resume a plan's execution phase as a fresh background cla
 
 Start — or resume — the **execution phase** of a plan file written by `/pdca:plan`.
 
-**Follow the `execute` skill.** It is the single source of truth for this command:
+**Follow the `execute` skill** — read `${CLAUDE_PLUGIN_ROOT}/skills/execute/SKILL.md`.
+It is the single source of truth for this command:
 how the plan is found, what each `status` means for a launch, how the Handoff command
 is taken from the plan and checked before it runs, and why the launch is always a new
 background process rather than work done here. Read it before doing anything; this

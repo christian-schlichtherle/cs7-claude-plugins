@@ -38,7 +38,7 @@ permalink: https://github.com/acme/api/blob/<sha>/2026-08-27-cache-ttl-plan.md
 plan_file: 2026-08-27-cache-ttl-plan.md
 plugin: pdca
 plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
-plugin_version: 0.12.0
+plugin_version: 0.13.0
 review_rounds: 10
 sources:
   - ACME-123
@@ -110,11 +110,14 @@ the Execution Protocol and do not start the tasks. Model, effort and permission 
 are spelled out literally here, in the same spelling as the frontmatter's `executor`
 block, so the comparison is a string match, not a judgement.
 
-Before check 1: if `2026-08-27-cache-ttl-plan.BLOCKED.md` exists, this is a relaunch.
-Fold that report into the Run Log below — its `date`, the check it named, what was
-tried, its `next` — then delete it, in this same turn, and only then run the
-checks. An inherited report never satisfies this plan's goal and is never left in
-place: the Run Log is the record, the report was the message.>
+Before check 1: if the frontmatter carries a `blocked_report` — or, on a plan blocked
+before plugin 0.13.0, if `2026-08-27-cache-ttl-plan.BLOCKED.md` exists — this is a
+relaunch. Fold that report into the Run Log below — its `date`, the check it named, what
+was tried, its `next` — then delete it and remove `blocked_report` from the frontmatter,
+in this same turn, and only then run the checks. The key and the report are consumed
+together, so a plan never names a report that is no longer there. An inherited report
+never satisfies this plan's goal and is never left in place: the Run Log is the record,
+the report was the message.>
 
 1. **Driven by this plan's /goal; model, effort and permission mode.**
 
@@ -235,7 +238,7 @@ where they would stand and run the rest.>
    ```bash
    git add 2026-08-27-cache-ttl-plan.md
    git commit -m "ACME-123: record final plan state"
-   git push
+   git push  # only when closeout_push: true
    SHA=$(git rev-parse HEAD); echo "$SHA"
    ```
 
@@ -292,9 +295,10 @@ from what is written here plus the repository, and record what you decided.
    start the tasks, do not substitute a different model or mode, and do not proceed
    at a lower spec — a mismatch discovered here costs a relaunch, and the same
    mismatch discovered at task 5 costs the whole run. When every check passes, set
-   `status: executing` in the frontmatter and append the gate's outcome to the Run
-   Log — the file now says a run is under way, and a later reopen reads that rather
-   than guessing. On a resume, continue at the first unticked task; a task the Run
+   `status: executing` in the frontmatter — removing `blocked_report` if this relaunch
+   just consumed one, since that key moves with the status — and append the gate's
+   outcome to the Run Log — the file now says a run is under way, and a later reopen
+   reads that rather than guessing. On a resume, continue at the first unticked task; a task the Run
    Log shows started but not finished is inspected before it is redone, because the
    tree may already hold part of it.
 3. Work the tasks in order. Append a line to the Run Log when you start a task, and
@@ -336,12 +340,16 @@ from what is written here plus the repository, and record what you decided.
     becomes `2026-08-27-cache-ttl-plan.BLOCKED.md`. It names the failing check, what you
     tried, and why it cannot pass; lists the working tree as you leave it — every
     uncommitted file and the task it belongs to; and opens with a frontmatter block of
-    exactly two keys, alphabetically — `date:` the day the run stopped, and `next:`
+    exactly three keys, alphabetically — `date:` the day the run stopped; `next:`
     `relaunch` when the Handoff command can resume once the environment is fixed, or
-    `reopen` when the plan itself has to change. Set `status: blocked` in this
-    file's frontmatter, bring the Run Log current, and commit this file and the report
-    together — the blocked commit, pushed when `closeout_push` says so — leaving
-    uncommitted only the work that has not reached a commit boundary. Then stop. Getting
+    `reopen` when the plan itself has to change; and `plan_file:` the path of this plan,
+    `2026-08-27-cache-ttl-plan.md`, so the report names what it belongs to instead of
+    leaving a reader to reconstruct it from the filename. Set `status: blocked` **and**
+    `blocked_report:` naming the report you just wrote in this file's frontmatter — the
+    two are written in the same commit and cleared in the same turn, so the plan and the
+    report point at each other for exactly as long as both exist. Bring the Run Log
+    current, and commit this file and the report together — the blocked commit, pushed
+    when `closeout_push` says so — leaving uncommitted only the work that has not reached a commit boundary. Then stop. Getting
     the path wrong is not cosmetic: the evaluator looks for the path the condition
     names, so a different spelling means the report does not register and the session
     cannot stop. Do not weaken a check, skip it, or declare success without it. A report
@@ -394,6 +402,7 @@ thing to decide and one less way for two plans to differ.
 
 | Key | Written by | Meaning |
 |---|---|---|
+| `blocked_report` | phase 2, blocked commit | The blocked report this run left behind, as a path — the reciprocal of that report's own `plan_file`. Present only while `status` is `blocked`: written in the same commit as that status, removed in the same turn by whichever session consumes the report, so the two never disagree and the plan never names a file that is gone. |
 | `branch` | phase 1, handoff | The branch the plan expects at launch; the Ground check compares. Normally the branch planning happened on. When the user asked for the work to go on a new branch, phase 1 created it at handoff and committed the plan on it, and this names it. |
 | `closeout_push` | phase 1, handoff | Whether the closeout pushes its two commits. Asked only when a ticket was named; `false` otherwise, and `false` when there is no remote. |
 | `created` | phase 1, first draft | Date of the first draft. Never updated. |
@@ -414,9 +423,9 @@ inferred from its age or its checkboxes:
 |---|---|
 | `drafting` | Phase 1 writes the first draft. Stays through iteration and review. |
 | `handed-off` | Phase 1 writes the Handoff section, immediately before the commit that carries it. |
-| `executing` | Phase 2 passes the Pre-Flight gate — its first write to the file. |
+| `executing` | Phase 2 passes the Pre-Flight gate — its first write to the file, except on a relaunch, where consuming the blocked report comes first. |
 | `done` | Phase 2 brings the file to its final state, immediately before the preservation commit — so the last commit holding the file says `done`. |
-| `blocked` | Phase 2 writes the blocked report and commits it together with the plan. Left by relaunch — the pre-flight consumes the report and sets `executing` — or by reopen — phase 1 consumes it and sets `drafting`. Either way the report is folded into the Run Log and deleted, so it never outlives the next pick-up. |
+| `blocked` | Phase 2 writes the blocked report and commits it together with the plan, setting `blocked_report` to name it in the same write. Left by relaunch — the pre-flight consumes the report and sets `executing` — or by reopen — phase 1 consumes it and sets `drafting`. Either way the report is folded into the Run Log and deleted and `blocked_report` goes with it, so neither outlives the next pick-up. |
 
 A reopen reads the value and acts on it — the SKILL's "Reopening a plan" says how.
 

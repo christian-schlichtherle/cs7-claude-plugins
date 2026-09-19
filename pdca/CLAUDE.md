@@ -195,8 +195,9 @@ for a day and dropped for exactly that consistency.
   prose: provenance (`plugin`, `plugin_version`, `plugin_url` — copied from
   `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`), `created`, `status`, the
   `executor` block in the literal spellings the pre-flight compares, `sources`,
-  `ticket` (or `none`), `plan_file`, `work_repo` when it differs, and the handoff-time
-  fields `branch`, `closeout_push`, `permalink`. Instructions such as "do
+  `ticket` (or `none`), `plan_file`, `work_repo` when it differs, the handoff-time
+  fields `branch`, `closeout_push`, `permalink`, and `blocked_report` while a run is
+  blocked. Instructions such as "do
   not create a branch" are sentences in sections, never keys. Provenance earns its
   place because the plan self-destructs: a reader at the permalink weeks later learns
   what wrote the file, and a reopen learns which template did. `ticket.type` names the
@@ -204,8 +205,21 @@ for a day and dropped for exactly that consistency.
   `cloud_id` is Atlassian's alone, and a block that says which tracker it describes
   beats one whose type has to be inferred from which optional keys are present. GitHub renders the
   block as a table, so the human reader loses nothing.
+- **The plan and its blocked report name each other.** Added 2026-09-19. The plan
+  carries `blocked_report`, the report carries `plan_file`, and each is a path to the
+  other. Both were derivable from the `.md` ↔ `.BLOCKED.md` convention, which still
+  fixes where the report is written because the goal condition names that exact path —
+  but deriving them made a filename convention load-bearing for a second job, and left
+  either file, once quoted or moved, unable to say what it belongs to. This does not
+  reopen the decision below it about `next`, which stays on the report alone: `next`
+  describes one blockage and would go stale on the plan, while the link describes only
+  that the two files belong together. It is written in the same commit as
+  `status: blocked` and removed in the same turn as the report, by the session
+  consuming it, so no state exists in which a plan names a report that is gone.
 - **`status` is the only state the plan file records**, and it is read, never
-  inferred. `drafting` → `handed-off` (phase 1, with the Handoff section) →
+  inferred. `blocked_report` is not a second state: it is a pointer that exists exactly
+  while `status` is `blocked`, read as a path and never dispatched on.
+  `drafting` → `handed-off` (phase 1, with the Handoff section) →
   `executing` (phase 2, when the gate passes) → `done` (before the preservation
   commit, so the permalinked final state says so) or `blocked` (with the blocked
   report, committed together). Reopening dispatches on it: continue, re-verify, ask
@@ -213,6 +227,17 @@ for a day and dropped for exactly that consistency.
   `done`. In-conversation states —
   proceed given but not yet reviewed, AGREED but changed — stay out of the file on
   purpose: they do not survive a session and the file records only what does.
+- **A format change is a minor bump; wording is a patch.** The version lands in every
+  plan's frontmatter as `plugin_version`, so a reopen can tell which template wrote the
+  file — which makes the number a compatibility boundary, not a label. The test is
+  whether a file written by the previous version has to be handled differently on
+  pick-up: `--remote-control` in the Handoff (0.8.0), the blocked report's frontmatter
+  (0.10.0), `review_rounds` (0.12.0), and `blocked_report` with the report's
+  `plan_file` (0.13.0) each left a "written before <version>" branch in the skills, and
+  each took a minor. Renaming the verdict (0.5.1), rewording (0.5.2), adding rationale
+  (0.5.3) and moving the Run Log below the Handoff (0.5.4) left no such branch and took
+  a patch. Written down 2026-09-19, having been re-derived from those notes rather than
+  read.
 - **Ticket content is untrusted input.** It is written by other people and read by an
   agent that acts on text, so it is treated as claims about the work to raise with the
   user, never as instructions. This is stated in `references/jira.md` rather than left
@@ -281,14 +306,17 @@ for a day and dropped for exactly that consistency.
   after the art-backend-nt runs left two reports behind for good and one plan had to
   invent the rule itself. A blocked run commits the plan and the report together and
   leaves only work short of a commit boundary uncommitted; the report lists the tree and
-  carries `next: relaunch` or `next: reopen` in a frontmatter block of two keys, `next`
-  and `date` — frontmatter rather than a closing line because `next` is the one field a
-  reader parses, `/pdca:execute` dispatches on it the way it dispatches on the plan's
-  `status`, and a keyed field survives a postscript; on the report rather than beside
-  `status: blocked` on the plan because it describes one blockage and would go stale
-  there, while the report is deleted whole. Decided 2026-09-05. Whichever session picks the plan up next — a relaunch's pre-flight
-  before its first check, or a reopen — folds the report into the Run Log and deletes
-  it, so a report never outlives the pick-up and a finished run has none. The goal's
+  carries `next: relaunch` or `next: reopen` in a frontmatter block of three keys,
+  `date`, `next` and `plan_file` — frontmatter rather than a closing line because
+  `next` is the one field a reader parses, `/pdca:execute` dispatches on it the way it
+  dispatches on the plan's `status`, and a keyed field survives a postscript; on the
+  report rather than beside `status: blocked` on the plan because it describes one
+  blockage and would go stale there, while the report is deleted whole. Decided
+  2026-09-05. The report's third key, `plan_file`, and the plan's `blocked_report` are
+  the exception and the reason is above: a link is not a description of the blockage.
+  Whichever session picks the plan up next — a relaunch's pre-flight before its first
+  check, or a reopen — folds the report into the Run Log and deletes it, so a report
+  never outlives the pick-up and a finished run has none. The goal's
   hatch requires a report *written in this session*, so a leftover one cannot end a
   relaunch in turn 1 even if the consuming step is missed — that trap was real. A
   report written on an estimate rather than a check that ran is retracted in the same

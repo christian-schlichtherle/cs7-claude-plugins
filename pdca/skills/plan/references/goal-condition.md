@@ -119,7 +119,9 @@ post-mortem.
 form is the plan path with `.md` replaced by `.BLOCKED.md`. The evaluator looks for
 the path the condition names, so if the condition and the plan's own protocol spell it
 differently, the report does not register and the session cannot stop — the escape
-hatch fails precisely when it is needed.
+hatch fails precisely when it is needed. The same spelling goes into the plan's
+`blocked_report` when phase 2 writes the report; that key records where the report
+landed and never decides it.
 
 **The hatch is for a report this session wrote.** Phrase it as "was written in this
 session, naming a check this session ran" — the evaluator judges from the transcript
