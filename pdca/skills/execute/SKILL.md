@@ -90,16 +90,28 @@ recently:
   without `.md` — and say so. The execution phase always runs with Remote Control.
 
 The block has no `/goal` prompt when the planning session emitted the **two-step
-form** — a condition with a single quote in it. The `/goal …` line is then in the
-Handoff section as well, in its own fenced block: put it in a shell variable through a
-quoted heredoc and pass it as the positional argument, `"$goal"`, so that no quoting
-hazard survives.
+form** — a condition with a single quote in it. The full condition is then in the
+Handoff section as well, in the fence whose info string is `goal`, and that info
+string is how you find it — the plain-fenced `/goal` line further down is the short
+form, which also names this plan and is never launched from, because a run started
+from it has an evaluator holding no acceptance criteria:
+
+```bash
+awk '/^## Handoff/{h=1;next} h&&!b&&/^## /{exit} h&&/^```goal/{b=1;next} b&&/^```/{exit} b' "$plan"
+```
+
+Check it as you checked the command — one line, opening `/goal Execute the plan at
+<this plan>` — then put it in a shell variable through a quoted heredoc and pass it as
+the positional argument, `"$goal"`, so that no quoting hazard survives. A prompt-less
+`bash` block with no `goal` fence — including in a plan written before this layout was
+fixed — is an incomplete Handoff: print what is there, do not launch, and say that
+`/pdca:plan <path>` refreshes it.
 
 ## 5. Launch
 
 Insert `--bg` and `--name <basename>` directly after `claude`, and run the result from
 the repository root — the plan path in the condition is relative to it; a `cd` form
-takes care of its own directory:
+takes care of its own directory, and its condition names the plan by absolute path:
 
 ```bash
 claude --bg --name 2026-08-27-cache-ttl-plan --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal Execute the plan at 2026-08-27-cache-ttl-plan.md …'
@@ -124,8 +136,9 @@ process that is now running:
 
 - It is guarded by `/goal`: inside it, `/goal` shows status and `/goal clear` stops the
   run early. Its pre-flight gate runs in the first turn; a `.BLOCKED.md` appearing
-  beside the plan means the run stopped itself, and `/pdca:plan <path>` picks up from
-  the report.
+  beside the plan means the run stopped itself; its `next` says which pick-up it
+  expects — `relaunch` means `/pdca:execute <path>` again once the environment is
+  fixed, `reopen` means `/pdca:plan <path>`.
 - It keeps running when this session and its terminal are gone; only the machine has to
   stay up. Remote Control is how to look in from anywhere else.
 - It stays alive, idle, after the run finishes, until `claude rm <id>`; `claude agents`

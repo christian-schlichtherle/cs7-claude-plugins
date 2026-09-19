@@ -124,6 +124,15 @@ for a day and dropped for exactly that consistency.
   escalates; an execution session cannot answer permission prompts. Auto decides
   without asking in *both* directions, though — it also denies silently — so phase 1
   must run every prescribed command under that mode before prescribing it.
+  Phase 1 can only do that from a session that is itself in that mode — a session has
+  one mode and the model cannot switch it — so step 4 first reads this session's own
+  mode from the transcript, the way the gate reads phase 2's (verified 2026-09-19: an
+  interactive `auto` session's transcript carries `"permissionMode":"auto"`), and
+  asks the user to switch with `Shift+Tab` when it is not phase 2's. A broader mode
+  proves nothing, because nothing meets the classifier; a narrower one turns every
+  prompt into a false plan defect. Decided 2026-09-19, after a cold review found the
+  skill ordering both "work in the session's normal mode" and "verify under phase 2's
+  mode" with no way to do both.
 - **Phase 2 always runs with `--remote-control <plan-basename>`.** Decided 2026-09-04.
   It is the unattended phase, and Remote Control is what lets the user follow and
   steer it — including `/goal clear` — from claude.ai or the mobile app. The name is
@@ -233,8 +242,8 @@ for a day and dropped for exactly that consistency.
   whether a file written by the previous version has to be handled differently on
   pick-up: `--remote-control` in the Handoff (0.8.0), the blocked report's frontmatter
   (0.10.0), `review_rounds` (0.12.0), and `blocked_report` with the report's
-  `plan_file` (0.13.0) each left a "written before <version>" branch in the skills, and
-  each took a minor. Renaming the verdict (0.5.1), rewording (0.5.2), adding rationale
+  `plan_file` (0.13.0), and the two-step Handoff's `goal` fence (0.14.0) each left a
+  "written before <version>" branch in the skills, and each took a minor. Renaming the verdict (0.5.1), rewording (0.5.2), adding rationale
   (0.5.3) and moving the Run Log below the Handoff (0.5.4) left no such branch and took
   a patch. Written down 2026-09-19, having been re-derived from those notes rather than
   read.
@@ -294,7 +303,10 @@ for a day and dropped for exactly that consistency.
   always tracked.
   Recommend pushing, because an unpushed preservation commit makes the comment's link
   dead; accept a no, because an unattended session writing to a shared branch is a real
-  decision. `git push --dry-run` is probed in phase 1 either way.
+  decision. `git push --dry-run` is probed in phase 1 either way, so the user hears now
+  if a push would fail; it becomes a pre-flight check, fatal in phase 2, only when the
+  closeout pushes. Clarified 2026-09-19: until then a plan that does not push carried a
+  fatal push probe.
 - **The comment channel must be probed in phase 1** under phase 2's permission mode: an
   MCP server needing interactive auth, or an `auto` classifier declining an MCP write,
   fails at the moment of use. The MCP server's `addCommentToJiraIssue` is the ordinary
@@ -404,6 +416,70 @@ for a day and dropped for exactly that consistency.
   is printed, so it survives the gap between phases. The plan is committed only
   *after* the handoff is in it — committing earlier puts a plan into history without
   its own launch command and leaves phase 2 facing a dirty tree.
+- **The two-step Handoff has a fixed layout.** Decided 2026-09-19. When the condition
+  cannot be single-quoted, the Handoff's `bash` block carries the flags-only command
+  and the full condition sits directly below it in a fence whose info string is `goal`;
+  the short form keeps its plain fence. Until then the launcher was told the condition
+  was "in its own fenced block" while every plan already carried a second `/goal`
+  fence — the short form — that its check could not tell apart, so a two-step launch
+  would have run the short form and lost the inlined criteria without anyone choosing
+  to. The info string is what `/pdca:execute` selects on, and a prompt-less command
+  with no `goal` fence is refused as an incomplete Handoff. Fixing the layout is a
+  format change by the version rule above and took 0.14.0.
+- **Closeout criteria are a class of their own.** Decided 2026-09-19. The template's
+  criteria 3 and 4 assert the closeout — final plan committed and linked, tree clean
+  and file gone — while the protocol re-ran the full set before the Closeout, where
+  those cannot hold; a session following both readings ended a finished run in a
+  blocked report, or quietly skipped the re-run. Work criteria are re-run in full
+  immediately before the Closeout; closeout criteria are shown passing as its steps
+  complete and are never part of the re-run. The goal condition still asserts all of
+  them, judged at the end.
+- **A cross-repository plan is named by absolute path.** Decided 2026-09-19. With
+  `work_repo` set the session starts in the work repository, where the relative
+  `plan_file` names nothing, so the condition, the blocked report and the Ground check
+  use the plan's absolute path, and the plan commits run as `git -C <plan directory>`
+  — the directory holding the plan being its repository's root by the root rule.
+  `plan_file` stays relative to the plan's repository for those commits.
+- **A blocked report's path reopens its plan.** Decided 2026-09-19. `/pdca:plan <path>`
+  dispatches on the file's frontmatter, and a report has `plan_file` and `next` where a
+  plan has `plugin: pdca`; step 1 recognises that shape and reopens the plan the report
+  names instead of reading the failure message as a requirements source, which is what
+  the source rule did with it before. Older reports fall back to the `.BLOCKED.md`
+  suffix. The `execute` skill already refused the mirror case — a non-plan handed to
+  the launcher — so this made the two entry points symmetric.
+- **Reopening an `executing` plan asks what becomes of the work.** Decided
+  2026-09-19. Abandoning a run leaves ticked boxes, started-lines, work commits and
+  possibly an uncommitted slice, and "start the plan's life over" resolved two ways —
+  keep the work as the new baseline, or reset and re-run task 1 against a tree where it
+  is already applied. The `blocked` branch had the question; `executing`, the harder
+  case with no report to enumerate the leftovers, now enumerates them itself and asks
+  the same keep-or-revert question, records the answer in the Run Log, and re-verifies
+  against the chosen tree.
+- **State-changing commands are rehearsed in phase 1, never run.** Decided 2026-09-19.
+  "Run every command you prescribe" was unqualified, and taken literally it ran the
+  template's own `helm upgrade` during planning — doing phase 2's work, falsifying the
+  Verified Context and leaving acceptance criteria that pass without the work. Now a
+  command with no side effects outside the tree runs as written; one that changes state
+  outside it runs in its rehearsal form, the plan records which were proved only that
+  way, and a real shape the classifier could not be asked about without the real effect
+  is a stated risk in the Verified Context.
+- **The executor's model is written as the ID the transcript records, resolved by
+  probe.** Decided 2026-09-19. The gate string-matches `executor.model` against the
+  transcript, the interview collects an alias, and the mapping is not guessable — the
+  `haiku` alias once recorded `claude-sonnet-5`. Step 4 resolves it with a one-line
+  headless session, `claude -p --model <alias> --effort low --output-format json`, whose
+  `modelUsage` key is the literal ID and matches that session's transcript (verified
+  2026-09-19: `opus` → `claude-opus-5` in both). The comparison is exact, not a prefix.
+- **A reopen's command-line tokens replace the executor block.** Decided 2026-09-19.
+  `/pdca:plan opus max <plan>` was documented and undefined: the reopen section settled
+  `review_rounds` and nothing else. Named tokens now replace `executor` — block,
+  Pre-Flight literals and altitude together, with re-verification under the new mode —
+  and a round budget replaces `review_rounds`; unnamed ones stand and are not re-asked.
+- **The handoff commit stages the plan by name and requires an otherwise clean tree.**
+  Decided 2026-09-19. Item 4 said "commit" with no scope, which either swept the user's
+  unrelated changes into the handoff commit or left a tree that fails phase 2's Ground
+  check in turn 1. `git add <plan>`, never `-a`; then `git status --porcelain` empty
+  before the handoff is printed, or the leftovers are named as expected dirt.
 - The `/goal` condition never makes a present-tense claim about the plan file, since
   the same condition orders that file deleted. Claims are phrased as what happened in
   the session, which is what the evaluator can still see.
@@ -577,7 +653,9 @@ Control and CLI reference pages of the documentation, checked 2026-09-04:
   lines; `claude agents` needs a TTY, `claude agents --json` does not and lists every
   session with `pid`, `cwd`, `kind` (`interactive` or `background`), `startedAt`,
   `sessionId`, `name`, `status` (`busy`/`idle`) and, for background sessions, `id` and
-  `state` (`done` once finished). A background session's `name` is generated from the
+  `state` (`done` once finished; `blocked` also occurs — observed 2026-09-19 on a
+  running execution session, `status: busy` beside it, most plausibly the stall at a
+  prompt that the auto-mode facts below describe). A background session's `name` is generated from the
   conversation unless `--name` sets it — which is why the launcher passes `--name`.
   `claude stop <id>` then `claude rm <id>` remove one; a finished session lingers until
   they are run. Observed 2026-09-04 at 2.1.260.
@@ -664,9 +742,13 @@ this section is why it says what it says.
   started that way refused every file mutation, including an in-repo `touch`. Observed
   2026-09-12 on 2.1.269. Consequence for a plan whose `executor.model` is `haiku`: its
   permission mode cannot be `auto`, so an unattended run of it is not possible as
-  written — the pre-flight gate catches it, and teaching the step 2 interview to catch
-  it earlier is an open decision. A Haiku *reviewer* is unaffected: it runs in plan
-  mode, which Haiku has.
+  written — the pre-flight gate catches it, and since 2026-09-19 step 2 catches it
+  first: the interview does not offer `haiku` as the executor, a `haiku` named on the
+  command line is refused with this reason and asked again, and the one exception is a
+  user who deliberately chooses `bypassPermissions` in the same interview, knowing that
+  `/pdca:execute` cannot launch that plan from an `auto` session (next bullet) and a
+  hand launch is the only route. The altitude examples name `sonnet` at `low` instead.
+  A Haiku *reviewer* is unaffected: it runs in plan mode, which Haiku has.
 - **The classifier refuses to launch a bypass child.** A `claude --bg …` launch whose
   prompt asked the new session to run
   `claude -p … --permission-mode bypassPermissions …` was denied with

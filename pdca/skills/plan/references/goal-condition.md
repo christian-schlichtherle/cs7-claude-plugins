@@ -44,7 +44,12 @@ Six parts, in order:
 pre-flight goal check confirms the condition names the plan by printing only its
 first 120 characters from the transcript record, stopping at the first escaped
 quote, so the path has to sit near the front. Every worked example already has
-this shape; keep it.
+this shape; keep it. The path is the plan's `plan_file`, relative to the repository
+root the session starts in — except when `work_repo` is set: the session then starts
+in the work repository, where that relative path names nothing, so the condition
+names the plan by its absolute path, and the blocked report below by the same
+absolute prefix. Keep it short enough that the file name still falls inside those
+first 120 characters.
 
 **Cap: 4000 characters.** Count before emitting. If you are over: compress the
 criteria to command plus expected result, dropping prose; then, if still over, keep
@@ -68,7 +73,9 @@ rule; some work genuinely needs twelve precise checks.
 single-quoted shell argument. Write "the plan file" rather than "the plan's file",
 and name commands without backticks. Double quotes are fine. If a command genuinely
 requires a single quote (a jsonpath, say), do not fight it — emit the two-step form
-from the SKILL instead.
+instead, in the layout `plan-template.md` fixes under "The two-step Handoff": the
+flags-only command in the Handoff's `bash` block and the full condition directly below
+it in a fence whose info string is `goal`, which is how `/pdca:execute` finds it.
 
 **Name the gate, and let it terminate the run.** Two sentences buy the whole
 pre-flight: one telling the session to run the Pre-Flight section of the plan before
@@ -116,7 +123,8 @@ a usage limit. The clause costs one sentence and turns a runaway into a written
 post-mortem.
 
 **Name the blocked report exactly once, and identically everywhere.** The canonical
-form is the plan path with `.md` replaced by `.BLOCKED.md`. The evaluator looks for
+form is the plan path with `.md` replaced by `.BLOCKED.md` — spelled the way the
+condition spells the plan path, so absolute when `work_repo` is set. The evaluator looks for
 the path the condition names, so if the condition and the plan's own protocol spell it
 differently, the report does not register and the session cannot stop — the escape
 hatch fails precisely when it is needed. The same spelling goes into the plan's
@@ -215,11 +223,18 @@ optional, and a bare `--remote-control` placed before the prompt would consume t
 The frontmatter's `executor` block holds the same three flags, and the Handoff
 section holds the whole command — which is what lets `/pdca:execute` launch a plan
 from its path alone. When the work is in a different repository
-than the plan, emit the `cd` form so the session starts where the changes belong:
+than the plan, emit the `cd` form so the session starts where the changes belong —
+and name the plan by its absolute path, since the session's working directory is
+then the work repository, where the relative `plan_file` names nothing:
 
 ```bash
-cd /path/to/work-repo && claude --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal …'
+cd /path/to/work-repo && claude --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal Execute the plan at /path/to/plan-repo/2026-08-27-cache-ttl-plan.md to completion. …'
 ```
+
+The blocked report in that condition is
+`/path/to/plan-repo/2026-08-27-cache-ttl-plan.BLOCKED.md`, the same absolute prefix;
+the plan commits run as `git -C /path/to/plan-repo …`, which the Execution Protocol
+prescribes.
 
 If the ticket key is still unknown at handoff, leave it as a visible placeholder in
 the printed command — `each commit prefixed <TICKET>` — and tell the user to fill it

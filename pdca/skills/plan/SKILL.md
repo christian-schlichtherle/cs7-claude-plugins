@@ -20,7 +20,8 @@ them are the planning session and the execution session. The roles have fixed
 names as well: the **planner** is the model in phase 1; the **executor** is the model
 in phase 2; the **reviewer** is the executor's model reading the plan cold inside phase 1; and the
 **evaluator** is the small model behind the `/goal` Stop hook. The user ends the
-planning loop by saying **proceed**, and nothing else counts as that.
+planning loop by saying **proceed** — said explicitly, in whatever words; silence, an
+absence of objections, or your own confidence is not one.
 
 The split exists because the two phases want opposite things. Planning wants the
 user in the loop, wants questions asked, wants to change its mind. Execution
@@ -48,8 +49,10 @@ Claude Code's `/plan` mode is the wrong tool here, for two concrete reasons:
 2. It re-renders its whole plan in the transcript every turn. The plan file instead
    lives on disk, is edited in place, and each turn reports only the delta.
 
-Work in the session's normal permission mode. If the session is currently in plan
-mode, say so and ask the user to exit before continuing.
+Work in the session's normal permission mode, with the one exception step 4 spells
+out: the commands the plan prescribes are verified under phase 2's mode, which may mean
+asking the user to switch this session's mode for that part of the work. If the session
+is currently in plan mode, say so and ask the user to exit before continuing.
 
 Plan mode does have a place in this workflow, just not here: the reviewer in step 7
 needs read-only exploration and must not touch the repository, which is exactly what
@@ -86,7 +89,8 @@ printf 'verify' > ~/.cache/claude-pdca/"$CLAUDE_CODE_SESSION_ID".status
 
 Update it at every step transition. Name the
 step, not its number: the loops re-enter earlier steps, so a number would read "6 of
-8" twice with different meanings. The names are `interview`, `sources`, `verify`,
+8" twice with different meanings. The names are `interview` — the first write, in
+step 1, since parsing takes no time a status line could show — `sources`, `verify`,
 `draft`, `iterate`, `review 2/10` (the round within the round budget), `handoff`, and
 `re-verify` for a reopened plan. Step 7's rounds are the one exception: the `review`
 skill writes `review N/<budget>` itself at every round, so leave that file to it while
@@ -110,7 +114,8 @@ The command takes `[model] [effort] [rounds] <goal or plan path>`. The grammar i
 deliberately rigid, because a clever rule here is worse than a predictable one:
 
 - A leading **model** token — `fable`, `opus`, `sonnet`, `haiku`, or a full model ID
-  — is consumed as the model.
+  — is consumed as the model. `haiku` is consumed like the others so that the parse
+  stays predictable; step 2 says why it is then refused as the executor.
 - An **effort** token — `low`, `medium`, `high`, `xhigh`, `max` — is consumed *only
   when it immediately follows a model token*. A bare leading effort word is always
   goal text.
@@ -132,7 +137,13 @@ correction rather than a whole session.
 
 If the remainder is a path to an existing file, read its frontmatter. A file whose
 frontmatter says `plugin: pdca` is a plan this workflow wrote: reopen it instead of
-starting a new one — see "Reopening a plan" below. Any other readable file — a spec, a
+starting a new one — see "Reopening a plan" below. A file whose frontmatter carries
+`plan_file` and `next` — and no `plugin` — is a **blocked report**, not a source, and
+its contents are a failure message, not requirements: reopen the plan its `plan_file`
+names, whose `status` will be `blocked`, and follow "Reopening a plan" from there. A
+report written before plugin 0.13.0 has no `plan_file`, and one written before 0.10.0
+has no frontmatter at all; for those, a path ending `.BLOCKED.md` names its plan by
+that suffix — `.BLOCKED.md` back to `.md`. Any other readable file — a spec, a
 design note, an RFC — is a **requirements source**: the work is to plan what it asks
 for, and step 3 reads it. A URL in the remainder is a source too, unless it is a
 ticket URL, which is the ticket. A source named alongside intent is both — the
@@ -168,7 +179,17 @@ express — a ticket key, a full model ID — arrives through the interview's fr
 
 The parameters:
 
-- **Model and effort for phase 2.** Propose `opus` at `high` when unspecified.
+- **Model and effort for phase 2.** Propose `opus` at `high` when unspecified. The
+  interview offers `fable`, `opus` and `sonnet` — **not `haiku`**: `auto` is
+  unavailable under Haiku, so a session launched with `--model haiku …
+  --permission-mode auto` prints `auto mode unavailable for this model`, falls back to
+  manual mode, and its first Bash call then waits for an approval nobody gives
+  (observed 2026-09-12 on Claude Code 2.1.269). When the invocation names `haiku`, say
+  that and ask for the model again rather than planning for it. The one way a Haiku
+  plan runs unattended is `bypassPermissions`, and only as the user's deliberate,
+  risk-acknowledged choice made in this same interview — see "The handoff command" —
+  knowing that `/pdca:execute` cannot launch such a plan from an `auto` session,
+  because the classifier refuses to start a bypass child, so it is launched by hand.
 - **Round budget for the review loop.** How many conclusive rounds step 7 may spend
   before it stops and puts both positions to the user. Recommend `10`, then offer `5`
   and `20`; any other number arrives through "Other". It is written into the plan's
@@ -189,7 +210,7 @@ The parameters:
   anything else happens.
 
 These are not administrative details you can collect at the end. How much the plan
-has to spell out depends on who is reading it: a plan for `haiku` at `low` effort
+has to spell out depends on who is reading it: a plan for `sonnet` at `low` effort
 needs exact file paths, exact snippets, and no inference; a plan for `opus` at `max`
 can state intent and constraints and trust the reader to work out the details. You
 cannot write at the right altitude without knowing the audience.
@@ -270,6 +291,24 @@ what you think (config values, schema, cluster state, dependency versions); and 
 the acceptance checks pass *now* for the right reason, or fail *now* for the right
 reason.
 
+**Resolve the executor's model alias to the literal ID the gate will compare.** Step 2
+collected an alias — `opus`, `sonnet`, `fable` — and the pre-flight gate string-matches
+the ID the transcript records, which is not guessable from the alias: the plugin's own
+record has a `haiku` launch whose transcript said `claude-sonnet-5`. So ask the alias
+what it resolves to, in a session as short as one can be:
+
+```bash
+claude -p --model <alias> --effort low --output-format json 'Reply with the single word ok.' \
+  | python3 -c 'import json,sys; m=list(json.load(sys.stdin)["modelUsage"]); assert len(m)==1, m; print(m[0])'
+```
+
+The `modelUsage` key is the literal ID — `claude-opus-5` for `opus` — and it is the
+same string that session's transcript records, which is what the gate reads (both
+verified 2026-09-19). Write exactly that into `executor.model` and into Pre-Flight
+check 1, and never this session's own model unless phase 2 runs the same alias. A full
+model ID given on the command line is resolved the same way; the comparison in phase 2
+is exact, not a prefix.
+
 **Run every command you prescribe, under the permission mode phase 2 will use.** This
 is the concrete test for a failure that is otherwise invisible until nobody is
 watching: `auto` decides without asking, and it decides *both ways* — a command it
@@ -278,6 +317,53 @@ prescribe needed manual approval or was denied here, that is a defect in the pla
 a footnote. Substitute a command that runs cleanly, or record an explicit,
 user-approved mode escalation in the plan. A prescribed command phase 2 cannot run
 makes its acceptance criterion unreachable.
+
+"Run" has two forms, and which one a command gets is decided by what it does. A
+command with no side effects outside the working tree — a read, a build, a test, a
+`grep` — is run as written. A command that changes state outside the tree — a `helm
+upgrade`, a `kubectl apply`, a push, a migration, anything that does the work phase 2
+exists to do — is **rehearsed**, never run: its `--dry-run` or `--dry-run=server`
+form, a `--check` flag, a `kubectl auth can-i`, a scratch target, whatever comes
+closest to the real shape without the real effect. Running the real form here would do
+phase 2's work in phase 1, falsify the Verified Context you are about to write, and
+turn the acceptance criteria into checks that pass without the work being done. The
+plan records which commands were proved only in rehearsal; and where the classifier's
+verdict on the real shape genuinely cannot be had without the real effect — the
+rehearsal form differs in shape, and `references/preflight.md` says shape is what the
+classifier judges — say so in the Verified Context as a stated risk, not as a
+verified fact. A denial or a prompt on the rehearsal form is still the defect above.
+
+**That test only means something from a session in phase 2's mode.** A session runs
+in exactly one permission mode, and you cannot switch it — only the user can, with
+`Shift+Tab`, which cycles the modes and reaches `auto` wherever auto mode is available
+(`bypassPermissions` is in the cycle only when the session was started with a bypass
+flag, and `dontAsk` never is; a mode the cycle does not offer means restarting
+planning with `claude --permission-mode <mode>`). So before the first prescribed
+command, read this session's own mode the way the pre-flight gate reads phase 2's:
+
+```bash
+T=$(ls -t "$HOME"/.claude/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl | head -1)
+grep -o '"permissionMode":"[^"]*"' "$T" | tail -1
+```
+
+Say what it printed, and act on it. When it is phase 2's mode, verify as this step
+says. When it is broader — `bypassPermissions` — nothing you run here meets the
+classifier, so a clean run proves nothing about phase 2: ask the user to switch this
+session to phase 2's mode for this step, and if they decline, the plan says in its
+Verified Context that its commands were not verified under that mode, as a stated risk
+rather than a silent one. When it is narrower or merely different — `default`,
+`acceptEdits`, `dontAsk`, or plan mode — a prompt or a denial here is a fact about
+this session, not about the plan: it does not mean phase 2 would refuse the command,
+and it must not send you rewriting good tasks to dodge a classifier that was never
+consulted. Ask the user to switch, then run the commands again under phase 2's mode.
+If they decline, the fallback is the same as for the broader mode — the Verified
+Context records that the prescribed commands were not verified under phase 2's mode,
+as a stated risk — with one addition: nothing observed under this mode is written up
+as a plan defect, because no prompt or denial here says what phase 2 would do. In
+every case, record in the Verified Context which mode the commands ran under —
+"verified under `auto`" is a claim the executor relies on, and it has to be true, and
+"not verified under `auto`" is one the reviewer and the executor can tell from an
+oversight.
 
 **Enumerate the privileges the tasks need, and probe each one.** Read back through
 what the plan will prescribe: every command that pushes, writes outside the
@@ -295,8 +381,9 @@ linking to it — and none of that is guaranteed to work: an MCP server that
 needs interactive authentication, a token this session holds and the next one does not,
 an `auto` classifier that refuses an MCP write, a protected branch that rejects the
 push. Probe each, record the verified calls and identifiers in the plan, and work out
-the permalink template for this repository's host — then commit and push the plan here
-and give the user the resulting URL to click, which is the only honest proof the
+the permalink template for this repository's host — the proof comes at the handoff
+commit in step 8 item 4, where the user opens the resulting URL, so work the template
+out now and record it; a link that resolves then is the only honest proof the
 template is right. If there is no comment channel, say so now and let the user choose
 the fallback — see `references/jira.md`.
 
@@ -344,7 +431,8 @@ copy `name`, `version` and `repository` into `plugin`, `plugin_version` and
 `plugin_url`. If that variable is unset, this skill's own directory names the
 installed version — `~/.claude/plugins/cache/<marketplace>/pdca/<version>/`. Set
 `status: drafting`. The `executor` block takes the model, effort and mode from step 2
-in the literal spellings the pre-flight compares; `review_rounds` takes the round
+in the literal spellings the pre-flight compares — the model as the ID step 4 resolved
+the alias to, never the alias; `review_rounds` takes the round
 budget from step 2; `sources` and `ticket` record step
 3's inputs, `ticket: none` and `sources: []` when there were none. The fields step 8
 settles — `branch`, `closeout_push`, `permalink` — are written then, not guessed now.
@@ -500,15 +588,26 @@ artifact this step exists to prevent.
 3. **Write the handoff command into the plan's Handoff section**, then print it.
    Terminal output is the most perishable place a command can live, and the gap
    between the two phases can be weeks. A plan file that carries its own launch
-   instruction can be picked up by whoever finds it. Below the full command, write
+   instruction can be picked up by whoever finds it. In the two-step form, both parts
+   go in — the flags-only command in the `bash` block and the full condition in the
+   `goal` fence the template fixes under "The two-step Handoff" — because a Handoff
+   with a prompt-less command and no `goal` fence is one `/pdca:execute` refuses to
+   launch. Below the full command, write
    the short form the template shows — the one-line `/goal` a user can type into a
    session they started by hand — and say what it gives up;
    `references/goal-condition.md` has the words. In the same edit, finish the
    frontmatter: `status: handed-off`, `branch` as `git branch --show-current` prints
    it, `closeout_push` from the decision in item 1, `permalink` as the template worked
    out in step 4 or `none`.
-4. **Now commit** — always. Follow the repository's commit convention, including the
-   ticket prefix if that is what `git log` shows. Committing before item 3 would put a plan into
+4. **Now commit** — always, and the plan file alone: stage it by name, `git add
+   <plan>`, never `-a` or `.`, which would sweep whatever else the user had in the tree
+   into the handoff commit — expensive to untangle in a repository whose next act is an
+   unattended run. Follow the repository's commit convention, including the
+   ticket prefix if that is what `git log` shows. Then check `git status --porcelain`
+   shows nothing at all before you print the handoff: phase 2's Ground check requires
+   a clean tree, so anything left over is the user's to commit or stash first, or the
+   plan has to name it as expected dirt — say which, and do not print a handoff that
+   will fail its gate in turn 1. Committing before item 3 would put a plan into
    history without its own launch command and leave phase 2 facing a dirty tree — both
    of which defeat the point.
 
@@ -518,6 +617,9 @@ artifact this step exists to prevent.
    branch — and build the permalink for the plan at it. Give the user that URL to open: a link that resolves
    here is the proof that the template recorded in the plan is the right one for this
    host, and it costs one click now instead of a dead link on the ticket weeks later.
+   If it does not resolve, the template is wrong — fix `permalink`, take the follow-up
+   commit this step's re-entry rule prescribes, and prove it again before offering the
+   launch.
 
 5. **Offer to launch the execution session.** If the user accepts, follow the
    `execute` skill — `${CLAUDE_PLUGIN_ROOT}/skills/execute/SKILL.md`: it starts the
@@ -537,6 +639,16 @@ the file's age or its checkboxes.
 A reopen reuses the plan's own `review_rounds` for step 7 rather than asking for it
 again. A plan written before plugin 0.12.0 has no such field: ask for the budget as
 step 2 would, and write it in with the first edit.
+
+A model, effort or permission mode named on the reopen's command line —
+`/pdca:plan opus max <plan>` — replaces the plan's `executor` block; that is what
+naming it means. Update the block, the Pre-Flight section's literal values and the
+altitude of the prose together — a plan re-pitched for a different reader is a
+different plan — resolve the new alias to its literal ID as step 4 does, re-verify the
+prescribed commands under the new mode, and report the change as a delta. Step 7 then
+runs at the new model and effort. A round budget named there replaces `review_rounds`
+the same way. When the invocation names none of them, the plan's own values stand and
+are not re-asked.
 
 **`drafting`** — planning never finished. Continue where it left off.
 
@@ -559,7 +671,20 @@ on them — and set `status` back to `drafting` with the first edit.
 **`executing`** — a run is under way or was interrupted. Say so and ask before
 touching the file: relaunching — `/pdca:execute <path>` — resumes the run from the
 ticked boxes, which is what the Execution Protocol is written for; reopening abandons
-that run and starts the plan's life over. Only the user can say which.
+that run. Only the user can say which. Once you are reopening, the run's leftovers are
+the user's call, exactly as a blocked report's partial work is — and here there is no
+report enumerating them, so enumerate them yourself first: the ticked boxes, the Run
+Log's started-lines, the run's commits on the branch (`git log` since the handoff
+commit), and anything uncommitted in the tree. Then ask: **keep** the committed work
+as the new starting state — the checkboxes stay ticked, the tasks are adjusted to
+what remains, and the re-verification runs against the tree as the run left it — or
+**revert** the run's commits and untick the boxes, so the re-verification runs against
+the base the plan was written for. Record the answer in the Run Log, set `status:
+drafting` with the first edit, and then treat the plan as `handed-off`: re-verify
+against the chosen tree, bring the plan back to true, and take it back through
+review. Never reset a plan whose work is still applied without saying so — a task 1
+that re-runs an already-applied `helm upgrade` unattended is the failure this branch
+exists to prevent.
 
 **`blocked`** — read the blocked report first: the plan's `blocked_report` names it,
 and on a plan blocked before plugin 0.13.0 it is the plan path with `.md` replaced by
@@ -595,7 +720,9 @@ strictly better than discovering the drift halfway through an unattended run.
 The execution session is a new `claude` process started in the working directory of the
 repository being changed — usually, but not always, the one where planning happened.
 When the plan and the work live in different repositories, the printed command takes
-the `cd <work-repo> && claude …` form. It shares the repository and nothing else: no
+the `cd <work-repo> && claude …` form, and its condition names the plan by absolute
+path — the session starts in the work repository, where the relative path names
+nothing; `references/goal-condition.md` shows the form. It shares the repository and nothing else: no
 conversation history, no context from phase 1. That is the point.
 
 `/pdca:execute <path>` runs this command for the user — the `execute` skill owns how —
@@ -644,9 +771,14 @@ claude --model opus --effort high --permission-mode auto --remote-control 2026-0
 - The positional prompt runs as the session's first turn, so `/goal` activates
   immediately.
 
-If the condition cannot be made shell-safe, print the two-step form instead: start
-`claude --model … --effort … --permission-mode auto --remote-control <name>`, then
-paste the `/goal …` line as the first message. Same result, no quoting hazards.
+If the condition cannot be made shell-safe, emit the two-step form instead: the
+flags-only command — `claude --model … --effort … --permission-mode auto
+--remote-control <name>` — and the `/goal …` line on its own, pasted as the first
+message when launching by hand. Both go into the Handoff section in the layout
+`references/plan-template.md` fixes under "The two-step Handoff": the command in the
+`bash` block, the condition directly below it in a fence whose info string is `goal`,
+which is how `/pdca:execute` finds the condition without guessing. Same result, no
+quoting hazards.
 
 `/goal <plan-path>` on its own is not a launch, and the plan's Handoff section says
 so next to the short form it offers instead. The reasons are in
@@ -703,8 +835,10 @@ specification.
   goes, so an interrupted run resumes from the file and the user can watch progress by
   reading it. `plan-template.md`
 - **Run the acceptance checks for real and show their output** — not a summary — and
-  re-run the full set immediately before finishing, because the evaluator can only
-  judge from what is still visible in the transcript. `goal-condition.md`
+  re-run the work criteria in full immediately before the Closeout, because the
+  evaluator can only judge from what is still visible in the transcript; the closeout
+  criteria are shown passing as the Closeout's own steps complete, the only place they
+  can hold. `goal-condition.md`, `plan-template.md`
 - **Treat a permission denial as a blocked report**, not an obstacle to route around: a
   denied command means the plan prescribed something phase 2 cannot do. `preflight.md`
 - **Commit as you go on the current branch** — the one `branch` names — with the

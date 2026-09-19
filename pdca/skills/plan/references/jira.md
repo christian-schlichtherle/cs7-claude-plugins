@@ -213,8 +213,10 @@ channel.
 Order matters, and the reason is always the same: nothing is deleted before its
 replacement exists at an address that resolves.
 
-1. The tasks are done, the work is committed, and the full Acceptance Criteria have
-   been re-run and shown to pass.
+1. The tasks are done, the work is committed, and the work criteria — every
+   Acceptance Criterion that does not describe this closeout — have been re-run and
+   shown to pass. The closeout criteria cannot hold yet; they are shown passing as the
+   steps below complete.
 2. Bring the plan file to its final state: every checkbox ticked, the Run Log
    complete, the outcome recorded — which acceptance criteria passed with what output,
    and any deviation from the plan as written — and `status: done` in the frontmatter.
@@ -277,8 +279,10 @@ mechanism exists to avoid. Against that, a push is an unattended session writing
 shared branch, and some repositories have protections or review flows that make it the
 wrong default. If the user declines, the plan says so, the comment carries the SHA and
 the `git show <sha>:<path>` command instead of a URL, and the plan's Handoff section
-notes that someone has to push afterwards for the link to appear. Either way, `git push
---dry-run` is probed in phase 1 and sits in the plan's Pre-Flight section.
+notes that someone has to push afterwards for the link to appear. `git push --dry-run` is probed in
+phase 1 either way, so the user hears now if a push would fail; it sits in the plan's
+Pre-Flight section, as a fatal check, only when the closeout pushes — a plan that does
+not push carries no push probe to fail on.
 
 There is no remote for a local-only repository, and no URL to build. Say so in the plan,
 and have the comment give the SHA and path with `git show`. The preservation commit is
@@ -291,7 +295,8 @@ that prunes those refs loses the record with the branch. Say which case applies 
 plan, so a reader of the comment knows how durable its address is.
 
 **When the plan and the work live in different repositories**, the preservation commit
-goes to the repository holding the plan, and the link points there. Spell out which
+goes to the repository holding the plan — `git -C <plan directory> …` from the work
+repository the session runs in — and the link points there. Spell out which
 repository that is; an execution session that commits the plan into the repository it
 was changing has put a stray file in the wrong history.
 
@@ -311,7 +316,7 @@ with the read-only
 
 Record in the plan — `type: jira`, `key`, `url` and `cloud_id` in the frontmatter's
 `ticket` block, the permalink template in `permalink`, the exact comment call or command
-in the Ticket Closeout section. `type` is what makes the rest of the block readable
+in the Closeout section. `type` is what makes the rest of the block readable
 without guessing: `cloud_id` is a Jira key, and a later tracker would bring its own,
 so the block says which tracker it describes instead of leaving a reader to infer it
 from which optional keys happen to be present. Phase 2 should be executing recorded commands,

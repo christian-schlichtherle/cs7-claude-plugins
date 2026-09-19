@@ -61,7 +61,12 @@ nobody named is a review of nothing.
 
 **A path whose frontmatter says `plugin: pdca` is a plan, and is not reviewed here.**
 Say so and send it to `/pdca:plan <path>`: plans have exactly one route to a review,
-the one that owns the fixpoint between the user, the planner and the executor.
+the one that owns the fixpoint between the user, the planner and the executor. This
+is about a direct invocation; a caller such as `/pdca:plan`, which owns the plan's
+exit, enters at section 3 with its own lens.
+
+A path outside the project directory is refused the same way: a plan-mode reviewer
+will not read one, so the round cannot produce a verdict.
 
 ## 2. Interview for what is missing
 
@@ -89,10 +94,12 @@ The prompt is a **template** with `{{slot}}` markers, filled from a **lens**:
   brings none.
 
 A caller brings its own lens instead and names its path; `/pdca:plan` brings
-`${CLAUDE_PLUGIN_ROOT}/skills/plan/references/executor-lens.md`. If those variables
-reach you unexpanded, resolve both paths relative to the `SKILL.md` you actually
-read — never to the installed plugin cache, which may be an older version than the
-tree you were loaded from.
+`${CLAUDE_PLUGIN_ROOT}/skills/plan/references/executor-lens.md`. You reached this file
+by reading it — the Read tool or a `cat` — so `${CLAUDE_SKILL_DIR}` is unexpanded
+here, and it is unset inside a Bash call in any case. Resolve both paths, and the two
+in the assembly snippet below, relative to the `SKILL.md` you actually read — never to
+the installed plugin cache, which may be an older version than the tree you were
+loaded from.
 
 A lens is a Markdown file in which each `## <slot>` heading is followed by that slot's
 content, which is the text beneath it, trimmed. Exactly these eight, and no others:
@@ -209,7 +216,8 @@ claude -p --model <caller's model> --effort <caller's effort> --permission-mode 
 Background it deliberately, not as a nicety: a foreground reviewer at high or xhigh
 effort routinely outlives the 10-minute tool timeout and is killed mid-thought
 (observed: exit 143, whole round lost). Launch it detached, then read the verdict file
-when it finishes.
+when it finishes. Use the Bash tool's `run_in_background`, so the harness notifies you
+on exit; a bare `&` gives you nothing to wait on.
 
 - `-p` — non-interactive, prints the verdict to stdout.
 - `--model` / `--effort` — the reader's, not this session's. This is the whole point.

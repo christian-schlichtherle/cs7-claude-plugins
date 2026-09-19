@@ -233,7 +233,8 @@ it under the degradation rule below — a self-reported or unavailable identity 
 warning to record, not a check to wave through. Do not infer the mode from what the
 session appears to be allowed to do.
 
-Compare each against the values the plan's Pre-Flight section names. A mismatch on any
+Compare each against the values the plan's Pre-Flight section names — an exact string
+match, not a prefix, so a dated ID does not pass for an undated one. A mismatch on any
 of the three is fatal — including a *higher* model than planned, which is cheap to
 relaunch correctly and not worth guessing about.
 
@@ -274,7 +275,7 @@ command has a rehearsal form, that is the probe:
 | Dependency installation | the actual fetch against the real registry |
 | A write outside the repository | `touch` the target path and remove it |
 | A Jira comment at closeout | A read against the same MCP server under phase 2's mode; on the REST fallback, `GET /rest/api/3/mypermissions?issueKey=<key>&permissions=ADD_COMMENTS` returns `havePermission` — it writes nothing, so the ticket collects no test comments |
-| A push at closeout | `git push --dry-run` — the closeout's permalink points at a commit that has to reach the remote |
+| A push at closeout | `git push --dry-run` — when `closeout_push` is true: the closeout's permalink then points at a commit that has to reach the remote |
 
 A probe that needed manual approval, or came back denied, is a failed pre-flight — not
 a note to keep in mind.
@@ -323,7 +324,7 @@ Three levers, in the order to try them:
 
 Switching the plan to `bypassPermissions` is a fourth lever and a different kind of
 decision — the user's, made in phase 1 and recorded in `executor.permission_mode`, never
-a hedge added at launch "in case `auto` gets in the way". See `plan/SKILL.md` on the
+a hedge added at launch "in case `auto` gets in the way". See `../SKILL.md` on the
 permission mode for why an unattended run is the worst place to turn the layer off.
 
 The classifier itself is not the session's model, so none of this moves when the plan
@@ -338,8 +339,9 @@ one is not the judge but what the judge has read.
 Cheap, and it catches the launch that went off in the wrong directory or on the wrong
 branch:
 
-- The plan file exists at exactly the path the goal condition names, which is also
-  `plan_file` in its frontmatter.
+- The plan file exists at exactly the path the goal condition names — `plan_file` in
+  its frontmatter, or, when `work_repo` is set, the absolute path whose file name is
+  `plan_file`, since the session then starts in the work repository.
 - The working directory is the repository the plan says it changes (`git remote -v`,
   or a file that only exists there; `work_repo` in the frontmatter when that differs
   from the repository holding the plan).
@@ -372,8 +374,10 @@ point of doing it here rather than at task 4.
 Writing the Pre-Flight section is phase 1's job, and it is not boilerplate:
 
 - **Name the expected model, effort and permission mode literally**, in the spelling
-  the checks produce — `claude-opus-5`, `high`, `auto` — so the comparison is a string
-  match and not a judgement call. The frontmatter's `executor` block carries the same
+  the checks produce — `claude-opus-5`, `high`, `auto` — so the comparison is an exact
+  string match and not a judgement call. The model's spelling is not the alias the
+  user chose; the plan skill's step 4 resolves the alias in a one-line headless session
+  and copies the ID it reports. The frontmatter's `executor` block carries the same
   three values in the same spelling; the check names them again because a check has to
   read on its own.
 - **Keep the goal check.** Check 1's first half — the last `goal_status` record
@@ -383,7 +387,9 @@ Writing the Pre-Flight section is phase 1's job, and it is not boilerplate:
 - **Enumerate the privileges from the tasks, not from imagination.** Read back through
   the plan; every command that writes outside the tree, touches a cluster, pushes, or
   reaches the network earns a probe.
-- **Run every probe yourself, under phase 2's permission mode.** This is the same rule
+- **Run every probe yourself, under phase 2's permission mode** — which means from a
+  session that is in it; the plan skill's step 4 says how to read this session's mode
+  and what to do when it is not phase 2's. This is the same rule
   that governs prescribed commands generally, and it applies with more force here: a
   probe that is itself denied turns the gate into a false alarm that ends the run
   before it starts.

@@ -333,6 +333,10 @@ planning session stops before writing anything if the working directory is not a
 repository. A new branch for the work is made only if you ask for one, by the planning
 session at handoff; the execution session never creates branches.
 
+`python3` on `PATH`. The review loop assembles its reviewer prompt with it, and the
+planning session uses it to resolve the executor's model alias to the literal ID the
+pre-flight gate compares; without it, planning cannot reach a handoff.
+
 `/goal` needs a trusted workspace and working hooks — it is unavailable when
 `disableAllHooks` or `allowManagedHooksOnly` is set.
 

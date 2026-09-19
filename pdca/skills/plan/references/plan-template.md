@@ -38,7 +38,7 @@ permalink: https://github.com/acme/api/blob/<sha>/2026-08-27-cache-ttl-plan.md
 plan_file: 2026-08-27-cache-ttl-plan.md
 plugin: pdca
 plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
-plugin_version: 0.13.0
+plugin_version: 0.14.0
 review_rounds: 10
 sources:
   - ACME-123
@@ -63,7 +63,7 @@ anticipate.>
 
 <Every requirement from every source named in the frontmatter — the ticket, a spec
 file, a URL, pasted text — and what the user decided about it. Omit this section only
-when there is no source at all, and then say so in one line. See `references/jira.md`;
+when there is no source at all, and then say so in one line. See `jira.md`;
 a spec goes through the same conversation as a ticket.>
 
 **Where this plan and a source disagree, this plan wins.** A ticket or a spec is a
@@ -161,14 +161,17 @@ the report was the message.>
      succeeds under this permission mode (or, on the REST fallback,
      `GET /rest/api/3/mypermissions?issueKey=ACME-123&permissions=ADD_COMMENTS`
      returns `havePermission: true`).
-   - `git push --dry-run` exits 0 — the closeout pushes the preservation commit, and a
-     link to a commit that never left the machine is a dead link. A closeout that
+   - `git push --dry-run` exits 0 — only when `closeout_push` is true: the closeout
+     then pushes the preservation commit, and a link to a commit that never left the
+     machine is a dead link. A closeout that
      cannot run is a pre-flight failure, because the plan cannot be preserved once it
      is deleted.
 
 3. **Ground.**
    - This file exists at `2026-08-27-cache-ttl-plan.md`, the `plan_file` in its
-     frontmatter.
+     frontmatter. (With `work_repo` set, the goal condition names this file by its
+     absolute path, because the session starts in the work repository; the file exists
+     at that path, and its name is `plan_file`.)
    - `git remote -v` names the `api` repository, `git branch --show-current` prints
      `main`, and `git status --porcelain` is empty — or this is a resume: the
      frontmatter says `status: executing` or `status: blocked`, and the only changes
@@ -199,15 +202,26 @@ plan says which tasks land together.>
 <The checks that decide whether the work is done. Exact commands and exact expected
 results — these are inlined into the goal condition, so an evaluator must be able to
 judge them from the output alone. Every criterion must be runnable in this
-environment; you verified that in phase 1.>
+environment; you verified that in phase 1. Two classes, and the plan says which is
+which: **work criteria** describe the work and are re-run in full immediately before
+the Closeout, after the last work commit; **closeout criteria** describe the closeout
+itself and cannot hold before it has run, so they are shown passing as its steps
+complete and are never part of that re-run — their not holding before the Closeout is
+not a failure and never a reason for a blocked report.>
+
+Work criteria — re-run in full before the Closeout:
 
 1. `mvn -q verify` exits 0.
 2. `kubectl -n staging get configmap api-config -o "jsonpath={.data.cacheTtlSeconds}"`
    prints `3600`.
+
+Closeout criteria — hold only once the Closeout section has run, and are shown there:
+
 3. The final state of the plan was committed and pushed, and a comment on ACME-123
    links to `2026-08-27-cache-ttl-plan.md` at that commit — which is the last commit
-   before the one that deletes the file.
-4. `git status --porcelain` is empty — everything committed, plan file gone.
+   before the one that deletes the file. Shown by Closeout steps 2 to 4.
+4. `git status --porcelain` is empty — everything committed, plan file gone. Shown
+   after Closeout step 5.
 
 ## Rollback
 
@@ -219,8 +233,10 @@ this under pressure.>
 
 ## Closeout
 
-<Run after the work is committed and the Acceptance Criteria have been re-run, and
-before this file is removed. Always present: this file is the record of the run, and it
+<Run after the work is committed and the work criteria — every Acceptance Criterion
+that does not describe this closeout — have been re-run and shown to pass, and before
+this file is removed. The closeout criteria are shown passing here, step by step, as
+the only place they can hold. Always present: this file is the record of the run, and it
 is preserved in a commit of its own before it is deleted, ticket or no ticket. Exact
 commands, verified in phase 1 — the execution session runs them, it does not work out
 how to talk to git or Jira. This section is not a decision point: do not ask what
@@ -228,7 +244,10 @@ should be done with this file or the ticket — that was decided in the planning
 and this section is the decision. Run the recorded commands; if they cannot complete,
 the answer is the blocked report, not a question. Steps 3, 4 and 6 apply only with a
 ticket; without one, or when the user decided against the comment, say so in one line
-where they would stand and run the rest.>
+where they would stand and run the rest. When `closeout_push` is false, step 3 is
+dropped as well — the comment carries the SHA and `git show <sha>:<path>` instead of
+a URL, as `jira.md` prescribes — and the `git push` lines in steps 2 and 5 are not
+run; the worked steps below show the push case.>
 
 1. Bring this file to its final state: every task checkbox ticked, the Run Log
    complete, the outcome recorded, and `status: done` in the frontmatter.
@@ -271,7 +290,8 @@ where they would stand and run the rest.>
 
    Separate is the point: the preservation commit has to stay the last commit in which
    this file exists, because that is where the record of the run lives — and, with a
-   ticket, the commit the comment links to.
+   ticket, the commit the comment links to. Then show `git status --porcelain` empty —
+   closeout criterion 4, shown here because this is where it first holds.
 6. Do not transition ACME-123 and do not edit any of its fields. A comment, nothing
    else.
 
@@ -307,11 +327,13 @@ from what is written here plus the repository, and record what you decided.
    are how the next one knows where to resume and what half-done work it may find.
 4. Run each task's verification and the Acceptance Criteria for real, and show their
    output. A summary is not evidence.
-5. Immediately before the final commit and the removal of this file, re-run the full
-   Acceptance Criteria and show every command and result again. The evaluator judging
-   whether you are done reads the condition text and the recent conversation — a
-   result proved twenty turns ago may no longer be visible to it, and this file is
-   about to stop existing.
+5. Immediately before the Closeout — after the last work commit — re-run every work
+   criterion in the Acceptance Criteria and show every command and result again. The
+   closeout criteria are not part of this re-run: they describe the Closeout itself,
+   cannot hold before it, and are shown passing as its steps complete, so their not
+   holding here is not a failure. The evaluator judging whether you are done reads the
+   condition text and the recent conversation — a result proved twenty turns ago may
+   no longer be visible to it, and this file is about to stop existing.
 6. If reality contradicts the Verified Context, stop and record the contradiction in
    the Run Log before deciding anything. Then proceed only if the plan's Goal still
    makes sense; otherwise treat it as blocked.
@@ -331,7 +353,10 @@ from what is written here plus the repository, and record what you decided.
    The plan is always tracked, so there is no `rm` path. When the plan lives in a
    different repository than the work — `work_repo` in the frontmatter — the plan
    commits, preservation and deletion alike, go to the repository holding the plan,
-   never to the one you are changing.
+   never to the one you are changing: run them as `git -C <plan directory> …`, where
+   the plan directory is the one holding this file — that repository's root, since a
+   plan always sits at the root — and name the file inside them as `plan_file`,
+   relative to that root.
 10. If a criterion cannot be made to pass — or the run cannot finish for any other
     reason: a denied command, a contradiction with the Verified Context that leaves the
     Goal standing but the plan wrong, a run that has to stop clean at a task boundary —
@@ -361,7 +386,10 @@ from what is written here plus the repository, and record what you decided.
 <The verbatim command that starts phase 2. Written here so the plan file carries its
 own launch instruction — terminal output is lost, a committed file is not. Keep it
 in a fenced block, as one line of exactly this shape: `/pdca:execute <this file>`
-reads this block and runs it, and a human can copy it straight out of the file.>
+reads this block and runs it, and a human can copy it straight out of the file. When
+the condition cannot be single-quoted, use the layout under "The two-step Handoff"
+below instead: the flags-only command in this block, the full condition in a `goal`
+fence directly after it.>
 
 ```bash
 claude --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal Execute the plan at 2026-08-27-cache-ttl-plan.md to completion. Done when ...'
@@ -390,6 +418,37 @@ decisions, surprises, deviations — and the summary of any blocked report a rel
 a reopen consumed.>
 ````
 
+## The two-step Handoff
+
+When the condition cannot be single-quoted — a command in it genuinely needs an
+apostrophe — the Handoff section takes a second shape, and that shape is fixed too,
+because `/pdca:execute` has to find the condition without guessing:
+
+1. The `bash` block carries the flags only — one line, no prompt:
+
+   ```bash
+   claude --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan
+   ```
+
+2. Directly below it, one sentence saying this is the two-step form, and then the full
+   condition in a fence whose info string is `goal` — one line, nothing else in the
+   fence:
+
+   ```goal
+   /goal Execute the plan at 2026-08-27-cache-ttl-plan.md to completion. Done when kubectl -n staging get configmap api-config -o 'jsonpath={.data.cacheTtlSeconds}' was run in this session and printed 3600; …
+   ```
+
+3. The short form follows as usual, in a plain fence.
+
+`/pdca:execute` selects the `goal` fence by its info string, reads it through a quoted
+heredoc and passes it as the positional argument, so the apostrophe never meets a
+shell. A human launching by hand runs the `bash` block and pastes the `goal` line as
+the first message. The short form never sits in a `goal` fence: it is not what a
+launch runs, and a launcher that picked it up instead would start a run whose
+evaluator holds no acceptance criteria — a loss nobody chose. A prompt-less `bash`
+block with no `goal` fence is an incomplete Handoff, and `/pdca:execute` says so
+rather than launching.
+
 ## The frontmatter
 
 The frontmatter is the plan's data: what produced it, who it is for, what it was
@@ -406,15 +465,15 @@ thing to decide and one less way for two plans to differ.
 | `branch` | phase 1, handoff | The branch the plan expects at launch; the Ground check compares. Normally the branch planning happened on. When the user asked for the work to go on a new branch, phase 1 created it at handoff and committed the plan on it, and this names it. |
 | `closeout_push` | phase 1, handoff | Whether the closeout pushes its two commits. Asked only when a ticket was named; `false` otherwise, and `false` when there is no remote. |
 | `created` | phase 1, first draft | Date of the first draft. Never updated. |
-| `executor` | phase 1, first draft | Model, effort and permission mode for phase 2, in the spellings the pre-flight compares: `claude-opus-5`, `high`, `auto`. |
-| `permalink` | phase 1, handoff | The host's permalink form with everything but `<sha>` filled in, or `none` when there is no remote. |
-| `plan_file` | phase 1, first draft | This file's path, relative to the repository holding it. |
+| `executor` | phase 1, first draft | Model, effort and permission mode for phase 2, in the spellings the pre-flight compares: `claude-opus-5`, `high`, `auto`. The model is the literal ID step 4 resolved the alias to, never the alias. |
+| `permalink` | phase 1, handoff | The host's permalink form with everything but `<sha>` filled in, or `none` when there is no remote, and `none` when there is no ticket — nothing reads it then, and an unproved template in the file reads like a verified one. |
+| `plan_file` | phase 1, first draft | This file's path, relative to the repository holding it. The goal condition names the same file — by this relative path when the work is in this repository, by its absolute path when `work_repo` is set, because the session then starts in the work repository. |
 | `plugin`, `plugin_url`, `plugin_version` | phase 1, first draft | Provenance, copied from the plugin's own `.claude-plugin/plugin.json` (`name`, `version`, `repository`). `plugin: pdca` is also how `/pdca:plan <path>` tells a plan to reopen from a spec to plan against; the version tells a reopen which template wrote the file. |
 | `review_rounds` | phase 1, first draft | The review loop's round budget, from the step 2 interview — how many conclusive rounds step 7 may spend before it stops and puts both positions to the user. A reopen reuses it; a plan written before 0.12.0 has none and is asked for it. |
 | `sources` | phase 1, first draft | Every requirements source the plan was planned from: ticket keys, spec paths, URLs. `[]` when there were none. |
 | `status` | both phases | The plan's state — see below. |
 | `ticket` | phase 1, first draft | `type`, `key`, `url` and `cloud_id` of the ticket, or `none`. Present even when `none`, so an absent ticket can be told from a forgotten one. `type` names the tracker: `jira` is the only value this plugin supports, and `cloud_id` is its key alone — a plan whose `type` is anything else gets no ticket steps in its Closeout, and phase 1 says so rather than improvising an integration. |
-| `work_repo` | phase 1, first draft | Only when the work lives in a different repository than the plan: its path. Absent otherwise. |
+| `work_repo` | phase 1, first draft | Only when the work lives in a different repository than the plan: its path. Absent otherwise. When present, every path to the plan that the execution session receives is absolute — see the writing guidance. |
 
 `status` takes exactly these values, and the file's state is read from it, never
 inferred from its age or its checkboxes:
@@ -433,7 +492,7 @@ A reopen reads the value and acts on it — the SKILL's "Reopening a plan" says 
 
 **Inline every command; never factor one into a bundled script.** The transcript
 checks in Pre-Flight are fiddly enough to look like they belong in a `scripts/`
-directory, and they are duplicated in `references/preflight.md`, which sharpens the
+directory, and they are duplicated in `preflight.md`, which sharpens the
 temptation. Resist it. Phase 2 runs with no plugin installed — the goal condition and
 this file are all it has — so a path into the skill directory is a dead path in the
 artifact, and the check it guards stops running without saying so. Duplication is the
@@ -444,7 +503,7 @@ is a plan an execution session can trust. If you catch yourself writing "should 
 or "presumably", either go run the command or move the claim into an explicit
 assumption the executor is told to verify first.
 
-**Write at the altitude of the executor.** `haiku` at `low` effort needs exact
+**Write at the altitude of the executor.** `sonnet` at `low` effort needs exact
 paths, exact strings, and no inference. `opus` at `max` needs intent and constraints
 and will handle the rest — over-specifying it wastes both your time and its
 judgment. This is why the model and effort are settled before the plan is drafted.
@@ -476,7 +535,15 @@ It happens whenever planning starts in one checkout and the code is in another. 
 execution session needs to know, in the frontmatter (`work_repo`) and in the
 Execution Protocol, which repository it is changing, which it must not touch, and
 that the plan file cannot be part of the commit. Left implicit, it will guess — and committing a plan file into
-an unrelated repository is a messy thing to undo unattended.
+an unrelated repository is a messy thing to undo unattended. The session starts in
+`work_repo`, where a relative plan path names nothing, so every path to the plan it
+receives is **absolute**: the goal condition opens `Execute the plan at
+/abs/plan-repo/<plan_file>`, the blocked report is named beside it with the same
+prefix, and the Ground check compares against that path. `plan_file` itself stays
+relative to the plan's repository, because the plan commits run there —
+`git -C <plan directory> …`, the directory holding the plan being that repository's
+root by the root rule. The `cd` form of the Handoff command carries the absolute
+path; `goal-condition.md` shows it.
 
 **The Requirements table is for phase 2, not for the record.** It is also where the
 source-as-request rule leaves its trace: a ticket's or a spec's non-functional demands —
