@@ -146,9 +146,9 @@ end a relaunch early, because the goal only accepts a report written in that ses
 Every plan opens with YAML frontmatter — the file's data, rendered by GitHub as a
 table at the top — and the prose sections follow. The frontmatter says which plugin
 version wrote the plan and when, which model, effort and permission mode it was
-written for, which sources it was planned from, which ticket in which tracker it closes
-out, where the file lives, its `status`, and — while a run is blocked — the report that
-says why. Its keys are in alphabetical order, nested
+planned with and which it was written for, which sources it was planned from, which
+ticket in which tracker it closes out, where the file lives, its `status`, and — while
+a run is blocked — the report that says why. Its keys are in alphabetical order, nested
 ones too, so two plans differ only where they mean to. The status is the one piece of
 state the file carries, and it is moved by whichever phase moves the plan:
 

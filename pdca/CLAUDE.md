@@ -203,7 +203,8 @@ for a day and dropped for exactly that consistency.
   frontmatter — the header table of 0.5.x is gone; `plan-template.md` owns the keys. The split is data versus
   prose: provenance (`plugin`, `plugin_version`, `plugin_url` — copied from
   `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`), `created`, `status`, the
-  `executor` block in the literal spellings the pre-flight compares, `sources`,
+  `executor` block in the literal spellings the pre-flight compares, the `planner`
+  block with the same keys for the planning session, `sources`,
   `ticket` (or `none`), `plan_file`, `work_repo` when it differs, the handoff-time
   fields `branch`, `closeout_push`, `permalink`, and `blocked_report` while a run is
   blocked. Instructions such as "do
@@ -242,7 +243,8 @@ for a day and dropped for exactly that consistency.
   whether a file written by the previous version has to be handled differently on
   pick-up: `--remote-control` in the Handoff (0.8.0), the blocked report's frontmatter
   (0.10.0), `review_rounds` (0.12.0), and `blocked_report` with the report's
-  `plan_file` (0.13.0), and the two-step Handoff's `goal` fence (0.14.0) each left a
+  `plan_file` (0.13.0), the two-step Handoff's `goal` fence (0.14.0) and the `planner`
+  block (0.15.0) each left a
   "written before <version>" branch in the skills, and each took a minor. Renaming the verdict (0.5.1), rewording (0.5.2), adding rationale
   (0.5.3) and moving the Run Log below the Handoff (0.5.4) left no such branch and took
   a patch. Written down 2026-09-19, having been re-derived from those notes rather than
@@ -470,6 +472,15 @@ for a day and dropped for exactly that consistency.
   headless session, `claude -p --model <alias> --effort low --output-format json`, whose
   `modelUsage` key is the literal ID and matches that session's transcript (verified
   2026-09-19: `opus` → `claude-opus-5` in both). The comparison is exact, not a prefix.
+- **The planner is recorded with the executor's schema.** Decided 2026-09-23. The
+  frontmatter named the executor's model, effort and mode but nothing about the session
+  that wrote the plan, so a reader weeks later could not tell what planned it. The
+  `planner` block has the same three keys in the same spellings, read from the
+  transcript and `CLAUDE_EFFORT` as the pre-flight reads phase 2's, and is rewritten at
+  handoff so a reopen or a mid-planning mode switch is not misrecorded. It is
+  provenance: no check compares it, and an unreadable value is `unknown`, not a guess.
+  The read works from a planning session too (verified 2026-09-23: `claude-opus-5-5`,
+  `auto`, `high` from an interactive session's transcript and `CLAUDE_EFFORT`).
 - **A reopen's command-line tokens replace the executor block.** Decided 2026-09-19.
   `/pdca:plan opus max <plan>` was documented and undefined: the reopen section settled
   `review_rounds` and nothing else. Named tokens now replace `executor` — block,

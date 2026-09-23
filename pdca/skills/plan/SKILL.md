@@ -432,7 +432,19 @@ copy `name`, `version` and `repository` into `plugin`, `plugin_version` and
 installed version — `~/.claude/plugins/cache/<marketplace>/pdca/<version>/`. Set
 `status: drafting`. The `executor` block takes the model, effort and mode from step 2
 in the literal spellings the pre-flight compares — the model as the ID step 4 resolved
-the alias to, never the alias; `review_rounds` takes the round
+the alias to, never the alias. The `planner` block takes the same three keys for this
+session, read the way the pre-flight gate reads phase 2's:
+
+```bash
+T=$(ls -t "$HOME"/.claude/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl | head -1)
+grep '"type":"assistant"' "$T" | tail -1 | grep -o '"model":"[^"]*"' | head -1
+grep -o '"permissionMode":"[^"]*"' "$T" | tail -1
+echo "effort=$CLAUDE_EFFORT"
+```
+
+Copy what it prints; where the transcript cannot be found, the model is the one your
+own context names, and a value no source gives is written `unknown` rather than
+guessed. `review_rounds` takes the round
 budget from step 2; `sources` and `ticket` record step
 3's inputs, `ticket: none` and `sources: []` when there were none. The fields step 8
 settles — `branch`, `closeout_push`, `permalink` — are written then, not guessed now.
@@ -598,7 +610,9 @@ artifact this step exists to prevent.
    `references/goal-condition.md` has the words. In the same edit, finish the
    frontmatter: `status: handed-off`, `branch` as `git branch --show-current` prints
    it, `closeout_push` from the decision in item 1, `permalink` as the template worked
-   out in step 4 or `none`.
+   out in step 4 or `none`, and the `planner` block read again as step 5 reads it, so
+   it names the session handing the plan off — a reopen, or a mode switched in step 4,
+   is otherwise misrecorded.
 4. **Now commit** — always, and the plan file alone: stage it by name, `git add
    <plan>`, never `-a` or `.`, which would sweep whatever else the user had in the tree
    into the handoff commit — expensive to untangle in a repository whose next act is an
@@ -638,7 +652,9 @@ the file's age or its checkboxes.
 
 A reopen reuses the plan's own `review_rounds` for step 7 rather than asking for it
 again. A plan written before plugin 0.12.0 has no such field: ask for the budget as
-step 2 would, and write it in with the first edit.
+step 2 would, and write it in with the first edit. A plan written before 0.15.0 has no
+`planner` block either; nothing asks for it, and the handoff writes it as it does for
+every plan.
 
 A model, effort or permission mode named on the reopen's command line —
 `/pdca:plan opus max <plan>` — replaces the plan's `executor` block; that is what

@@ -36,9 +36,13 @@ executor:
   permission_mode: auto
 permalink: https://github.com/acme/api/blob/<sha>/2026-08-27-cache-ttl-plan.md
 plan_file: 2026-08-27-cache-ttl-plan.md
+planner:
+  effort: max
+  model: claude-opus-5
+  permission_mode: auto
 plugin: pdca
 plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
-plugin_version: 0.14.0
+plugin_version: 0.15.0
 review_rounds: 10
 sources:
   - ACME-123
@@ -468,6 +472,7 @@ thing to decide and one less way for two plans to differ.
 | `executor` | phase 1, first draft | Model, effort and permission mode for phase 2, in the spellings the pre-flight compares: `claude-opus-5`, `high`, `auto`. The model is the literal ID step 4 resolved the alias to, never the alias. |
 | `permalink` | phase 1, handoff | The host's permalink form with everything but `<sha>` filled in, or `none` when there is no remote, and `none` when there is no ticket — nothing reads it then, and an unproved template in the file reads like a verified one. |
 | `plan_file` | phase 1, first draft | This file's path, relative to the repository holding it. The goal condition names the same file — by this relative path when the work is in this repository, by its absolute path when `work_repo` is set, because the session then starts in the work repository. |
+| `planner` | phase 1, first draft; rewritten at handoff | Model, effort and permission mode of the planning session, with the same keys and in the same spellings as `executor` — read from this session the way the pre-flight reads phase 2's, never from the alias the user typed. Rewritten from the session doing the handoff, so after a reopen, or a mode switched mid-planning, it names what the plan was last planned with. Provenance only: no check compares it. A value this session cannot read is written `unknown`, not guessed. A plan written before 0.15.0 has none, and its next handoff writes it. |
 | `plugin`, `plugin_url`, `plugin_version` | phase 1, first draft | Provenance, copied from the plugin's own `.claude-plugin/plugin.json` (`name`, `version`, `repository`). `plugin: pdca` is also how `/pdca:plan <path>` tells a plan to reopen from a spec to plan against; the version tells a reopen which template wrote the file. |
 | `review_rounds` | phase 1, first draft | The review loop's round budget, from the step 2 interview — how many conclusive rounds step 7 may spend before it stops and puts both positions to the user. A reopen reuses it; a plan written before 0.12.0 has none and is asked for it. |
 | `sources` | phase 1, first draft | Every requirements source the plan was planned from: ticket keys, spec paths, URLs. `[]` when there were none. |
