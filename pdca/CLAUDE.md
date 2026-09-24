@@ -387,11 +387,12 @@ for a day and dropped for exactly that consistency.
   cannot set a goal, and the session at hand is not the one the plan was written for.
   The skill reads `status` and dispatches — `handed-off` launches; `executing` and
   `blocked` with `next: relaunch` resume, after `claude agents --json` shows no live
-  background session in this repository; `drafting`, `next: reopen` and `done` refuse —
+  background session in this repository, or named after the plan, other than the
+  launcher's own; `drafting`, `next: reopen` and `done` refuse —
   then takes the Handoff block, checks that it is one `claude` (or `cd … && claude`)
   command whose `/goal` names this plan, inserts `--remote-control <basename>` into a
-  pre-0.8.0 plan that lacks it, and runs it with `--bg` and `--name <basename>` added
-  directly after `claude`. `--bg` is what makes a launch possible from inside a session
+  pre-0.8.0 plan that lacks it, and runs it with `--bg`, `--name <basename>` and the
+  isolation opt-out (next bullet) added directly after `claude`. `--bg` is what makes a launch possible from inside a session
   at all: it detaches, returns an id, and the positional `/goal …` runs as the new
   process's first turn. The block is executed, so its shape is checked first: a plan is
   a file in a repository, and the launcher must not `eval` arbitrary text found under a
@@ -399,6 +400,26 @@ for a day and dropped for exactly that consistency.
   there is one launch procedure with two entry points. The launcher does not re-verify
   the plan — it reports the plan's age and the commits since, and the reopen owns the
   freshness check.
+- **The launch opts out of Claude Code's worktree isolation.** Decided 2026-09-24,
+  after a real run was pushed into a worktree (the fact is under Remote Control below).
+  The launcher adds `--settings '{"worktree":{"bgIsolation":"none"}}'` to its own
+  `claude --bg` line. The motive is the contract, not the checklist, which is a bonus.
+  A run in a harness-made worktree leaves the checkout's plan at `handed-off`, so
+  `/pdca:execute` there finds no blocked report and no progress, and step 3 misses the
+  live run because its `cwd` has moved. The run also lands on a branch the plan never
+  named, after passing the branch check on the one it did name. The guard keeps
+  concurrent writers out of a shared checkout, and pdca already settles that: the
+  pre-flight requires a clean tree, step 3 refuses a second run, and the plan belongs
+  to the executor after the handoff. The alternative was considered and deferred:
+  follow the executor into a worktree the plan records, with phase 1 choosing it and
+  the Closeout saying how the work gets back. That is run isolation as a feature. It
+  would put every run on a new branch, reopening the 2026-09-02 decision that a new
+  branch is opt-in, and it is worth doing only for users who edit the checkout while a
+  run goes. The opt-out is a command-line flag and never a repository setting, so other
+  background sessions keep the guard. Step 3 also matches the plan's `name`, which
+  catches a run the guard already moved, and skips `$CLAUDE_CODE_SESSION_ID`, because a
+  launcher that is itself a background session in the repository used to match itself.
+  No file format changed, so this took a patch: 0.15.2.
 - **Progress is a checklist on both sides of the launch.** Decided 2026-09-24, at the
   user's request, choosing both places over either one. After the report, the
   `execute` skill builds a task list from the plan's top-level Tasks checkboxes, with
@@ -704,6 +725,19 @@ Control and CLI reference pages of the documentation, checked 2026-09-04:
   the claude.ai side was not checked. Also seen: the `haiku` alias produced a session
   whose transcript said `claude-sonnet-5` — exactly the wrong-model launch the gate
   exists to catch.
+- **A background session's edits are refused in a shared checkout.** Observed
+  2026-09-24 at 2.1.281; not present in the 2026-09-04 observation at 2.1.260. The
+  first Edit or Write in a `claude --bg` session whose `cwd` is a main checkout fails
+  with "This background session hasn't isolated its changes yet. Call EnterWorktree
+  first … (To disable this guard for this repo, set `"worktree": {"bgIsolation":
+  "none"}` in .claude/settings.json.)" A path inside a linked worktree is accepted. A
+  real execution session hit it on its first plan edit, after its pre-flight had
+  passed in the checkout. It called `EnterWorktree`, landed in
+  `.claude/worktrees/<name>` on `worktree-<name>`, and from then on `claude agents
+  --json` gave that directory as its `cwd`. The same setting passed inline as
+  `--settings '{"worktree":{"bgIsolation":"none"}}'` lifts the guard for that process
+  alone. A haiku control launch in this repository was refused, and the same launch
+  with the flag wrote into the checkout, with no worktree created.
 
 ## Facts About `/goal` This Plugin Depends On
 

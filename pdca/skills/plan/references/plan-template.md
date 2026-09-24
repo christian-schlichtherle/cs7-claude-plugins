@@ -42,7 +42,7 @@ planner:
   permission_mode: auto
 plugin: pdca
 plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
-plugin_version: 0.15.1
+plugin_version: 0.15.2
 review_rounds: 10
 sources:
   - ACME-123

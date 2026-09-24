@@ -61,8 +61,12 @@ Before any launch, look for an execution session already running in this reposit
 claude agents --json
 ```
 
-A `"kind": "background"` entry whose `cwd` is this repository — or the plan's
-`work_repo` — and whose `state` is not `done` is a run in progress. Report its `id`
+A `"kind": "background"` entry whose `state` is not `done`, and whose `cwd` is this
+repository — or the plan's `work_repo` — or whose `name` is the plan's basename, is a
+run in progress. Skip the entry whose `sessionId` is `$CLAUDE_CODE_SESSION_ID`: a
+launcher that is itself a background session in this repository lists itself. The
+name catches a run whose `cwd` has moved into `.claude/worktrees/…`, which is where
+Claude Code's isolation guard put runs launched before 0.15.2 (step 5). Report its `id`
 with the `claude attach <id>` and `claude logs <id>` lines, and stop: two sessions
 working one plan from the same tree is the one thing a resume cannot recover from. An
 entry that is `done` is a finished or stopped run still lingering in the background —
@@ -110,12 +114,13 @@ fixed — is an incomplete Handoff: print what is there, do not launch, and say 
 
 ## 5. Launch
 
-Insert `--bg` and `--name <basename>` directly after `claude`, and run the result from
-the repository root — the plan path in the condition is relative to it; a `cd` form
-takes care of its own directory, and its condition names the plan by absolute path:
+Insert `--bg`, `--name <basename>` and `--settings '{"worktree":{"bgIsolation":"none"}}'`
+directly after `claude`, and run the result from the repository root — the plan path
+in the condition is relative to it; a `cd` form takes care of its own directory, and
+its condition names the plan by absolute path:
 
 ```bash
-marker=$(mktemp) && echo "$marker" && claude --bg --name 2026-08-27-cache-ttl-plan --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal Execute the plan at 2026-08-27-cache-ttl-plan.md …'
+marker=$(mktemp) && echo "$marker" && claude --bg --name 2026-08-27-cache-ttl-plan --settings '{"worktree":{"bgIsolation":"none"}}' --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal Execute the plan at 2026-08-27-cache-ttl-plan.md …'
 ```
 
 The marker in front of it is not part of the launch. It is the file step 7's watch
@@ -126,7 +131,18 @@ written at any point after the launch has to be newer than it. The shape check i
 `--bg` returns at once and prints `backgrounded · <id>` with the commands that take the
 id. `--name` puts the plan's name into `claude agents`, where the generated name would
 not say which plan is running; the argument of `--remote-control` names the claude.ai
-side. Never run the Handoff command in the foreground from a tool: an interactive
+side. `--settings` turns off Claude Code's isolation guard for this one process. The
+guard refuses a background session's first edit in a shared checkout until the session
+calls `EnterWorktree`. An executor that complies works the plan in
+`.claude/worktrees/<name>`, on a branch the harness made. The plan in this checkout
+then never changes, so a blocked report, a resume and step 3 all look in the wrong
+place, and the run sits on a branch the plan's `branch` never named. The run owns
+this checkout by design: the pre-flight requires it clean and step 3 keeps a second
+run out. So the guard adds nothing pdca needs, and the opt-out stays on this launch
+rather than in the repository's settings. The Handoff block does not carry it,
+because it is the foreground form and the guard addresses background sessions.
+
+Never run the Handoff command in the foreground from a tool: an interactive
 `claude` without a terminal hangs the tool call and launches nothing.
 
 Then read the new session's first screen once — `claude logs <id>` — for the Remote
