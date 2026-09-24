@@ -90,7 +90,8 @@ printf 'verify' > ~/.cache/claude-pdca/"$CLAUDE_CODE_SESSION_ID".status
 Update it at every step transition. Name the
 step, not its number: the loops re-enter earlier steps, so a number would read "6 of
 8" twice with different meanings. The names are `interview` — the first write, in
-step 1, since parsing takes no time a status line could show — `sources`, `verify`,
+step 1, since parsing takes no time a status line could show, and again while step 5's
+questions wait for an answer — `sources`, `verify`,
 `draft`, `iterate`, `review 2/10` (the round within the round budget), `handoff`, and
 `re-verify` for a reopened plan. Step 7's rounds are the one exception: the `review`
 skill writes `review N/<budget>` itself at every round, so leave that file to it while
@@ -115,7 +116,7 @@ deliberately rigid, because a clever rule here is worse than a predictable one:
 
 - A leading **model** token — `fable`, `opus`, `sonnet`, `haiku`, or a full model ID
   — is consumed as the model. `haiku` is consumed like the others so that the parse
-  stays predictable; step 2 says why it is then refused as the executor.
+  stays predictable; step 5 says why it is then refused as the executor.
 - An **effort** token — `low`, `medium`, `high`, `xhigh`, `max` — is consumed *only
   when it immediately follows a model token*. A bare leading effort word is always
   goal text.
@@ -129,11 +130,15 @@ harden the retry path` adds a round budget of `20`; and `max out the connection 
 is entirely a goal, which is the case a looser rule gets wrong. The deliberate cost:
 you cannot pass effort without a model, nor a budget without both —
 `high fix the login bug` reads as a goal, and so does `10 retries is too many`.
-Nothing is lost, because step 2 asks for whatever is missing anyway.
+Nothing is lost, because step 5 asks for all three anyway — and what the parse does
+yield for them is the user's **preference**, not a settlement: step 5 weighs it in its
+own proposal and asks the user to confirm it, just before the first draft.
 
-Then **echo the parse back in your first line** — `Planning for Opus 5 at high
-effort, review budget 10 — goal: …` — so a misparse is obvious and costs one
-correction rather than a whole session.
+Then **echo the parse back in your first line** — `Planning for Opus at high effort,
+review budget 20, to be confirmed before the first draft — goal: …`, or `Planning —
+executor and review budget proposed before the first draft — goal: …` when none was
+given — so a misparse is obvious and costs one correction rather than a whole
+session. A `haiku` token is echoed with the reason it will not be offered back.
 
 If the remainder is a path to an existing file, read its frontmatter. A file whose
 frontmatter says `plugin: pdca` is a plan this workflow wrote: reopen it instead of
@@ -163,68 +168,39 @@ And when a goal *is* supplied, treat it as an opening statement rather than a
 specification. One line of intent is never enough to plan an unattended run from —
 it is the thing you ask questions about.
 
-### 2. Settle the handoff parameters before planning, not after
+### 2. Settle the ticket before planning
 
-Ask for anything missing **now**, as an interview: one `AskUserQuestion` call with
-one question per missing parameter. There are five candidates — model, effort,
-permission mode, ticket, review round budget — and the tool holds four questions, so
-when all five are missing the interview takes two calls: model, effort, permission
-mode and ticket first, the round budget second. The user steps through them picking
-options instead of composing a free-form reply, which is what makes asking cheap
-enough to do unconditionally: a marked recommendation is one keystroke to accept, and
-a composed reply invites the partial answer that leaves a parameter unsettled. Put
-your recommended choice first, labelled "(Recommended)"; anything the options cannot
-express — a ticket key, a full model ID — arrives through the interview's free-text
-"Other" field. Do not re-ask what the invocation already supplied.
+Ask for it **now**, as an interview: one `AskUserQuestion` call with one question. The
+user picks an option instead of composing a free-form reply, which is what makes
+asking cheap enough to do unconditionally: a marked recommendation is one keystroke to
+accept, and a composed reply invites the partial answer that leaves the question
+unsettled. Put your recommended choice first, labelled "(Recommended)"; a ticket key
+or URL, which no option can express, arrives through the interview's free-text
+"Other" field.
 
-The parameters:
+The ticket comes first because step 3 reads it before anything else happens. The
+other handoff parameters — the executor's model, effort and permission mode, and the
+review loop's round budget — are not asked here. Nothing before the draft needs them
+settled, since step 4 verifies under `auto` until step 5 says otherwise, and nothing
+here would inform a proposal for them but a line of intent. Step 5 proposes them once
+the work is agreed and understood. That holds for values the command line gave as
+well: they wait for step 5's confirmation.
 
-- **Model and effort for phase 2.** Propose `opus` at `high` when unspecified. The
-  interview offers `fable`, `opus` and `sonnet` — **not `haiku`**: `auto` is
-  unavailable under Haiku, so a session launched with `--model haiku …
-  --permission-mode auto` prints `auto mode unavailable for this model`, falls back to
-  manual mode, and its first Bash call then waits for an approval nobody gives
-  (observed 2026-09-12 on Claude Code 2.1.269). When the invocation names `haiku`, say
-  that and ask for the model again rather than planning for it. The one way a Haiku
-  plan runs unattended is `bypassPermissions`, and only as the user's deliberate,
-  risk-acknowledged choice made in this same interview — see "The handoff command" —
-  knowing that `/pdca:execute` cannot launch such a plan from an `auto` session,
-  because the classifier refuses to start a bypass child, so it is launched by hand.
-- **Round budget for the review loop.** How many conclusive rounds step 7 may spend
-  before it stops and puts both positions to the user. Recommend `10`, then offer `5`
-  and `20`; any other number arrives through "Other". It is written into the plan's
-  frontmatter as `review_rounds` at the first draft, so a reopen reuses it instead of
-  asking again, and step 7 passes it to the `review` skill.
-- **Permission mode for phase 2.** `auto` unless the user asks for something else.
-  Settle it now rather than at handoff: the mode decides what phase 1 has to prove
-  can run unattended, and it is written into the plan literally so phase 2 can check
-  it before starting.
-- **Jira ticket.** Always ask, every time — the answer is a key like `ACME-123`, a
-  ticket URL, or an explicit "none". In the interview that means: "None" is an
-  option, a key inferred from the branch name is another when there is one, and a
-  typed key or URL comes in as "Other". Never adopt the inferred key without the
-  user picking it, and never skip the question because the goal looks
-  self-explanatory; a ticket the user forgot to mention is the commonest source of a
-  plan that satisfies its author and not the work item. Check
-  `git log --oneline -20` for the commit prefix convention while you are at it. If a ticket is named, step 3 reads it before
-  anything else happens.
-
-These are not administrative details you can collect at the end. How much the plan
-has to spell out depends on who is reading it: a plan for `sonnet` at `low` effort
-needs exact file paths, exact snippets, and no inference; a plan for `opus` at `max`
-can state intent and constraints and trust the reader to work out the details. You
-cannot write at the right altitude without knowing the audience.
+**Jira ticket.** Always ask, every time — the answer is a key like `ACME-123`, a
+ticket URL, or an explicit "none". In the interview that means: "None" is an option, a
+key inferred from the branch name is another when there is one, and a typed key or URL
+comes in as "Other". Never adopt the inferred key without the user picking it, and
+never skip the question because the goal looks self-explanatory; a ticket the user
+forgot to mention is the commonest source of a plan that satisfies its author and not
+the work item. Check `git log --oneline -20` for the commit prefix convention while you
+are at it. If a ticket is named, step 3 reads it before anything else happens.
 
 The ticket key ends up in the handoff command, in the commit prefix, and in the
 closeout that ends phase 2 — so ask now. Supplied at paste time it is merely a
 prefix; supplied now it is also requirements to plan against.
 
-All three of model, effort and mode are also what phase 2 checks itself against
-before it touches anything, so settling them here is what makes that gate possible
-at all. See `references/preflight.md`.
-
-A spec is not interviewed for: the interview is already at two calls, and a spec the
-user has is one they hand over — on the command line, in the goal text, or pasted. Do ask, once,
+A spec is not interviewed for: a spec the user has is one they hand over — on the
+command line, in the goal text, or pasted. Do ask, once,
 if step 4 turns up a document in the repository that reads like a spec for this goal;
 whether it is a source is the user's call.
 
@@ -291,32 +267,23 @@ what you think (config values, schema, cluster state, dependency versions); and 
 the acceptance checks pass *now* for the right reason, or fail *now* for the right
 reason.
 
-**Resolve the executor's model alias to the literal ID the gate will compare.** Step 2
-collected an alias — `opus`, `sonnet`, `fable` — and the pre-flight gate string-matches
-the ID the transcript records, which is not guessable from the alias: the plugin's own
-record has a `haiku` launch whose transcript said `claude-sonnet-5`. So ask the alias
-what it resolves to, in a session as short as one can be:
-
-```bash
-claude -p --model <alias> --effort low --output-format json 'Reply with the single word ok.' \
-  | python3 -c 'import json,sys; m=list(json.load(sys.stdin)["modelUsage"]); assert len(m)==1, m; print(m[0])'
-```
-
-The `modelUsage` key is the literal ID — `claude-opus-5` for `opus` — and it is the
-same string that session's transcript records, which is what the gate reads (both
-verified 2026-09-19). Write exactly that into `executor.model` and into Pre-Flight
-check 1, and never this session's own model unless phase 2 runs the same alias. A full
-model ID given on the command line is resolved the same way; the comparison in phase 2
-is exact, not a prefix.
-
 **Run every command you prescribe, under the permission mode phase 2 will use.** This
 is the concrete test for a failure that is otherwise invisible until nobody is
 watching: `auto` decides without asking, and it decides *both ways* — a command it
 refuses is refused silently, with no human to override. If a command you are about to
 prescribe needed manual approval or was denied here, that is a defect in the plan, not
-a footnote. Substitute a command that runs cleanly, or record an explicit,
-user-approved mode escalation in the plan. A prescribed command phase 2 cannot run
-makes its acceptance criterion unreachable.
+a footnote. Substitute a command that runs cleanly; where none exists, carry the
+refusal into step 5's proposal, where a mode escalation is the user's explicit choice
+and never yours. A prescribed command phase 2 cannot run makes its acceptance
+criterion unreachable.
+
+**Until step 5, phase 2's mode is `auto`.** The mode is settled only in step 5, with
+the rest of the executor, so this step verifies under `auto` — the mode phase 2 runs in
+unless the user deliberately chooses another, and the only one this skill ever
+proposes. Read "phase 2's mode" in this step that way until step 5 has spoken. What
+this step finds under it is what step 5's proposal for the mode rests on, and a
+different settlement there brings you back to this test under the settled mode before
+the first draft.
 
 "Run" has two forms, and which one a command gets is decided by what it does. A
 command with no side effects outside the working tree — a read, a build, a test, a
@@ -407,9 +374,109 @@ tree, under `mktemp -d` or `/tmp`. A stray scratch file in the repository leaves
 phase 2 starting from a dirty tree, which breaks the one signal it has for
 recognizing its own work.
 
-### 5. Write the plan file
+### 5. Settle the executor and the round budget, then write the plan file
 
-Path: `<YYYY-MM-DD>-<slug>-plan.md` at the repository root, slug derived from the goal.
+**Before the first word of the draft, settle who will read it — by proposing, not
+merely asking.** This is the latest point at which the executor's model, effort and
+permission mode and the review loop's round budget can be settled, and it is that late
+on purpose.
+
+It cannot be later. These are not administrative details you can collect at the
+end. How much the plan has to spell out depends on who is reading it: a plan for
+`sonnet` at `low` effort needs exact file paths, exact snippets, and no inference; a
+plan for `opus` at `max` can state intent and constraints and trust the reader to
+work out the details. You cannot write at the right altitude without knowing the
+audience, and you cannot write the Pre-Flight section without knowing the mode. Model,
+effort and mode are what phase 2 checks itself against before it touches anything, so
+settling them here is what makes that gate possible at all. See
+`references/preflight.md`.
+
+It should not be earlier. Before step 3, the only thing to base a proposal on is a
+line of intent. By now the plan exists in substance, agreed with the user though not
+yet written down: the goal as the conversation has sharpened it, every requirement
+with the disposition the user gave it in step 3, and the ground step 4 verified —
+including what `auto` did with every command the plan will prescribe. The proposal
+rests on that agreement: how many files the agreed work touches, how much judgement
+its tasks leave to the reader, how much of it changes state that cannot be taken back,
+whether anything it needs was refused, how long a plan the reviewer will have to read.
+
+**Propose first, in prose, then ask.** A few lines naming a mode, a model, an effort
+and a budget, each with its reason from what was agreed: "I propose Sonnet at high
+effort under `auto`, and ten review rounds — we agreed on three tasks in two files,
+every command they prescribe ran cleanly under `auto`, the one state change is a
+`helm upgrade` whose rehearsal did too, and nothing in it asks for judgement the plan
+cannot spell out." Then the interview, in step 2's shape: one `AskUserQuestion` call
+with four questions — permission mode, model, effort, round budget, which is the
+tool's full capacity — in which your proposal is the option labelled "(Recommended)",
+its reason in one line in the option's description. Always all four questions,
+because a value the command line gave is asked as well, as a confirmation. The
+proposal is what makes the answer an informed one; the interview is what makes it a
+settled one.
+
+- **Permission mode for phase 2.** Propose `auto`, always: it is the mode step 4
+  verified under, and the mode decides what phase 1 has to prove can run unattended.
+  What the agreed plan changes is the reason you give — that every prescribed command
+  and probe ran cleanly under `auto`, or which one was refused with no substitute. For
+  that one the choice is the user's: change the plan so it does not need the command,
+  or escalate the mode deliberately. `dontAsk` and `bypassPermissions` are that
+  deliberate, risk-acknowledged choice, never your proposal — see "The handoff
+  command". The mode is written into the plan literally so phase 2 can check it before
+  starting.
+- **Model and effort for phase 2.** Propose from the agreed plan; `opus` at `high`
+  when nothing in it points elsewhere. The interview offers `fable`, `opus` and
+  `sonnet` — **not `haiku`**: `auto` is unavailable under Haiku, so a session launched
+  with `--model haiku … --permission-mode auto` prints `auto mode unavailable for this
+  model`, falls back to manual mode, and its first Bash call then waits for an
+  approval nobody gives (observed 2026-09-12 on Claude Code 2.1.269). The one way a
+  Haiku plan runs unattended is `bypassPermissions`, and only as the user's
+  deliberate, risk-acknowledged choice made in this same interview — a model and a
+  mode they name through "Other", never options you offer — knowing that
+  `/pdca:execute` cannot launch such a plan from an `auto` session, because the
+  classifier refuses to start a bypass child, so it is launched by hand.
+- **Round budget for the review loop.** How many conclusive rounds step 7 may spend
+  before it stops and puts both positions to the user. Propose `10`, and offer `5`
+  and `20` beside it; any other number arrives through "Other". An agreed plan with
+  many tasks or many state changes is a reason to propose `20`, and to say so. It is
+  written into the plan's frontmatter as `review_rounds` at the first draft, so a
+  reopen reuses it instead of asking again, and step 7 passes it to the `review`
+  skill.
+
+**A value the command line gave is confirmed, not assumed** — it is the user's
+preference, and the proposal weighs it rather than ignoring it. Its question offers
+that value first: labelled "(given, Recommended)" when the proposal agrees with it,
+"(given)" when it does not, followed then by your pick labelled "(Recommended)", the
+prose having already said what in the agreed plan argues for the change. Keeping what
+they typed is one keystroke either way; never swap your pick in silently. A given
+`haiku` is the exception: it is not offered back, for the reason above, and a user who
+still wants it answers as the model bullet says.
+
+Three consequences of the answer come before the draft as well. A mode other than
+`auto` sends you back to step 4's mode test, run under the settled mode — the
+verification so far proved what `auto` does, not what the settled mode does. A reader
+who needs more than step 4 gathered sends you back to it too: `sonnet` at `low` wants
+exact snippets, and each one is verified before it is prescribed. And the model has to
+be written the way the gate reads it.
+
+**Resolve the executor's model alias to the literal ID the gate will compare.** The
+interview settled an alias — `opus`, `sonnet`, `fable` — and the pre-flight gate
+string-matches the ID the transcript records, which is not guessable from the alias:
+the plugin's own record has a `haiku` launch whose transcript said `claude-sonnet-5`.
+So ask the alias what it resolves to, in a session as short as one can be:
+
+```bash
+claude -p --model <alias> --effort low --output-format json 'Reply with the single word ok.' \
+  | python3 -c 'import json,sys; m=list(json.load(sys.stdin)["modelUsage"]); assert len(m)==1, m; print(m[0])'
+```
+
+The `modelUsage` key is the literal ID — `claude-opus-5` for `opus` — and it is the
+same string that session's transcript records, which is what the gate reads (both
+verified 2026-09-19). Write exactly that into `executor.model` and into Pre-Flight
+check 1, and never this session's own model unless phase 2 runs the same alias. A full
+model ID, typed on the command line or into "Other", is resolved the same way; the
+comparison in phase 2 is exact, not a prefix.
+
+Then write the plan. Path: `<YYYY-MM-DD>-<slug>-plan.md` at the repository root, slug
+derived from the goal.
 
 The root is the whole directory rule — do not file it under `docs/`, `docs/plans/`, or
 any other directory, even where one already exists. The plan is short-lived: phase 2
@@ -430,10 +497,10 @@ from the plugin itself: read `"${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json"
 copy `name`, `version` and `repository` into `plugin`, `plugin_version` and
 `plugin_url`. If that variable is unset, this skill's own directory names the
 installed version — `~/.claude/plugins/cache/<marketplace>/pdca/<version>/`. Set
-`status: drafting`. The `executor` block takes the model, effort and mode from step 2
-in the literal spellings the pre-flight compares — the model as the ID step 4 resolved
-the alias to, never the alias. The `planner` block takes the same three keys for this
-session, read the way the pre-flight gate reads phase 2's:
+`status: drafting`. The `executor` block takes the model, effort and mode from this
+step's interview, in the literal spellings the pre-flight compares — the model as the
+ID the alias resolved to above, never the alias. The `planner` block takes the same
+three keys for this session, read the way the pre-flight gate reads phase 2's:
 
 ```bash
 T=$(ls -t "$HOME"/.claude/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl | head -1)
@@ -445,7 +512,7 @@ echo "effort=$CLAUDE_EFFORT"
 Copy what it prints; where the transcript cannot be found, the model is the one your
 own context names, and a value no source gives is written `unknown` rather than
 guessed. `review_rounds` takes the round
-budget from step 2; `sources` and `ticket` record step
+budget from this step's interview; `sources` and `ticket` record step
 3's inputs, `ticket: none` and `sources: []` when there were none. The fields step 8
 settles — `branch`, `closeout_push`, `permalink` — are written then, not guessed now.
 `blocked_report` is phase 2's alone: a plan being drafted has no report, and the key
@@ -499,7 +566,7 @@ inconclusive-round rule, the per-round report — belongs to the sibling `review
 Two things about it are this step's and are not delegated. One is the paragraph
 above: the reviewer is **phase 2's model at phase 2's effort**, because a plan is
 self-sufficient or not for a particular reader, and that is the reader. The other is
-the budget, which is the plan's own `review_rounds`, the number step 2 settled and
+the budget, which is the plan's own `review_rounds`, the number step 5 settled and
 this step passes in: review, fix the blockers, review again, until the reviewer
 returns AGREED or the budget is spent.
 
@@ -653,19 +720,22 @@ the file's age or its checkboxes.
 
 A reopen reuses the plan's own `review_rounds` for step 7 rather than asking for it
 again. A plan written before plugin 0.12.0 has no such field: ask for the budget as
-step 2 would, and write it in with the first edit. A plan written before 0.15.0 has no
+step 5 would, and write it in with the first edit. A plan written before 0.15.0 has no
 `planner` block either; nothing asks for it, and the handoff writes it as it does for
 every plan.
 
 A model, effort or permission mode named on the reopen's command line —
-`/pdca:plan opus max <plan>` — replaces the plan's `executor` block; that is what
-naming it means. Update the block, the Pre-Flight section's literal values and the
-altitude of the prose together — a plan re-pitched for a different reader is a
-different plan — resolve the new alias to its literal ID as step 4 does, re-verify the
-prescribed commands under the new mode, and report the change as a delta. Step 7 then
-runs at the new model and effort. A round budget named there replaces `review_rounds`
-the same way. When the invocation names none of them, the plan's own values stand and
-are not re-asked.
+`/pdca:plan opus max <plan>` — is a request to replace the plan's `executor` block,
+and it is confirmed as on a first run: before the block changes, propose and ask in
+step 5's shape, one question per value named — the named value first, labelled
+"(given)", the plan's current one beside it, and your proposal saying which of the two
+the plan as it now stands argues for. Once it is confirmed, update the block, the
+Pre-Flight section's literal values and the altitude of the prose together — a plan
+re-pitched for a different reader is a different plan — resolve the new alias to its
+literal ID as step 5 does, re-verify the prescribed commands under the new mode, and
+report the change as a delta. Step 7 then runs at the new model and effort. A round
+budget named there replaces `review_rounds` the same way, once confirmed. When the
+invocation names none of them, the plan's own values stand and are not re-asked.
 
 **`drafting`** — planning never finished. Continue where it left off.
 
@@ -751,8 +821,8 @@ exactly as it stands.
 claude --model opus --effort high --permission-mode auto --remote-control 2026-08-27-cache-ttl-plan '/goal <condition>'
 ```
 
-- `--model` / `--effort` — as settled in phase 1, step 2 (handoff parameters). These
-  are why the plan was written at the altitude it was.
+- `--model` / `--effort` — as settled in phase 1, step 5, just before the first
+  draft. These are why the plan was written at the altitude it was.
 - `--remote-control <name>` — **always**, and always named. Phase 2 is the phase with
   nobody at the terminal, and Remote Control is what lets the user look in on it from
   claude.ai or the mobile app while it runs — read the transcript, send a message,

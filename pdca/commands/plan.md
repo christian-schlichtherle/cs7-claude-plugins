@@ -21,8 +21,9 @@ wrong.
 
 - `/pdca:plan opus high raise the staging cache TTL from five minutes to an hour`
 - `/pdca:plan sonnet rename the metrics client across both services` —
-  effort missing, so propose one and ask
-- `/pdca:plan add a health endpoint to the api service` — model and effort missing
+  effort missing, so propose one, and confirm `sonnet` beside it
+- `/pdca:plan add a health endpoint to the api service` — model, effort and rounds
+  missing, so all three are proposed just before the first draft
 - `/pdca:plan opus high 20 raise the staging cache TTL` — twenty rounds for the
   adversarial review instead of the default ten
 - `/pdca:plan opus max 2026-08-27-cache-ttl-plan.md` — reopen an existing plan
@@ -31,11 +32,14 @@ wrong.
 - `/pdca:plan opus high ACME-123` — a bare ticket key as the goal
 - `/pdca:plan` — no goal given, so interview for one
 
-The leading `opus high` names the model and effort for the *second* phase, not this
-one, and a number after them is the review loop's round budget. The skill explains why
-those have to be settled before the plan is drafted.
+The leading `opus high` names the model and effort you would like for the *second*
+phase, not this one, and a number after them the review loop's round budget. They are
+preferences, never settlements: just before the plan is drafted, the skill proposes
+the executor — model, effort and permission mode — and the round budget from the work
+agreed so far, and asks for confirmation, of what was given as well. It also explains
+why that is the right moment.
 
-Every run asks for a Jira ticket; the skill says what happens with one, and with a
-spec.
+Every run asks for a Jira ticket before planning starts; the skill says what happens
+with one, and with a spec.
 
 Once the plan is handed off, `/pdca:execute <plan path>` launches it.

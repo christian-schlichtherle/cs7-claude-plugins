@@ -376,7 +376,7 @@ Writing the Pre-Flight section is phase 1's job, and it is not boilerplate:
 - **Name the expected model, effort and permission mode literally**, in the spelling
   the checks produce — `claude-opus-5`, `high`, `auto` — so the comparison is an exact
   string match and not a judgement call. The model's spelling is not the alias the
-  user chose; the plan skill's step 4 resolves the alias in a one-line headless session
+  user chose; the plan skill's step 5 resolves the alias in a one-line headless session
   and copies the ID it reports. The frontmatter's `executor` block carries the same
   three values in the same spelling; the check names them again because a check has to
   read on its own.

@@ -108,16 +108,18 @@ GEMINI_API_KEY=your-key-here
 
 ### pdca
 
-Start the interactive planning phase, naming the model and effort level for the autonomous phase that follows:
+Start the interactive planning phase, optionally naming the model and effort level you would like for the autonomous phase that follows:
 
 ```
 /pdca:plan opus high raise the staging cache TTL from five minutes to an hour
 ```
 
-Anything missing — model, effort, permission mode, and the Jira ticket, which is
-asked for every time — is settled in a short interview of pick-an-option questions
-before planning starts. Each turn then updates a plan file and reports only what
-changed. When you are satisfied, the plan is reviewed by a fresh session at the executing
+The Jira ticket is asked for every time, in a pick-an-option question before planning
+starts. The model, the effort, the permission mode and the review round budget come
+later, just before the first draft: by then the requirements are agreed and the ground
+verified, so the session proposes all four from the work you agreed on, says why, and
+asks you to confirm — a value given on the command line included. Each turn then
+updates a plan file and reports only what changed. When you are satisfied, the plan is reviewed by a fresh session at the executing
 model's level; whatever the review changed comes back to you, and only a version
 that you, the planning session and the executing model all stand behind gets its
 launch command written into it. A review that does not agree leaves the plan a draft

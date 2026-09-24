@@ -18,8 +18,8 @@ ends phase 2: the comment that links the ticket to the finished plan in git hist
 
 ## Why the ticket is asked for every time
 
-Because the cost is asymmetric. Asking costs one question in the interview the
-session is already running, answered with a keystroke. Not asking costs a plan that reads well, executes cleanly,
+Because the cost is asymmetric. Asking costs one pick-an-option question before
+planning starts, answered with a keystroke. Not asking costs a plan that reads well, executes cleanly,
 and misses the two acceptance criteria nobody mentioned — discovered at review, after
 an unattended run has already happened.
 

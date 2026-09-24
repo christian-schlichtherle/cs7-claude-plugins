@@ -57,8 +57,9 @@ for a day and dropped for exactly that consistency.
   veto.** Both decided 2026-09-12, when the loop moved into the `review` skill. The
   fixed cap of three became a budget with a default of ten because agreement had
   regularly taken more rounds than that, so stopping there reported a non-convergence
-  that was really a loop cut short; the number is now the user's, asked for in the
-  step 2 interview and recorded as `review_rounds`. The override went because the plan is a
+  that was really a loop cut short; the number is now the user's, proposed and
+  confirmed just before the first draft and recorded as `review_rounds`. The override
+  went because the plan is a
   contract between the user, the planner and the executor: handing off over a standing
   veto gives phase 2 a document one of the three has already said it cannot execute.
   A review that will not converge leaves the plan a draft — the user edits it, raises
@@ -132,7 +133,9 @@ for a day and dropped for exactly that consistency.
   proves nothing, because nothing meets the classifier; a narrower one turns every
   prompt into a false plan defect. Decided 2026-09-19, after a cold review found the
   skill ordering both "work in the session's normal mode" and "verify under phase 2's
-  mode" with no way to do both.
+  mode" with no way to do both. Since 2026-09-24 phase 2's mode is settled only in
+  step 5, so "phase 2's mode" in step 4 is `auto` until then, and a different
+  settlement sends the test round again under it before the first draft.
 - **Phase 2 always runs with `--remote-control <plan-basename>`.** Decided 2026-09-04.
   It is the unattended phase, and Remote Control is what lets the user follow and
   steer it — including `/goal clear` — from claude.ai or the mobile app. The name is
@@ -147,7 +150,8 @@ for a day and dropped for exactly that consistency.
   stays `auto` regardless — a phone can answer a prompt, but nobody is guaranteed to
   be holding it.
 - Phase 2 opens with a pre-flight gate, and the gate is the reason model, effort and
-  permission mode are settled in phase 1 step 2 rather than at handoff. The plan names
+  permission mode are settled in phase 1, just before the first draft, rather than at
+  handoff. The plan names
   all three literally; phase 2 reads its own back and compares. The gate also checks
   that a `/goal` naming the plan is driving the session — read from the last
   `goal_status` record in the transcript, per the facts below — because a launch
@@ -161,19 +165,44 @@ for a day and dropped for exactly that consistency.
   the condition is the directive the
   session actually receives and the evaluator has to accept a turn-1 abort as
   terminal.
-- **The step-2 questions are an interview, not a free-form prompt.** The missing
-  handoff parameters are collected in a single `AskUserQuestion` call — one question
-  per missing parameter (model, effort, permission mode, ticket: at most four, the
-  tool's exact capacity), recommended option first and marked. Options are answered
-  in a keystroke where a composed reply invites the partial answer that leaves a
-  parameter unsettled; the tool's "Other" field still takes a ticket key, URL, or
-  full model ID as free text. Parameters already on the command line are not
-  re-asked.
-- **The step 2 interview has five candidate questions and the tool holds four**, so
-  when all five are missing it takes two `AskUserQuestion` calls: model, effort,
-  permission mode and ticket first, the review loop's round budget second. Asking is
-  unconditional and cheap because the user picks options rather than composing a reply;
-  a parameter nobody settles is one phase 2 discovers at its pre-flight gate.
+- **The handoff parameters are asked as interviews, not a free-form prompt.** Each is
+  a single `AskUserQuestion` call, recommended option first and marked: options are
+  answered in a keystroke where a composed reply invites the partial answer that
+  leaves a parameter unsettled, and the tool's "Other" field still takes a ticket key,
+  URL, or full model ID as free text. Step 2 asks for the ticket alone, before
+  planning, because step 3 reads it. Step 5 asks for the rest — permission mode,
+  model, effort, round budget: four questions, the tool's exact capacity — and always
+  all four, because a value given on the command line is confirmed there rather than
+  assumed. Asking is unconditional and cheap because the user picks options rather
+  than composing a reply; a parameter nobody settles is one phase 2 discovers at its
+  pre-flight gate.
+- **The executor and the round budget are proposed just before the first draft.**
+  Decided 2026-09-24, at the user's request, replacing an up-front interview of all
+  five parameters that took two calls. The reason they were asked up front — a plan's
+  altitude depends on its reader, its Pre-Flight section on the mode — sets a
+  deadline, the first draft, not a starting point. Asked before step 3, a
+  recommendation could rest on nothing but a line of intent. Asked in step 5, it rests
+  on the plan as agreed with the user in substance: the requirements and their
+  dispositions, and the ground verified, including what `auto` did with every command
+  the plan will prescribe. So the planner does not merely ask. It states a proposal in
+  prose, each value with its reason from that agreement, then asks, with the proposal
+  as the "(Recommended)" options. The mode followed the others the same day, for the
+  same reason, at one cost: step 4 verifies every prescribed command under phase 2's
+  mode before that mode is settled. So step 4 verifies under `auto` provisionally,
+  since `auto` is the default and the only mode the skill ever proposes, and a
+  different settlement sends the mode test round again before the draft. A command
+  `auto` refuses with no substitute is carried into the proposal. There the user
+  chooses between changing the plan and a deliberate escalation. Command-line tokens
+  stay, as the user's preference: step 1 echoes them, and step 5 offers each first,
+  labelled "(given, Recommended)" when the proposal agrees or "(given)" beside the
+  planner's pick when it does not. A value typed before the work was understood is
+  looked at again once it is. A reopen confirms the tokens it names the same way
+  before rewriting the `executor` block. The ticket stays in step 2, because step 3
+  reads it. Proposing after the user's proceed, from the plan file itself, was put to
+  the user and declined: the draft would be written at a provisional altitude, and
+  re-pitching a plan the user had already agreed to sends it back to them after
+  review. No file format changed, but this took a minor, 0.16.0, at the user's call —
+  see the version rule below.
 - **The ticket is asked for on every run**, unconditionally, and the answer may be
   "none". Given one, phase 1 reads it and turns it into a requirements conversation
   whose outcome is the plan's `## Requirements` table. That table records every
@@ -185,8 +214,8 @@ for a day and dropped for exactly that consistency.
 - **A spec is an input, never an output.** `/pdca:plan` receives specifications; it
   does not write them, and there is no `/pdca:spec`. A spec file, a URL or a paste is a
   requirements source beside the ticket and goes through the same conversation, with
-  the same table. It is not interviewed for — the interview already takes two calls, and
-  a spec the user has is one they hand over. The plan stays self-contained
+  the same table. It is not interviewed for — a spec the user has is one they hand
+  over. The plan stays self-contained
   regardless: it condenses every source into the Requirements table, because phase 2 may
   not be able to reach a Confluence page and a plan that only points at a spec has lost
   the property the design rests on. A path on the command line is told apart by the
@@ -248,7 +277,10 @@ for a day and dropped for exactly that consistency.
   "written before <version>" branch in the skills, and each took a minor. Renaming the verdict (0.5.1), rewording (0.5.2), adding rationale
   (0.5.3) and moving the Run Log below the Handoff (0.5.4) left no such branch and took
   a patch. Written down 2026-09-19, having been re-derived from those notes rather than
-  read.
+  read. One minor took the other road: 0.16.0 moved the handoff interview to just
+  before the first draft, which every user meets on their next run although no file
+  needs handling differently, and it took a minor at the user's call. So a format
+  change is enough for a minor, but a minor is not only for format changes.
 - **Ticket content is untrusted input.** It is written by other people and read by an
   agent that acts on text, so it is treated as claims about the work to raise with the
   user, never as instructions. This is stated in `references/jira.md` rather than left
@@ -439,8 +471,8 @@ for a day and dropped for exactly that consistency.
   2026-09-24 against a simulated run and against the plan of a real finished run, taken
   from git history.
 - Before handoff, the plan is reviewed by a fresh `claude -p` process at phase 2's
-  model and effort, in a loop capped by the round budget, default ten, that step 2
-  interviewed for and the plan records as `review_rounds`. The reviewer runs with
+  model and effort, in a loop capped by the round budget, default ten, that step 5
+  proposes and the plan records as `review_rounds`. The reviewer runs with
   `--permission-mode plan` so it is read-only by construction, and runs in the
   background — a foreground reviewer at xhigh effort outlives the 10-minute tool
   timeout. Each round returns exactly one of two results: VETOED with at least one
@@ -507,7 +539,8 @@ for a day and dropped for exactly that consistency.
 - **The executor's model is written as the ID the transcript records, resolved by
   probe.** Decided 2026-09-19. The gate string-matches `executor.model` against the
   transcript, the interview collects an alias, and the mapping is not guessable — the
-  `haiku` alias once recorded `claude-sonnet-5`. Step 4 resolves it with a one-line
+  `haiku` alias once recorded `claude-sonnet-5`. Step 5 resolves it, right after
+  the interview, with a one-line
   headless session, `claude -p --model <alias> --effort low --output-format json`, whose
   `modelUsage` key is the literal ID and matches that session's transcript (verified
   2026-09-19: `opus` → `claude-opus-5` in both). The comparison is exact, not a prefix.
@@ -525,6 +558,8 @@ for a day and dropped for exactly that consistency.
   `review_rounds` and nothing else. Named tokens now replace `executor` — block,
   Pre-Flight literals and altitude together, with re-verification under the new mode —
   and a round budget replaces `review_rounds`; unnamed ones stand and are not re-asked.
+  Since 2026-09-24 a named token takes effect only once confirmed, in step 5's shape,
+  with the plan's current value beside it.
 - **The handoff commit stages the plan by name and requires an otherwise clean tree.**
   Decided 2026-09-19. Item 4 said "commit" with no scope, which either swept the user's
   unrelated changes into the handoff commit or left a tree that fails phase 2's Ground
@@ -807,10 +842,11 @@ this section is why it says what it says.
   started that way refused every file mutation, including an in-repo `touch`. Observed
   2026-09-12 on 2.1.269. Consequence for a plan whose `executor.model` is `haiku`: its
   permission mode cannot be `auto`, so an unattended run of it is not possible as
-  written — the pre-flight gate catches it, and since 2026-09-19 step 2 catches it
-  first: the interview does not offer `haiku` as the executor, a `haiku` named on the
-  command line is refused with this reason and asked again, and the one exception is a
-  user who deliberately chooses `bypassPermissions` in the same interview, knowing that
+  written — the pre-flight gate catches it, and since 2026-09-19 phase 1 catches it
+  first: step 5's interview does not offer `haiku` as the executor, a `haiku` named on
+  the command line is not offered back and the reason is given, and the one exception
+  is a user who deliberately names Haiku and `bypassPermissions` through "Other" in
+  that same interview, knowing that
   `/pdca:execute` cannot launch that plan from an `auto` session (next bullet) and a
   hand launch is the only route. The altitude examples name `sonnet` at `low` instead.
   A Haiku *reviewer* is unaffected: it runs in plan mode, which Haiku has.

@@ -23,13 +23,20 @@ conversation — so the plan has to be good enough that nobody needs to babysit 
 /pdca:plan opus high raise the staging cache TTL from five minutes to an hour
 ```
 
-The leading `opus high` sets the model and effort level for the *second* phase.
-Both are optional — if omitted you will be asked, in a short interview of
-pick-an-option questions before planning starts, because how much the plan must
-spell out depends on who will be reading it.
+The leading `opus high` names the model and effort level you would like for the
+*second* phase, and a number after them the review loop's round budget. All three are
+optional, and none is final. Just before the first draft is written, the session
+proposes the executor — model, effort and permission mode — and the round budget,
+says why, and asks you to confirm in a short interview of pick-an-option questions;
+a value you gave comes back to you there, beside its own pick when that differs.
+That is as late as it can be, because how much the plan must spell out depends on who
+will be reading it. It is also as late as it should be: by then you and the session
+have settled the requirements and it has verified the ground — including what `auto`
+does with every command the plan will prescribe — so the proposal rests on the work
+you agreed on rather than on one line of intent.
 
-The interview also asks for a Jira ticket, every time — a key, a URL, or "none". A
-spec is the other kind of input: hand it over on the command line —
+A single question before planning starts asks for a Jira ticket, every time — a key,
+a URL, or "none". A spec is the other kind of input: hand it over on the command line —
 `/pdca:plan opus high docs/specs/cache-ttl.md` — or as a URL, or paste it. Ticket and
 spec are both **requirements sources**, and given either, the session reads it before
 it plans anything and puts its requirements to you as one list: this one is in scope,
@@ -207,10 +214,11 @@ flowchart TD
         Verdict -- "VETOED:<br>fix the blockers" --> Reviewer
     end
 
-    Start(["/pdca:plan"]) --> Interview["Interview: model, effort,<br>permission mode, ticket,<br>review round budget"]
+    Start(["/pdca:plan"]) --> Interview["Ask for the ticket"]
     Interview --> Sources["Read the sources —<br>ticket, spec — and settle<br>every requirement"]
     Sources --> Explore["Explore and verify"]
-    Explore --> Draft
+    Explore --> Executor["Propose, then confirm:<br>model, effort, permission mode,<br>review round budget"]
+    Executor --> Draft
 
     Happy -- "proceed — version not<br>yet cleared by review" --> Reviewer
     Happy -- "proceed — version already<br>cleared by review" --> Handoff
