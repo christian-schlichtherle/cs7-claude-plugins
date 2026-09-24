@@ -1,6 +1,6 @@
 ---
 argument-hint: "[plan path]"
-description: Launch or resume a plan's execution phase as a fresh background claude session — the plan's own Handoff command under /goal, with Remote Control — and report how to reach it.
+description: Launch or resume a plan's execution phase as a fresh background claude session — the plan's own Handoff command under /goal, with Remote Control — report how to reach it, and keep a checklist of its progress.
 ---
 
 # PDCA Execute

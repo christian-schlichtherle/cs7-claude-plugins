@@ -399,6 +399,24 @@ for a day and dropped for exactly that consistency.
   there is one launch procedure with two entry points. The launcher does not re-verify
   the plan — it reports the plan's age and the commits since, and the reopen owns the
   freshness check.
+- **Progress is a checklist on both sides of the launch.** Decided 2026-09-24, at the
+  user's request, choosing both places over either one. After the report, the
+  `execute` skill builds a task list from the plan's top-level Tasks checkboxes, with
+  the pre-flight gate before them and the Closeout after, and watches the plan file with
+  Monitor. Each event is a one-line snapshot of `status`, the checkboxes, the blocked
+  report and the background session's `state`, and the watch ends on the file's
+  deletion, a new report, or a session that ended without either. The Execution
+  Protocol has the executor mirror the same checkboxes in its own task list, which is
+  what `claude attach` and Remote Control show. The two lists are views, and the plan
+  file stays the record: the watch only reads, nothing is committed for it, no goal
+  clause mentions it, and a session without task-list tools skips it. That is why the
+  change took a patch: an older plan is picked up exactly as before, and it just has no
+  executor list. Two traps the watch is built around. A relaunch from `blocked` starts
+  with the inherited report still on disk, so a report counts as new only when it is
+  newer than a marker file created before the launch. And `done` is not the end, since
+  the deletion commit comes after it; only the file's absence is. Both were exercised on
+  2026-09-24 against a simulated run and against the plan of a real finished run, taken
+  from git history.
 - Before handoff, the plan is reviewed by a fresh `claude -p` process at phase 2's
   model and effort, in a loop capped by the round budget, default ten, that step 2
   interviewed for and the plan records as `review_rounds`. The reviewer runs with
@@ -666,7 +684,9 @@ Control and CLI reference pages of the documentation, checked 2026-09-04:
   `sessionId`, `name`, `status` (`busy`/`idle`) and, for background sessions, `id` and
   `state` (`done` once finished; `blocked` also occurs — observed 2026-09-19 on a
   running execution session, `status: busy` beside it, most plausibly the stall at a
-  prompt that the auto-mode facts below describe). A background session's `name` is generated from the
+  prompt that the auto-mode facts below describe; `working` observed 2026-09-24 at
+  2.1.281 on an execution session whose plan file was already deleted, which is why
+  the checklist watch ends on the file rather than on `state`). A background session's `name` is generated from the
   conversation unless `--name` sets it — which is why the launcher passes `--name`.
   `claude stop <id>` then `claude rm <id>` remove one; a finished session lingers until
   they are run. Observed 2026-09-04 at 2.1.260.

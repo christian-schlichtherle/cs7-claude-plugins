@@ -42,7 +42,7 @@ planner:
   permission_mode: auto
 plugin: pdca
 plugin_url: https://github.com/christian-schlichtherle/cs7-claude-plugins
-plugin_version: 0.15.0
+plugin_version: 0.15.1
 review_rounds: 10
 sources:
   - ACME-123
@@ -329,6 +329,14 @@ from what is written here plus the repository, and record what you decided.
    tick its checkbox with another line when you finish it. Do this as you go, not at
    the end — if this run is interrupted, the ticked boxes and the last started-line
    are how the next one knows where to resume and what half-done work it may find.
+   Mirror them in this session's task list — TaskCreate and TaskUpdate, or TodoWrite
+   where that is the tool — so that whoever attaches to this session or follows it
+   over Remote Control sees the checklist without opening the file: create it once
+   the gate has passed, one item per task plus one for the Closeout, with the ticked
+   tasks already completed; mark a task in progress when you start it and completed
+   when you tick it. The list is a view and ends with this session; this file is the
+   record, and where the two disagree the file is right. A session with no task-list
+   tool skips the mirror.
 4. Run each task's verification and the Acceptance Criteria for real, and show their
    output. A summary is not evidence.
 5. Immediately before the Closeout — after the last work commit — re-run every work

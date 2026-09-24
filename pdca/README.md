@@ -88,7 +88,12 @@ included — runs it as a detached background process and hands you the id for
 `claude attach`, `claude logs` and `claude stop`. The session comes up with Remote
 Control on and named after the plan, so you can follow it from claude.ai or the mobile
 app while it runs — read along, send it a message, stop it with `/goal clear` —
-without being at the machine it runs on; only the machine has to stay up. The command
+without being at the machine it runs on; only the machine has to stay up. While it
+runs, the session you launched from keeps a checklist of the plan's tasks — the
+pre-flight gate, each task, the Closeout — ticked as the run ticks the plan's boxes,
+and says when the run finishes or blocks; the execution session keeps the same list for
+whoever attaches or follows over Remote Control. Closing the launching session ends
+only its view, never the run. The command
 stays in the plan for a human to run by hand in the work repository's directory, where
 the terminal then has to stay open. Either way the execution phase begins with a
 pre-flight check. Before it changes anything,
@@ -103,8 +108,8 @@ plausible-looking work on the wrong model and going wrong somewhere nobody is
 watching.
 
 Past the gate, it ticks off tasks in the plan file and commits the work as it goes, a
-task or a coherent slice per commit, so you can watch progress by reading the file or
-the log — and an interrupted run resumes from where it stopped. When every acceptance
+task or a coherent slice per commit, so you can watch progress in the checklist, the
+file or the log — and an interrupted run resumes from where it stopped. When every acceptance
 check passes, it commits the plan's final state on its own — the preservation commit, the record of the run: every ticked box, every decision
 the session made alone — and then removes the plan in a separate follow-up commit, so
 the record stays the last commit in which the file exists.

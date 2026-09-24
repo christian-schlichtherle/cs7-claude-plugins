@@ -638,7 +638,8 @@ artifact this step exists to prevent.
 5. **Offer to launch the execution session.** If the user accepts, follow the
    `execute` skill — `${CLAUDE_PLUGIN_ROOT}/skills/execute/SKILL.md`: it starts the
    Handoff command as a new background process with
-   `claude --bg` and reports the id and the Remote Control URL. Nothing in this
+   `claude --bg`, reports the id and the Remote Control URL, and then keeps a
+   checklist of the run in this session. Nothing in this
    session can set the goal, so a launch is always a new process — the `execute` skill
    says why. If declined, say that `/pdca:execute <path>` does the same thing later,
    and that the command itself sits in the plan to copy. Either way, explain briefly
@@ -849,7 +850,8 @@ specification.
   reads that instead of guessing. `plan-template.md`
 - **Work the tasks in order**, ticking each checkbox and appending to the Run Log as it
   goes, so an interrupted run resumes from the file and the user can watch progress by
-  reading it. `plan-template.md`
+  reading it — and mirroring the checkboxes in the session's task list, the view that
+  `claude attach` and Remote Control show. `plan-template.md`
 - **Run the acceptance checks for real and show their output** — not a summary — and
   re-run the work criteria in full immediately before the Closeout, because the
   evaluator can only judge from what is still visible in the transcript; the closeout
