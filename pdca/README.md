@@ -315,14 +315,28 @@ For a session you started by hand with the right flags, the Handoff section also
 carries a short form — one `/goal` line naming the plan, its protocol and the escape
 hatch, but not the criteria. It is the fallback, and the plan says what it gives up.
 
-## Watching phase 1 in the status line
+## Watching phase 1 progress
 
 Phase 2 shows its progress natively — `/goal` has a built-in `◎` indicator. Phase 1
-can show its progress too, but Claude Code plugins cannot ship a status line, so this
-part is an opt-in. The planning session maintains a one-line status file at
-`~/.cache/claude-pdca/<session-id>.status` — the current step by name (`verify`,
-`iterate`, `review 2/10`, `handoff`, …), updated at every step transition and review
-round, deleted when planning ends — and your own status-line command displays it. Add a segment like this to the script your `statusLine` setting names:
+shows its progress on the spinner instead. The planning session maintains a one-line
+status file at `~/.cache/claude-pdca/<session-id>.status` — the current step by name
+(`verify`, `iterate`, `review 2/10`, `handoff`, …), updated at every step transition
+and review round, deleted when planning ends — and the plugin's hooks module adds it
+to the spinner while a turn runs:
+
+```
+✻ Swirling… · ◎ pdca review 2/10 (5s · ↓ 212 tokens)
+```
+
+A standalone `/pdca:review` shows its rounds the same way. The module only reads the
+file, so every other session's spinner is untouched. Plugins gained hooks modules in
+Claude Code 2.1.287, the plugin's minimum version. The spinner shows in the terminal
+and the desktop app; it is off where `disableAllHooks`, `allowManagedHooksOnly` or an
+organization policy turns hooks modules off.
+
+The spinner is gone between turns — while a planning question waits for your answer,
+say. To see the step there too, add a segment like this to the script your
+`statusLine` setting names:
 
 ```bash
 # after: input=$(cat)
@@ -334,9 +348,8 @@ fi
 ```
 
 No `refreshInterval` is needed: the status line re-runs on every assistant message,
-which is exactly when the step changes. Without the segment, the file is still
-written and is harmless — one tiny line per session, swept automatically after seven
-days.
+which is exactly when the step changes. Without either, the file is still written and
+is harmless — one tiny line per session, swept automatically after seven days.
 
 ## Requirements
 

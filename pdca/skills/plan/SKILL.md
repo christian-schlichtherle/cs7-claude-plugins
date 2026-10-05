@@ -78,9 +78,10 @@ was named.
 `/goal` gets a progress badge for free in phase 2. Phase 1 gets nothing, and it is
 the phase with the long quiet stretches — verification runs commands for minutes at a
 time, a review round is an entire background process — so a user watching a spinner
-cannot tell step 4 from step 7. A plugin cannot drive Claude Code's status line, but
-the user's own status-line command can display whatever a file holds, and it receives
-the session id to find one with. So maintain a one-line status file for the phase:
+cannot tell step 4 from step 7. The plugin's hooks module reads a status file and
+adds the step to the spinner while a turn runs (`Swirling… · ◎ pdca verify`), and the
+user's own status-line command can display the same file between turns. Neither can
+see this conversation, so maintain a one-line status file for the phase:
 
 ```bash
 mkdir -p ~/.cache/claude-pdca
@@ -104,8 +105,9 @@ Two rules govern the file's lifetime. Sweep leftovers on the first write —
 session cannot clean up after itself. And delete this session's file when the phase
 ends, after the launch offer in step 8 or the moment the user abandons planning: a
 status file that outlives the phase has the status line asserting work that is not
-happening. If the user's status line does not read the file none of this shows, which
-is fine — the plugin's README carries the segment they opt into.
+happening. Where hooks modules are off and the user's status line does not read the
+file none of this shows, which is fine — the plugin's README carries the segment they
+opt into.
 
 ## Phase 1 — the planning session
 

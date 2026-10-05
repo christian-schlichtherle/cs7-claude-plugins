@@ -71,8 +71,9 @@ Generate and edit images and videos directly from Claude Code using Google's Gem
 ## Installation
 
 `gemini-media` needs [Claude Code](https://claude.ai/code) v1.0.33+. `pdca` needs
-v2.1.260+, the version its launch path was verified against — it depends on `/goal`,
-on `claude --bg` with `--remote-control`, and on `claude agents --json`. Add the
+v2.1.287+ — it depends on `/goal`, on `claude --bg` with `--remote-control`, on
+`claude agents --json`, and on hooks modules, which show the planning step on the
+spinner and arrived in 2.1.287. Add the
 marketplace once:
 
 ```bash

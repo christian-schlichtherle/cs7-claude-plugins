@@ -293,7 +293,7 @@ Say the loop is starting and report each round in a line or two: how many blocke
 came back and what you did about them. It costs real time and tokens, and a silent
 multi-minute pause is worse than a noisy one.
 
-Keep a one-line status file so a status line can show the round:
+Keep a one-line status file so the spinner and a status line can show the round:
 
 ```bash
 mkdir -p ~/.cache/claude-pdca

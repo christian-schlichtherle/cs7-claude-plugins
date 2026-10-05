@@ -20,6 +20,10 @@ hard on verified facts and inlined acceptance criteria.
 reader has to act on without asking its author. `/pdca:plan` runs the same loop
 through the same skill.
 
+One hooks module, `hooks/register.ts`, adds the step the planning session is on to
+the spinner (see the progress decision below). It is the plugin's only code. Check it
+with `claude plugin validate pdca` and `claude plugin test pdca`.
+
 ## Vocabulary
 
 One word per concept, used in every file. Phase 2 once went by six names and the
@@ -568,20 +572,33 @@ for a day and dropped for exactly that consistency.
 - The `/goal` condition never makes a present-tense claim about the plan file, since
   the same condition orders that file deleted. Claims are phrased as what happened in
   the session, which is what the evaluator can still see.
-- **Phase 1 progress reaches the status line through a status file, never directly.**
-  Plugins cannot ship a `statusLine` — a plugin's own `settings.json` supports only
-  `agent` and `subagentStatusLine` — and `/goal`'s `◎` indicator is hardcoded in the
-  harness, so parity with it is not available. Instead the skill has the planning
-  session maintain `~/.cache/claude-pdca/<session-id>.status` (one line naming the current
+- **Phase 1 progress is a status file, which the plugin's hooks module draws on the
+  spinner.** Decided 2026-08-30 as a file for the user's status line alone, because
+  plugins could not ship a `statusLine`; the spinner was added 2026-10-05, once
+  Claude Code had hooks modules (facts below). The skill has the planning session
+  maintain `~/.cache/claude-pdca/<session-id>.status` (one line naming the current
   step — `verify`, `iterate`, `review 2/10`, `handoff` — never its number, because the
   loops re-enter earlier steps; updated on step transitions, and by the `review` skill
-  at every round while the review runs;
-  leftovers swept after seven days, deleted when the phase ends), and README.md documents the opt-in status-line segment that
-  displays it. When nothing reads the file, writing it is harmless — which is why the
-  skill writes it unconditionally rather than asking whether the user's status line
-  is wired up. The segment sanitizes with `tr -d '[:cntrl:]'`, not `[:print:]`: the
-  status text carries UTF-8 em-dashes, and stripping to printable ASCII would mangle
-  them, while control characters are the actual injection surface (`\e`, `\n`).
+  at every round while the review runs; leftovers swept after seven days, deleted when
+  the phase ends). `hooks/register.ts` reads that file at session start, after every
+  tool call and at every turn's end, and rewrites the spinner's `suffix` to
+  `… · ◎ pdca <step>`, beside where `/goal` draws `◎ /goal active` in phase 2. The file
+  stays the interface because the model cannot call the module: the skills write the
+  step from Bash, and a finished tool call is when it changes, so the module needs no
+  timer. Three alternatives were weighed with the user. `$.ui.status`, the module's
+  pinned line under the prompt, was tried and rejected: the engine draws it as
+  `⚠ <plugin>: <text>`, a warning glyph and prefix the module cannot change, so
+  progress read like an alert. Reusing `/goal`'s own indicator is not possible, since
+  it is hardcoded and no render site exposes it. And the status-line segment stays as
+  the opt-in for between turns, when there is no spinner — while a planning question
+  waits, say — and for sessions where hooks modules are off. When nothing reads the
+  file, writing it is harmless — which is why the skill writes it unconditionally
+  rather than asking whether either reader is wired up. The segment sanitizes with
+  `tr -d '[:cntrl:]'`, not `[:print:]`: the status text carries UTF-8 em-dashes, and
+  stripping to printable ASCII would mangle them, while control characters are the
+  actual injection surface (`\e`, `\n`). The module's text is drawn as a plain prop,
+  never as markup or escapes, so it needs no sanitizing. The module is the plugin's
+  only code: everything else is still Markdown.
 
 ## Facts About the Status Line This Plugin Depends On
 
@@ -599,6 +616,44 @@ checked 2026-08-30:
 - `CLAUDE_CODE_SESSION_ID` (see the session-introspection facts below) holds the same
   session id the status-line command receives as `session_id`, which is what lets the
   writer and the reader agree on the file path.
+
+## Facts About Hooks Modules This Plugin Depends On
+
+Claude Code calls them mods: plugins of function hooks, documented under
+`code.claude.com/docs/en/plugins/mods/`. Added in 2.1.287 and on by default. The rest
+was verified on 2.1.289, 2026-10-05, against that build's own declarations (the
+`plugin-authoring` skill and its `claude-code` types), `claude plugin validate`,
+`claude plugin test`, and live `--plugin-dir` sessions in tmux.
+
+- A plugin ships one by naming a module in `hooks/hooks.json` under `modules`. The
+  module exports `register(on)`, and every hook is `($, e, next)`, middleware around
+  the engine's own behaviour. Marketplace-installed plugins load it like a
+  `--plugin-dir` one. A remote rollout switch, `disableAllHooks`,
+  `allowManagedHooksOnly` and organization policy turn modules off. The terminal and
+  the desktop app draw them, but not the VS Code chat panel.
+- `ui.render` on `{ component: 'Spinner' }` receives `word`, `message`, `suffix` and
+  `mode` props. A rewritten `suffix` is drawn as given, so the hook adds the ellipsis
+  itself, except after a text that already ends in one. Observed live:
+  `✻ Swirling… · ◎ pdca review 2/10 (5s · ↓ 212 tokens)`. `/goal`'s
+  `◎ /goal active (7s)` is drawn right-aligned on that same row, and it is not one of
+  the render sites, so a module cannot redraw or reuse it.
+- `$.ui.status(text)` pins a line under the prompt, one per plugin. The engine draws
+  it as a pinned notification, `⚠ <plugin>: <text>`. Observed live, and in the
+  binary, where the text is built as `` `${plugin}: ${text}` ``.
+- The validator analyses the source statically. `$` may only be passed to a function
+  declared at the top level of the file, so `refresh($)` is a function declaration.
+  `claude plugin validate pdca` lists what the module hooks, calls and reads from the
+  environment.
+- `claude plugin test pdca` runs `hooks/*.test.ts` with no fs, network or process.
+  The test's own hooks stand beneath the plugin as the engine and must be registered
+  before the test's first call on `$`. A hook standing in for a call such as
+  `fs.read` or `session.id` answers `{ value }` or `{ deny }`, never a bare value, and
+  a deny rejects the caller's promise. `session.start` is answered with `{ cwd }`, and
+  `ui.render` with an element made from `$.ui.resolve(e)`, never `null`.
+- Not verified: what a Claude Code before 2.1.287 does with a `hooks.json` holding
+  only `modules`. None was installed to try it, so the plugin's minimum version was
+  raised from 2.1.260 to 2.1.287 on 2026-10-05, in the root README's Installation
+  section.
 
 ## Facts About the Atlassian MCP Server This Plugin Depends On
 
