@@ -361,7 +361,9 @@ session at handoff; the execution session never creates branches.
 
 `python3` on `PATH`. The review loop assembles its reviewer prompt with it, and the
 planning session uses it to resolve the executor's model alias to the literal ID the
-pre-flight gate compares; without it, planning cannot reach a handoff.
+pre-flight gate compares; without it, planning cannot reach a handoff. `/pdca:execute`
+uses it to read `claude agents --json` while it watches a run; without it, the watch
+cannot notice a run whose process ended without finishing or blocking.
 
 `/goal` needs a trusted workspace and working hooks — it is unavailable when
 `disableAllHooks` or `allowManagedHooksOnly` is set.

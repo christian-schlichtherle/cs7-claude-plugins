@@ -473,7 +473,12 @@ for a day and dropped for exactly that consistency.
   newer than a marker file created before the launch. And `done` is not the end, since
   the deletion commit comes after it; only the file's absence is. Both were exercised on
   2026-09-24 against a simulated run and against the plan of a real finished run, taken
-  from git history.
+  from git history. The watch read the session's `state` with `jq` until 2026-10-05,
+  when it moved to `python3`: `jq` ships with none of Debian, Ubuntu, macOS 13 or Git
+  for Windows, and without it the watch could never notice a process that ended,
+  while `python3` was already required. The two filters were compared on live
+  `working` and `done` sessions, an unknown id, a removed session, a null state and
+  output that is not JSON, and agreed on all of them.
 - Before handoff, the plan is reviewed by a fresh `claude -p` process at phase 2's
   model and effort, in a loop capped by the round budget, default ten, that step 5
   proposes and the plan records as `review_rounds`. The reviewer runs with

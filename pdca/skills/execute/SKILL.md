@@ -200,7 +200,8 @@ while :; do
     t=$(awk '/^## Tasks/{t=1;next} t&&/^## /{exit} t&&/^- \[ \] /{printf "."} t&&/^- \[[xX]\] /{printf "x"}' "$plan")
   else s=gone t=; fi
   r=none; if [ -f "$report" ]; then r=old; [ "$report" -nt "$marker" ] && r=new; fi
-  a=$(claude agents --json 2>/dev/null | jq -r --arg id "$id" '[.[]|select(.id==$id)|.state][0] // "gone"' 2>/dev/null)
+  a=$(claude agents --json 2>/dev/null | python3 -c 'import json,sys
+print(next((s.get("state") for s in json.load(sys.stdin) if s.get("id")==sys.argv[1]),None) or "gone")' "$id" 2>/dev/null)
   cur="status=$s tasks=$t report=$r session=${a:-unknown}"
   if [ "$cur" != "$prev" ]; then echo "$cur"; prev=$cur; fi
   if [ "$s" = gone ] || [ "$r" = new ]; then exit 0; fi
@@ -231,7 +232,7 @@ for ticked. Bring the list up to date from each one:
 Anything else, such as the `status=blocked report=none` of a relaunch whose gate has
 just consumed the inherited report, changes nothing on the list. When the monitor
 expires, re-arm it with the same `$marker`; its first event then repeats the current
-state. `session=unknown` means `claude agents` or `jq` did not answer. The plan file
+state. `session=unknown` means `claude agents` or `python3` did not answer. The plan file
 still drives the list, but the loop cannot notice a process that ended, so say that
 once.
 
