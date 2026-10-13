@@ -388,7 +388,9 @@ for a day and dropped for exactly that consistency.
   that question with the ticket named from the start — a settled decision re-asked.
 - The goal condition is capped at 4000 characters, is single-quoted into a shell
   argument (so: no apostrophes, no backticks), and always carries a blocked-report
-  escape hatch so an impossible check terminates instead of looping.
+  escape hatch so an impossible check ends the run on a named blocked report rather
+  than on the evaluator's own "impossible" verdict, which rests on its reading of the
+  transcript.
 - **No turn or time cap in the condition.** Decided 2026-09-03. The `/goal` docs
   suggest one, and it was considered: a turn is one stop attempt of unbounded size, so
   a cap would count evaluator rejections, and real finished runs have gone into the
@@ -399,11 +401,15 @@ for a day and dropped for exactly that consistency.
   the preservation commit — never in the work commit and never with a bare `rm`; when
   the plan lives in a different repository than the work, both commits go to the plan's
   repository.
-- **`/goal <plan-path>` alone cannot launch phase 2**, however self-sufficient the
-  plan. Three documented reasons: the evaluator is the small fast model and calls no
-  tools, so a bare path gives it nothing to judge and no way to open the file; the plan
-  deletes itself before the final judgement; and the escape hatch has to be in the
-  condition text or a blocked run cannot stop. So the full condition inlines the
+- **`/goal <plan-path>` alone runs phase 2 unchecked**, however self-sufficient the
+  plan. `/goal` accepts any text as the condition, so the run starts and works; what is
+  lost is the independent judgement. The evaluator is the small fast model and calls no
+  tools, so it has no way to open the file and can only judge whether the transcript
+  claims the plan was executed — the session's own "done" is what stops it, not the
+  criteria — and the plan deletes itself before the final judgement anyway. A blocked
+  run is not trapped (the evaluator has an "impossible" verdict), but without the
+  escape hatch in the condition text that verdict rests on the evaluator's reading of
+  the transcript rather than on a named blocked report. So the full condition inlines the
   criteria, the Handoff section carries the full command plus a short form (path,
   protocol, closeout order, hatch — no criteria, and it says what that costs), and
   `/pdca:execute` runs the Handoff block from the plan path. Phase 2 still needs no

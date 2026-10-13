@@ -276,16 +276,18 @@ if the ground has moved.
 
 ## Launching a plan from its path
 
-`/goal 2026-08-27-cache-ttl-plan.md` on its own does not work, however
-self-sufficient the plan is, and the reason is the evaluator. It is Claude Code's small
-fast model, it reads only the condition text and the transcript, and it calls no tools
-— so a bare path gives it nothing to judge, it cannot open the file to find the
-criteria, and the plan deletes itself before the last judgement anyway. The full
-condition inlines the acceptance criteria so the evaluator holds them independently of
-the session it is judging.
+`/goal 2026-08-27-cache-ttl-plan.md` on its own runs — `/goal` takes any text as its
+condition — but nothing checks the result independently, however self-sufficient the
+plan is, and the reason is the evaluator. It is Claude Code's small fast model, it
+reads only the condition text and the transcript, and it calls no tools — so it cannot
+open the file to find the criteria, and the plan deletes itself before the last
+judgement anyway. All it can judge is whether the transcript says the plan was
+executed, so the run stops when the session believes it is done, not when the criteria
+are shown to hold. The full condition inlines the acceptance criteria so the evaluator
+holds them independently of the session it is judging, and can reject an early "done".
 
-What does work is running the plan's own Handoff command, and `/pdca:execute` does
-that:
+What gets that independent check is running the plan's own Handoff command, and
+`/pdca:execute` does that:
 
 ```
 /pdca:execute 2026-08-27-cache-ttl-plan.md
