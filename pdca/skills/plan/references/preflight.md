@@ -6,9 +6,9 @@ actually do what the plan asks. Nothing else happens until those checks pass.
 The gate exists because of when the alternative fails. A plan written for Opus at high
 effort, launched by accident on Haiku at low effort, does not announce itself — it
 produces work that looks plausible for six tasks and then goes wrong somewhere nobody
-is watching. A command that needs a privilege the session does not have is not refused
-at launch; it is refused at task 5, silently, under `auto`, with no human to override
-and a Stop hook that will not let the session give up. Both cost an entire unattended
+is watching. A command the session is not allowed to run is not refused at launch; it
+is refused at task 5, silently, under `auto`, with no human to override and a Stop
+hook that will not let the session give up. Both cost an entire unattended
 run. Both are one command to detect in the first turn.
 
 So: fail in turn 1, not in turn 40.
@@ -247,38 +247,93 @@ is merely self-reported — or unavailable, like the goal check when the transcr
 is missing, or the mode when neither the transcript nor the launch flags answer —
 is a warning to record and continue from.
 
-### 2. Privilege — only when the mode is not a bypass
+### 2. Permissions — everything the run will ask for
 
-Under `--dangerously-skip-permissions` (or `--permission-mode bypassPermissions`)
-there is no permission layer to trip over, and this group is skipped. Say so
-explicitly rather than silently omitting it.
+Every call the run makes beyond a plain read has to be allowed at the moment it is
+made, and under `auto` nobody is there to allow it. So the gate proves **now** every
+permission the run needs — all of them, not the elevated ones alone — while a refusal
+can still end the run cleanly. Two separate gates can refuse a call, and both are
+silent:
 
-Under any other mode — `auto` in particular — every elevated thing the plan requires
-is proved **now**. Two separate gates can refuse a command, and both are silent:
-
-- **The right itself** — passwordless sudo, a cluster role, a valid cloud token.
-- **The classifier** — `auto` judges the command as written. It refuses things a
+- **The right itself** — passwordless sudo, a cluster role, a valid cloud token. This
+  one refuses under every mode, a bypass included.
+- **The classifier** — `auto` judges the call as written. It refuses things a
   human would wave through, and it refuses them without a prompt.
 
-That second gate is why a probe must have the same *shape* as the real command.
-Proving `kubectl get pods` runs says nothing about `kubectl delete`; proving a write
-inside the repository works says nothing about a write to `/etc`. Where the real
-command has a rehearsal form, that is the probe:
+The classifier is why the execution session proves the permissions itself rather than
+trusting phase 1's verification. Phase 1 ran every prescribed command under `auto`
+too, but its classifier had read the conversation with the user, where each unusual
+command was explained; phase 2's has read the goal condition and CLAUDE.md, and the
+plan is a tool result it never sees (the levers below say more). The same command can
+be judged differently in the two sessions, and the only verdict that counts is the one
+in the session that will run the work. That the verdicts differ is inferred from what
+the classifier reads, not observed side by side; execution sessions that stalled on
+permissions mid-run, after a phase 1 that had run the same commands cleanly, are why
+it is taken seriously.
+
+**The inventory.** The plan's Pre-Flight group 2 lists, one entry each, every distinct
+thing the run will ask for — read from the Tasks and their verifications, the
+Acceptance Criteria and the Closeout:
+
+- every shell command shape — the binary, the subcommand, the kind of target, the
+  flags that change what it does — other than plain reads such as `grep`, `cat`,
+  `ls`, `git status`, `git diff` and `git log`; a command that may or may not be a
+  plain read gets an entry;
+- the run's own git operations, which every plan has: a commit per task, and the
+  Closeout's `git rm` of the plan;
+- every write the file-edit tools make outside the ordinary source tree — under
+  `.claude/`, `.github/` or `.git/`, to a dotfile, or outside the repository — since
+  those are the paths judged most carefully;
+- every MCP tool, web fetch, sub-agent or other tool the plan prescribes;
+- every right behind those calls — the sudo, the role, the token.
+
+Ordinary edits inside the tree need no entry: the gate's own outcome, `status:
+executing`, is written with the file-edit tool, before any task depends on one.
+
+**The executor's own pass.** The inventory is the planner's list, and a list can miss
+a line. Before running it, the execution session reads the Tasks, the Acceptance
+Criteria and the Closeout itself and names every command shape and tool they invoke;
+anything the inventory does not cover is probed by the same rules and recorded in the
+Run Log as a gap the plan left. The gate then proves what this executor needs, not
+what the planner remembered.
+
+**A probe has the same shape as the real call**, because shape is what the classifier
+judges. Proving `kubectl get pods` runs says nothing about `kubectl delete`; proving a
+write inside the repository works says nothing about a write to `/etc`. So a command
+with no side effects outside the tree runs as written — narrowed to a cheaper target
+with the same binary, subcommand and flags where the full run is slow — and what it
+proves is that the call was allowed, whatever its exit code says about the work not yet
+done. A command that changes state outside the tree runs in its rehearsal form; where
+it has none, the entry says so and the real shape stays a stated risk, never a reason
+to do the work in turn 1. Every probe leaves the tree as it found it, because group 3
+checks it next. The catalogue:
 
 | The plan needs | Probe |
 |---|---|
+| A command with no side effects outside the tree — a build, a test, a lint, a `kubectl get` | The command as written; its own output, whatever the exit code, shows the call was allowed |
+| A commit — every plan | `git commit --dry-run --allow-empty -m probe` prints git's own status — `nothing to commit`, with exit 1, on a clean tree — which is git answering, not a denial |
+| Removing the plan at closeout — every plan | `git rm --dry-run <plan_file>` prints `rm '<plan_file>'` and removes nothing |
 | `sudo` anything | `sudo -n true` — a sudo that would prompt hangs an unattended run |
 | A cluster mutation | `kubectl auth can-i <verb> <resource> -n <ns>`, or the real command with `--dry-run=server` |
 | A push | `git push --dry-run` |
 | GitHub API access | `gh auth status` |
 | Cloud API access | `aws sts get-caller-identity`, or the provider equivalent |
 | Dependency installation | the actual fetch against the real registry |
-| A write outside the repository | `touch` the target path and remove it |
+| A write outside the repository, or to a guarded path inside it | The file-edit tool the task will use writes a scratch file beside the target, which is then removed |
+| A web fetch | The fetch, against the same host |
+| An MCP tool, or another tool the plan prescribes | One call to the same server or tool — a read where the real call writes, as for the Jira row below |
 | A Jira comment at closeout | A read against the same MCP server under phase 2's mode; on the REST fallback, `GET /rest/api/3/mypermissions?issueKey=<key>&permissions=ADD_COMMENTS` returns `havePermission` — it writes nothing, so the ticket collects no test comments |
 | A push at closeout | `git push --dry-run` — when `closeout_push` is true: the closeout's permalink then points at a commit that has to reach the remote |
 
 A probe that needed manual approval, or came back denied, is a failed pre-flight — not
 a note to keep in mind.
+
+Under `--dangerously-skip-permissions` (or `--permission-mode bypassPermissions`) the
+classifier is never consulted, but the rights still apply: a missing cluster role
+refuses under every mode. So the inventory runs under a bypass too, and the Run Log
+says the classifier half was moot. Until 2026-10-30 this group was skipped under a
+bypass, which left the rights unproved in exactly the mode where nothing else would
+stop the run.
 
 The last two rows are worth a word on why they are fatal rather than cosmetic. A
 closeout that cannot run means the plan file — the record of the entire run, including
@@ -294,9 +349,13 @@ the plan prescribes a tool call, phase 1 makes one — a read against the same s
 usually enough — under phase 2's permission mode.
 
 **The one failure this gate cannot catch, and what to do about it.** Probing covers the
-commands the plan names. It does not cover what happens when `auto` refuses *repeatedly*
-during the run: after 3 consecutive blocks, or 20 across the session, auto mode pauses
-and Claude Code goes back to prompting, and the thresholds are not configurable
+calls the inventory and the executor's own pass name. It cannot cover a call nobody
+planned — a command the session composes mid-run, a fix-up the tasks did not foresee —
+nor a real shape whose rehearsal looked different to the classifier. Those meet it for
+the first time at the moment of use, and what happens when `auto` refuses
+*repeatedly* is worse than a refusal: after 3 consecutive blocks, or 20 across the
+session, auto mode pauses and Claude Code goes back to prompting, and the thresholds
+are not configurable
 ([permission modes](https://code.claude.com/docs/en/permission-modes), read 2026-09-05).
 In the background session the handoff launches, that prompt has nobody in front of it.
 The run does not fail and cannot stop — the Stop hook holds it — so it stalls,
@@ -304,6 +363,13 @@ which is worse than the blocked report. Remote Control is the recovery: attach a
 answer the prompt. A run that keeps tripping the classifier is telling you the plan was
 prescribed against a mode it does not actually fit; the answer is a phase-1 fix, not a
 mid-run escalation.
+
+So the Execution Protocol keeps the run inside what the gate proved: the commands the
+plan prescribes, in the shapes it prescribes them, and the file-edit tools for
+changing files rather than shell redirection, `sed -i` or an interpreter. And it
+answers a refusal with the blocked report at once. A retry, a rephrasing or a variant
+of a refused call is one more block toward the three in a row that hand the session to
+a prompt nobody answers — the stall, reached by trying harder.
 
 Three levers, in the order to try them:
 
@@ -384,9 +450,13 @@ Writing the Pre-Flight section is phase 1's job, and it is not boilerplate:
   naming this plan, `met:false` — is the gate's only proof that an evaluator is
   guarding the run. It is in the template; a plan that drops it has lost the check
   that makes every other check enforceable.
-- **Enumerate the privileges from the tasks, not from imagination.** Read back through
-  the plan; every command that writes outside the tree, touches a cluster, pushes, or
-  reaches the network earns a probe.
+- **Inventory every permission from the plan, not from imagination.** Read back
+  through the tasks and their verifications, the acceptance criteria and the closeout;
+  every call that is not a plain read earns an entry with its probe, as group 2 lists
+  them. An inventory of only the elevated calls — the ones that write outside the
+  tree, touch a cluster, push, or reach the network — is the gate as it was until
+  2026-10-30, and it leaves every ordinary command to meet phase 2's classifier for
+  the first time at task 5.
 - **Run every probe yourself, under phase 2's permission mode** — which means from a
   session that is in it; the plan skill's step 4 says how to read this session's mode
   and what to do when it is not phase 2's. This is the same rule
@@ -394,6 +464,7 @@ Writing the Pre-Flight section is phase 1's job, and it is not boilerplate:
   probe that is itself denied turns the gate into a false alarm that ends the run
   before it starts.
 - **Keep it bounded.** The gate is a first-turn formality when everything is fine —
-  each check one command with one expected result, the whole section a handful of
-  lines. It is not a second verification phase, and a pre-flight that takes twenty
+  each check one command with one expected result, the inventory as long as the run
+  has distinct shapes and no longer: two calls of the same shape are one entry, and a
+  command the Verified Context spot-check in group 4 already runs is not run twice. It is not a second verification phase, and a pre-flight that takes twenty
   turns has become the thing it was meant to prevent.

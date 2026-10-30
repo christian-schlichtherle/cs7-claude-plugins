@@ -169,6 +169,36 @@ for a day and dropped for exactly that consistency.
   the condition is the directive the
   session actually receives and the evaluator has to accept a turn-1 abort as
   terminal.
+- **The gate proves every permission the run needs, not only the elevated ones.**
+  Decided 2026-10-30, at the user's request, after execution sessions — Sonnet's above
+  all — kept getting stuck on permissions mid-run. Until then group 2 probed what phase
+  1 judged elevated: sudo, a cluster, a push, the network, the closeout. Every other
+  call met phase 2's `auto` classifier for the first time at the moment of use, and
+  phase 1's clean run under `auto` did not carry over: that classifier had read the
+  conversation with the user, phase 2's reads the goal condition and CLAUDE.md, and the
+  plan is a tool result it never sees. That the verdicts differ is inferred from what
+  the classifier reads (facts below), not observed side by side. So group 2 is now an
+  inventory of every call that is not a plain read — each command shape, the commits
+  and the Closeout's `git rm`, writes outside the ordinary source tree, MCP tools, web
+  fetches, and the rights behind them — each probed in the shape the run will use: as
+  written when it changes nothing outside the tree, in rehearsal when it does. The
+  executor also makes its own pass over the Tasks, the Acceptance Criteria and the
+  Closeout, probes what the inventory missed and records it as a gap in the plan, so
+  the gate checks what this executor needs rather than what the planner remembered.
+  Two rules keep the run inside what was proved, since a call nobody planned cannot be
+  probed: the Execution Protocol has it use the prescribed shapes, and the file-edit
+  tools rather than redirection, `sed -i` or an interpreter; and it answers a refusal
+  with the blocked report at once, because a retry or a variant is one more block
+  toward the three in a row that pause `auto` and leave a background session at a
+  prompt nobody answers. The bypass exemption went at the same time: under
+  `bypassPermissions` the classifier is moot, but a missing right still refuses, so
+  the inventory runs under every mode. Ordinary in-tree edits stay unprobed, because
+  the `status: executing` write that ends the gate is the first of them. The commit
+  probe is `git commit --dry-run --allow-empty -m probe`, which on a clean tree prints
+  `nothing to commit` and exits 1 — git answering, not a denial; `git rm --dry-run`
+  prints what it would remove and exits 0. Both verified 2026-10-30 in a scratch
+  repository. No file format changed — a plan written before this runs its narrower
+  gate as written — so this took a patch, 0.16.3.
 - **The handoff parameters are asked as interviews, not a free-form prompt.** Each is
   a single `AskUserQuestion` call, recommended option first and marked: options are
   answered in a keystroke where a composed reply invites the partial answer that

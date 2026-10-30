@@ -139,9 +139,10 @@ not depend on that step having run: a leftover report that could end a relaunch 
 turn 1 is the failure seen in practice, and this clause is the cheaper guard.
 
 **No weakening.** State that a check may not be relaxed, skipped, or declared passed
-without being run. Add that a permission denial is not a licence to route around it:
-under `auto` a prescribed command can be refused silently, and the correct response is
-the blocked report, not an improvised substitute nobody reviewed. An execution session under a blocking Stop hook is under real
+without being run. Add that a permission denial is not a licence to retry it, rephrase
+it or route around it: under `auto` a prescribed command can be refused silently, the
+correct response is the blocked report, not an improvised substitute nobody reviewed,
+and three refusals in a row leave an unattended session at a prompt nobody answers. An execution session under a blocking Stop hook is under real
 pressure to find a way to be finished; say plainly that the way out is the blocked
 report, not a lowered bar.
 
@@ -157,7 +158,7 @@ effort.
 Execute the plan at 2026-08-27-cache-ttl-plan.md to completion.
 Before changing anything, run the Pre-Flight section of that plan and show the output
 of every check: the model must be claude-opus-5, the effort high, the permission mode
-auto, and every privilege probe must pass. If any pre-flight check fails, write the
+auto, and every permission probe must pass. If any pre-flight check fails, write the
 blocked report named below and stop - do not start the tasks and do not continue on a
 different model or mode.
 Done when all of the following hold: the Pre-Flight checks were run first in this
@@ -170,8 +171,8 @@ link to that plan file at that commit, and only then was the plan file deleted i
 separate later commit; git status --porcelain is empty; and the plan file
 has been deleted, with all work committed on the current branch, each commit
 prefixed ACME-123. Do not create a branch. Do not relax, skip, or
-declare passed any check that was not actually run, and do not route around a
-permission denial - a refused command is a blocked-report situation. If a pre-flight
+declare passed any check that was not actually run, and do not retry, rephrase or
+route around a permission denial - a refused command is a blocked-report situation. If a pre-flight
 or acceptance check cannot be made to pass, write 2026-08-27-cache-ttl-plan.BLOCKED.md
 in this session, naming a check this session ran, what was tried, and why it cannot
 pass, commit it with the plan, then

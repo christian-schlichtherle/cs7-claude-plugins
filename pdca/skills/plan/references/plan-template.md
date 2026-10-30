@@ -156,11 +156,31 @@ the report was the message.>
    or `--dangerously-skip-permissions`. If neither source answers, the mode is
    unverifiable: say so rather than assuming it.
 
-2. **Privileges** — skip this group only if the mode above is `bypassPermissions`,
-   and say in the Run Log that you skipped it.
-   - `kubectl auth can-i update configmap -n staging` prints `yes`.
+2. **Permissions** — every call this run will make beyond a plain read, each probed
+   in the shape the run will make it, so that a refusal ends the run here and not at
+   task 2. First read the Tasks, the Acceptance Criteria and the Closeout yourself and
+   name every command shape and tool they invoke. Anything the list below misses, probe
+   the same way — as written when it changes nothing outside the tree, in a dry-run or
+   other rehearsal form when it does — and record it in the Run Log as a gap in this
+   plan. Every probe leaves the tree as it found it. A probe that is denied, or that
+   asks for approval, is a failed check, whatever the command's own exit code would
+   have been. Under `bypassPermissions` run them all the same — the classifier is not
+   consulted, but a missing right refuses under every mode — and say so in the Run Log.
+   Ordinary edits inside the tree, such as task 1's, need no entry: setting `status:
+   executing` with the file-edit tool once every check has passed is the first of them.
+   - `mvn -q verify` runs (criterion 1). It passes today; what it proves here is that
+     the call is allowed.
+   - `kubectl auth can-i update configmap -n staging` prints `yes` (task 2).
    - `helm -n staging upgrade api charts/api -f charts/api/values-staging.yaml --dry-run`
-     exits 0. If it is denied rather than failing, that is a pre-flight failure.
+     exits 0 (task 2, in rehearsal). If it is denied rather than failing, that is a
+     pre-flight failure.
+   - `kubectl -n staging get configmap api-config -o "jsonpath={.data.cacheTtlSeconds}"`
+     prints `300` (task 2's verification and criterion 2, before the work).
+   - `git commit --dry-run --allow-empty -m probe` prints git's own status —
+     `nothing to commit`, with exit 1, on a clean tree — rather than a denial (a
+     commit per task).
+   - `git rm --dry-run 2026-08-27-cache-ttl-plan.md` prints
+     `rm '2026-08-27-cache-ttl-plan.md'` and removes nothing (Closeout step 5).
    - The ticket comment channel answers: a read against the Atlassian MCP server
      succeeds under this permission mode (or, on the REST fallback,
      `GET /rest/api/3/mypermissions?issueKey=ACME-123&permissions=ADD_COMMENTS`
@@ -325,7 +345,14 @@ from what is written here plus the repository, and record what you decided.
    reads that rather than guessing. On a resume, continue at the first unticked task; a task the Run
    Log shows started but not finished is inspected before it is redone, because the
    tree may already hold part of it.
-3. Work the tasks in order. Append a line to the Run Log when you start a task, and
+3. Work the tasks in order, inside what the gate proved: run the commands this file
+   prescribes in the shapes it prescribes them, and change files with the file-edit
+   tools rather than shell redirection, `sed -i` or an interpreter. A call the gate
+   did not probe meets the `auto` classifier for the first time when you make it. When
+   a call is refused, write the blocked report in step 10 at once — do not retry it,
+   rephrase it or try a variant: three refusals in a row pause `auto` and leave this
+   session at a permission prompt nobody is there to answer, which stalls the run
+   instead of ending it. Append a line to the Run Log when you start a task, and
    tick its checkbox with another line when you finish it. Do this as you go, not at
    the end — if this run is interrupted, the ticked boxes and the last started-line
    are how the next one knows where to resume and what half-done work it may find.

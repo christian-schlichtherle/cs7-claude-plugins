@@ -334,17 +334,23 @@ every case, record in the Verified Context which mode the commands ran under —
 "not verified under `auto`" is one the reviewer and the executor can tell from an
 oversight.
 
-**Enumerate the privileges the tasks need, and probe each one.** Read back through
-what the plan will prescribe: every command that pushes, writes outside the
-repository, touches a cluster, or reaches the network needs something this session
-happens to have and phase 2 may not — a cluster role, a live token, passwordless
-sudo. For each, find the cheapest command that proves the right
-exists without exercising it (`sudo -n true`, `kubectl auth can-i …`, a `--dry-run`
-form), run it here, and record it as a pre-flight check in the plan. Those probes are
-what turns a silent refusal at task 5 into a clean abort in turn 1;
-`references/preflight.md` has the catalogue and the reasoning.
+**Inventory every permission the run needs, and probe each one.** Read back through
+what the plan will prescribe — the tasks and their verifications, the acceptance
+criteria, the closeout — and list every call that is not a plain read: each command
+shape, the commits and the closeout's `git rm`, every write outside the ordinary
+source tree, every MCP tool, web fetch or other tool, and every right behind them — a
+cluster role, a live token, passwordless sudo, which this session happens to have and
+phase 2 may not. Most of these you have already run by the rule above; the inventory
+writes that work down as probes, each the cheapest call of the same shape — the
+command itself when it changes nothing outside the tree, its rehearsal form when it
+does, `sudo -n true` or `kubectl auth can-i …` for a right — and records them as the
+plan's Pre-Flight group 2. Not the elevated calls alone: phase 2's classifier has not
+read this conversation, so a command it waved through here proves nothing there, and
+the inventory is how the execution session gets its own verdict on every call in turn
+1 rather than at task 5. `references/preflight.md` has the catalogue and the
+reasoning.
 
-**The closeout is one of those privileges.** Phase 2 finishes by committing the final
+**The closeout is one of those permissions.** Phase 2 finishes by committing the final
 plan and, when a ticket was named, pushing it if that was agreed and posting a comment
 linking to it — and none of that is guaranteed to work: an MCP server that
 needs interactive authentication, a token this session holds and the next one does not,
@@ -356,7 +362,7 @@ out now and record it; a link that resolves then is the only honest proof the
 template is right. If there is no comment channel, say so now and let the user choose
 the fallback — see `references/jira.md`.
 
-**Remote Control is a launch-time privilege too, and the one that is only a warning.**
+**Remote Control is a launch-time permission too, and the one that is only a warning.**
 The handoff starts phase 2 with `--remote-control` — see "The handoff command" — and
 that needs a claude.ai subscription login: `claude auth status` prints
 `"authMethod": "claude.ai"` and `"apiProvider": "firstParty"`. An API key, a Bedrock
@@ -912,7 +918,9 @@ specification.
 
 - **Run the Pre-Flight gate in turn 1**, before anything else — that a `/goal` naming
   the plan is driving it, that model, effort and permission mode are the ones the plan
-  was written for, that the privileges the tasks need exist, and that the working
+  was written for, that every permission the run needs is granted — each call probed
+  in the shape the run will make it, from the plan's inventory and the session's own
+  pass over the tasks — and that the working
   directory, branch and plan path are what the plan expects. Any failure ends the run
   right there as a blocked report: not an adaptation, and not a run that starts
   anyway. `preflight.md`
@@ -929,8 +937,11 @@ specification.
   evaluator can only judge from what is still visible in the transcript; the closeout
   criteria are shown passing as the Closeout's own steps complete, the only place they
   can hold. `goal-condition.md`, `plan-template.md`
-- **Treat a permission denial as a blocked report**, not an obstacle to route around: a
-  denied command means the plan prescribed something phase 2 cannot do. `preflight.md`
+- **Treat a permission denial as a blocked report**, at once — not an obstacle to retry,
+  rephrase or route around: a denied command means the plan prescribed something
+  phase 2 cannot do, and three denials in a row leave the session at a prompt nobody
+  answers. Staying inside the shapes the gate proved is what keeps them rare.
+  `preflight.md`
 - **Commit as you go on the current branch** — the one `branch` names — with the
   agreed prefix: a task, or a coherent slice of one, per commit. Never create a
   branch: a plan that wanted one already sits on it, made by phase 1 at
@@ -965,7 +976,7 @@ the plan and the repository.
   section is for. Read before writing a plan.
 - `references/preflight.md` — **owns the gate** phase 2 runs before task 1: how a
   session checks that its plan's `/goal` is driving it and its own model, effort and
-  permission mode, which privileges to probe and how, and why a failure there is
+  permission mode, which permissions to probe and how, and why a failure there is
   written up rather than worked around. Read before filling in a plan's Pre-Flight
   section.
 - `references/jira.md` — **owns the requirements sources**: why a ticket is a request

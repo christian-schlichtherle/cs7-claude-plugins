@@ -44,7 +44,9 @@ are the one part of the file you are not reviewing.
   this environment.
 - A Pre-Flight section that would not stop you: a model, effort or permission mode
   that is not named literally enough to compare against, no check that the plan's
-  own /goal is driving the session, a privilege the tasks need that nothing probes,
+  own /goal is driving the session, a call the run needs — a command shape, a write
+  outside the ordinary tree, a tool, a right — that nothing in its permission
+  inventory probes,
   or a check whose failure you could talk yourself past.
 - A source whose requirements are not accounted for: a Requirements table that omits
   something the ticket or the spec asks for, or a disposition you would feel entitled

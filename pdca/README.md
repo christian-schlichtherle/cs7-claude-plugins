@@ -107,8 +107,10 @@ pre-flight check. Before it changes anything,
 it confirms a `/goal` naming this plan is what is driving it — a launch that lost
 the prefix runs with no evaluator guarding its completion, so it can stop half-done
 and nobody notices — that it is running on the model, effort level and permission
-mode the plan was written for, that every privilege the plan needs is actually
-available — a passwordless sudo, a cluster role, a live token — and that it
+mode the plan was written for, that every permission the run needs is actually
+granted — each command it will run and each tool it will call, probed in the shape
+the run will use, and the rights behind them, a passwordless sudo, a cluster role, a
+live token — and that it
 is in the right repository on the right branch. If any of that is wrong it writes
 a `.BLOCKED.md` naming the mismatch and stops immediately, rather than producing
 plausible-looking work on the wrong model and going wrong somewhere nobody is
@@ -229,7 +231,7 @@ flowchart TD
     Handoff -. "afterthought that<br>changes the plan" .-> Draft
 
     subgraph Goal["Third loop — the fresh /goal session"]
-        Gate["Pre-flight gate: this plan's /goal<br>drives the session; right model, effort<br>and permission mode; privileges;<br>right repo and branch;<br>plan preconditions still hold"] --> Work["Work the tasks, run the<br>acceptance checks, close out<br>the ticket, remove the plan"]
+        Gate["Pre-flight gate: this plan's /goal<br>drives the session; right model, effort<br>and permission mode; every permission;<br>right repo and branch;<br>plan preconditions still hold"] --> Work["Work the tasks, run the<br>acceptance checks, close out<br>the ticket, remove the plan"]
         Work --> Eval{"Evaluator:<br>condition holds?"}
         Eval -- "not yet" --> Work
     end
