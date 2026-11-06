@@ -1,36 +1,43 @@
 # Gemini Image Generation — REST API Reference
 
+Checked against the live API on 2026-11-06.
+
 ## Endpoint
 
 ```
-POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
+POST https://generativelanguage.googleapis.com/v1/models/{model}:generateContent
 ```
 
 **Headers:**
 - `Content-Type: application/json`
 - `x-goog-api-key: $GEMINI_API_KEY`
 
+The GA image models are served on `v1`; `v1beta` still answers as well.
+
 ## Supported Models
 
-| Model ID | Type | Status | Notes |
+| Model ID | Name | Status | Notes |
 |---|---|---|---|
-| `gemini-3.1-flash-image-preview` | Flash (latest) | Preview | Default. Fastest. All features: Image Search grounding, thinking, extreme ratios, 512px. |
-| `gemini-3-pro-image-preview` | Pro | Preview | Highest quality. Slower. No Image Search grounding. |
-| `gemini-2.5-flash-image` | Flash (stable) | GA | Production-ready. No thinking support. Fewer aspect ratios. |
+| `gemini-nano-banana-2.1` | Nano Banana 2.1 | GA (Oct 2026) | **Default.** Best quality per cost, text rendering, multi-turn consistency. 1K/2K/4K. |
+| `gemini-3.1-flash-lite-image` | Nano Banana 2 Lite | GA | Fastest and cheapest. 1K only. No grounding. Weak at multi-reference and multi-turn. |
+| `gemini-3-pro-image` | Nano Banana Pro | GA | Premium reasoning model for complex scenes, brand assets, dense text. |
+| `gemini-3.1-flash-image` | Nano Banana 2 | Deprecated (Oct 2026, no shutdown date) | The only model with `512` output. Migrate to 2.1. |
+| `gemini-2.5-flash-image` | Nano Banana | Legacy (existing users only) | No thinking, no extreme ratios. |
+
+Shut down: `gemini-3.1-flash-image-preview` and `gemini-3-pro-image-preview` (2026-06-25), all Imagen 4 models (2026-08-17).
 
 ### Model Comparison
 
-| Feature | Flash 3.1 | Pro 3 | Flash 2.5 |
-|---|---|---|---|
-| Max resolution | 4K + 512px | 4K | 4K |
-| 512px support | Yes | No | No |
-| Input token limit | 131,072 | 65,536 | ~1M |
-| Max reference images (objects) | 10 | 6 | Limited |
-| Max reference images (characters) | 4 | 5 | Limited |
-| Image Search grounding | Yes | No | No |
-| Thinking support | Yes | Yes | No |
-| Extreme aspect ratios (1:4, 4:1, 1:8, 8:1) | Yes | No | No |
-| Speed | Fast (4-6s) | Slower (8-12s) | Fast |
+| Feature | NB 2.1 | NB 2 Lite | Pro | NB 2 | NB (2.5) |
+|---|---|---|---|---|---|
+| Image sizes | 1K, 2K, 4K | 1K | 1K, 2K, 4K | 512, 1K, 2K, 4K | 1K |
+| Extreme ratios (1:4, 4:1, 1:8, 8:1) | Yes | Yes | No | Yes | No |
+| Thinking levels | `minimal`, `medium` (default), `high` | `minimal` (default), `high` | `minimal`, `high` | `minimal` (default), `high` | none |
+| Web Search grounding | Yes | No | Yes | Yes | No |
+| Image Search grounding | Yes | No | No | Yes | No |
+| Video input (video-to-image) | Yes | Yes | No | Yes | No |
+| Reference images | up to 14 (4 characters, 10 objects) | few | up to 14 (5 high-fidelity) | up to 14 (4 characters, 10 objects) | ~3 |
+| Input token limit | 131,072 | — | 65,536 | 131,072 | 65,536 |
 
 ## Request Body Schema
 
@@ -54,18 +61,12 @@ POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateCon
     "responseModalities": ["TEXT", "IMAGE"],
     "imageConfig": {
       "aspectRatio": "16:9",
-      "imageSize": "2K",
-      "personGeneration": "ALLOW_ADULT",
-      "imageOutputOptions": {
-        "mimeType": "image/png",
-        "compressionQuality": 85
-      }
+      "imageSize": "2K"
     },
     "seed": 42,
     "temperature": 1.0,
     "thinkingConfig": {
-      "thinkingLevel": "high",
-      "includeThoughts": true
+      "thinkingLevel": "high"
     }
   },
   "tools": [
@@ -87,19 +88,20 @@ Each entry has:
 - `role`: `"user"` or `"model"` (alternating for multi-turn)
 - `parts`: Array of content parts:
   - `{"text": "..."}` — text prompt or response
-  - `{"inline_data": {"mime_type": "...", "data": "..."}}` — base64-encoded image
+  - `{"inline_data": {"mime_type": "...", "data": "..."}}` — base64-encoded image or video
+  - `{"file_data": {"file_uri": "https://www.youtube.com/watch?v=..."}}` — public YouTube video (video-to-image)
 
-For multi-turn, include the full conversation history with alternating user/model roles.
+For multi-turn, include the full conversation history with alternating user/model roles, and send every `thoughtSignature` back on the part it arrived with.
 
 ### `generationConfig`
 
 #### `responseModalities`
-- `["TEXT", "IMAGE"]` — return both text commentary and generated image (**required for image generation**)
-- `["TEXT"]` — return text only (no image generation)
-
-**Important:** `["IMAGE"]` (image only without text) is NOT supported. Always include `"TEXT"` when generating images.
+- `["TEXT", "IMAGE"]` — text commentary plus the generated image (what the script sends)
+- `["IMAGE"]` — image only; accepted by the current models
 
 #### `imageConfig`
+
+Only `aspectRatio` and `imageSize` exist. The former `personGeneration` and `imageOutputOptions` (output MIME type, JPEG quality) fields are rejected with HTTP 400 ("Cannot find field").
 
 **Aspect Ratios:**
 
@@ -118,7 +120,7 @@ All models support:
 | `16:9` | Widescreen — desktop, video |
 | `21:9` | Ultra-wide — cinematic |
 
-Flash 3.1 only (extreme ratios):
+NB 2.1, NB 2 Lite and NB 2 only (panoramic ratios):
 
 | Ratio | Use Case |
 |---|---|
@@ -127,29 +129,20 @@ Flash 3.1 only (extreme ratios):
 | `4:1` | Ultra-wide horizontal strip |
 | `8:1` | Extreme horizontal strip |
 
-**Resolution / Image Size:**
+Without an `aspectRatio`, the output matches the input image's ratio, or the model picks one.
+
+**Resolution / Image Size** (uppercase `K`; lowercase is rejected):
 
 | Value | Description | Model Support |
 |---|---|---|
-| `512px` | Low resolution, fastest | Flash 3.1 only |
-| `1K` | Standard resolution (API default) | All models |
-| `2K` | High resolution | All models |
-| `4K` | Ultra-high resolution, slowest | All models |
+| `512` | 0.5K, fastest | NB 2 (`gemini-3.1-flash-image`) only |
+| `1K` | Standard (default) | All models |
+| `2K` | High resolution | NB 2.1, Pro, NB 2 |
+| `4K` | Ultra-high resolution, slowest | NB 2.1, Pro, NB 2 |
 
-**`personGeneration`** (optional, inside `imageConfig`):
+Unsupported combinations fail with HTTP 400, e.g. "Image size 4K is not supported for this model".
 
-| Value | Description |
-|---|---|
-| `"ALLOW_ALL"` | Adults and children (may require allowlist; restricted in EU/UK/CH/MENA) |
-| `"ALLOW_ADULT"` | Adults only (default) |
-| `"ALLOW_NONE"` | No people |
-
-**`imageOutputOptions`** (optional, inside `imageConfig`):
-
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `mimeType` | string | `"image/png"` | Output format: `"image/png"` or `"image/jpeg"` |
-| `compressionQuality` | int | — | JPEG quality (1-100). Only applies when mimeType is `"image/jpeg"`. |
+**Output format:** the API picks it. The Gemini 3 models return JPEG, `gemini-2.5-flash-image` returns PNG. The script names the file after the returned `mimeType`.
 
 #### `seed` (optional, in `generationConfig`)
 
@@ -161,12 +154,14 @@ Float, range `0.0`–`2.0`. Lower values produce more deterministic output. High
 
 #### `thinkingConfig`
 
-**Supported on:** Flash 3.1, Pro 3. **Not supported on:** Flash 2.5.
+The Gemini 3 image models always think; the level only tunes how much. Omit `thinkingConfig` to get the model's default level. Not supported on `gemini-2.5-flash-image`.
 
 | Field | Values | Description |
 |---|---|---|
-| `thinkingLevel` | `"minimal"`, `"high"` | Depth of internal reasoning before generation |
-| `includeThoughts` | `true` / `false` | Whether to return the model's thought process in response parts |
+| `thinkingLevel` | `"minimal"`, `"medium"` (NB 2.1 only), `"high"` | Depth of reasoning before generation. An unsupported level fails with HTTP 400. |
+| `includeThoughts` | `true` / `false` | Return the thought text and up to two interim "thought images" as parts flagged `"thought": true`. Thinking tokens are billed either way. |
+
+Thinking and `imageSize` combine fine: NB 2.1 at `high` with `2K` returns 2752×1536.
 
 ### `tools`
 
@@ -180,7 +175,7 @@ Float, range `0.0`–`2.0`. Lower values produce more deterministic output. High
 {"google_search": {"searchTypes": {"webSearch": {}, "imageSearch": {}}}}
 ```
 
-Image Search is currently supported on Flash models only.
+Image Search works on NB 2.1 and NB 2 only and cannot search for people. NB 2 Lite supports no grounding at all.
 
 ## Response Schema
 
@@ -195,11 +190,9 @@ Successful response (HTTP 200):
           { "text": "Here is your futuristic city..." },
           {
             "inlineData": {
-              "mimeType": "image/png",
-              "data": "<base64-encoded-png>"
-            }
-          },
-          {
+              "mimeType": "image/jpeg",
+              "data": "<base64-encoded-jpeg>"
+            },
             "thoughtSignature": "<encrypted-base64-string>"
           }
         ],
@@ -224,8 +217,8 @@ Successful response (HTTP 200):
 |---|---|---|
 | Text | `text` | Model's text commentary or description |
 | Image | `inlineData` / `inline_data` | Base64-encoded generated image |
-| Thought | `thought` | Model's visible reasoning (when `includeThoughts: true`) |
-| Thought Signature | `thoughtSignature` / `thought_signature` | Encrypted reasoning token — must be preserved for multi-turn |
+| Thought | `"thought": true` on a text or image part | Reasoning text and interim images (only with `includeThoughts: true`). Never the final image. |
+| Thought Signature | `thoughtSignature` / `thought_signature` on a part | Encrypted reasoning token — send back on the same part in multi-turn history |
 
 ### Grounding Metadata
 
@@ -256,8 +249,9 @@ When grounding tools are used, the response includes:
 - `image/jpeg`
 - `image/webp`
 - `image/gif`
+- Video (NB 2.1, NB 2 Lite, NB 2): `video/mp4`, `video/quicktime`, `video/webm`, `video/mpeg`, `video/x-msvideo` inline (the script caps inline video at 20 MB), or a public YouTube URL via `file_data`
 
-Maximum input images per request: 10 (Flash 3.1), 6 (Pro 3). Up to 14 total inline_data parts including input+output across multi-turn.
+Up to 14 reference images per request on NB 2.1, NB 2 and Pro.
 
 ## Error Responses
 

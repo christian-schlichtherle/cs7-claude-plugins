@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""generate_video.py — Gemini Veo video generation API client.
+"""generate_video.py — Gemini Omni Flash video generation API client.
 
-Uses only the standard library (no pip dependencies).
+Uses only the standard library (no pip dependencies). Talks to the
+Interactions API (POST /v1beta/interactions) with background execution
+and client-side polling.
 
 Subcommands:
-    generate    — text-to-video / image-to-video / frame interpolation
-    extend      — extend a previously generated video
-    poll        — check status of a running operation
+    generate    — text-to-video, image-to-video, interpolation, reference
+                  images, and editing or extending a previous video
+    poll        — check on (or wait for) a background interaction
+    session     — show or reset the last interaction used by --continue
 """
 
 import argparse
@@ -25,15 +28,15 @@ from urllib.request import Request, urlopen
 
 
 def log_info(msg):
-    print(f"\u2139\ufe0f  {msg}", file=sys.stderr)
+    print(f"ℹ️  {msg}", file=sys.stderr)
 
 
 def log_error(msg):
-    print(f"\u274c {msg}", file=sys.stderr)
+    print(f"❌ {msg}", file=sys.stderr)
 
 
 def log_success(msg):
-    print(f"\u2705 {msg}", file=sys.stderr)
+    print(f"✅ {msg}", file=sys.stderr)
 
 
 def load_api_key():
@@ -71,59 +74,40 @@ def slugify(prompt):
             slug = slug.rsplit("-", 1)[0]
 
     ts = int(datetime.now(timezone.utc).timestamp())
-    return f"{slug}-{ts}.mp4"
+    return f"{slug or 'video'}-{ts}.mp4"
 
 
-MIME_MAP = {
+IMAGE_MIME = {
     "png": "image/png",
     "jpg": "image/jpeg",
     "jpeg": "image/jpeg",
     "webp": "image/webp",
 }
+VIDEO_MIME = {
+    "mp4": "video/mp4",
+    "mov": "video/quicktime",
+    "webm": "video/webm",
+}
+MAX_INLINE_VIDEO_BYTES = 20 * 1024 * 1024
 
 
-def detect_image_mime(filepath):
-    ext = Path(filepath).suffix.lstrip(".").lower()
-    mime = MIME_MAP.get(ext)
+def encode_media(filepath, kind):
+    """Return an Interactions API content block with the file inlined as base64."""
+    p = Path(filepath)
+    if not p.is_file():
+        log_error(f"{kind.capitalize()} file not found: {filepath}")
+        sys.exit(11)
+    table = IMAGE_MIME if kind == "image" else VIDEO_MIME
+    ext = p.suffix.lstrip(".").lower()
+    mime = table.get(ext)
     if not mime:
-        log_error(f"Unsupported image format: .{ext} (supported: png, jpg, jpeg, webp)")
+        log_error(f"Unsupported {kind} format: .{ext} (supported: {', '.join(sorted(table))})")
         sys.exit(11)
-    return mime
-
-
-def encode_image(filepath):
-    """Return a dict with base64-encoded image data for the Veo predictLongRunning API.
-
-    The instances-level fields (image, video) use bytesBase64Encoded format.
-    """
-    p = Path(filepath)
-    if not p.is_file():
-        log_error(f"Image file not found: {filepath}")
-        sys.exit(11)
-    mime = detect_image_mime(filepath)
-    data = base64.b64encode(p.read_bytes()).decode("ascii")
-    return {"bytesBase64Encoded": data, "mimeType": mime}
-
-
-def encode_image_inline(filepath):
-    """Return an inlineData dict for parameters-level fields (lastFrame, referenceImages)."""
-    p = Path(filepath)
-    if not p.is_file():
-        log_error(f"Image file not found: {filepath}")
-        sys.exit(11)
-    mime = detect_image_mime(filepath)
-    data = base64.b64encode(p.read_bytes()).decode("ascii")
-    return {"inlineData": {"mimeType": mime, "data": data}}
-
-
-def encode_video(filepath):
-    """Return a dict with base64-encoded video data for the Veo predictLongRunning API."""
-    p = Path(filepath)
-    if not p.is_file():
-        log_error(f"Video file not found: {filepath}")
+    if kind == "video" and p.stat().st_size > MAX_INLINE_VIDEO_BYTES:
+        log_error(f"Video too large to send inline: {p.stat().st_size} bytes (max {MAX_INLINE_VIDEO_BYTES})")
         sys.exit(11)
     data = base64.b64encode(p.read_bytes()).decode("ascii")
-    return {"bytesBase64Encoded": data, "mimeType": "video/mp4"}
+    return {"type": kind, "mime_type": mime, "data": data}
 
 
 def open_file(filepath):
@@ -137,23 +121,32 @@ def open_file(filepath):
         pass
 
 
+DEFAULT_MODEL = "gemini-omni-1.2-flash"
 VALID_RATIOS = {"16:9", "9:16"}
-VALID_RESOLUTIONS = {"720p", "1080p", "4k"}
-VALID_DURATIONS = {"4", "6", "8"}
-VALID_PERSON_GEN = {"allow_all", "allow_adult", "dont_allow"}
-VALID_RESIZE_MODES = {"pad", "crop"}
-VALID_COMPRESSION = {"optimized", "lossless"}
+VALID_RESOLUTIONS = {"360p", "720p", "1080p", "4k"}
+VALID_TASKS = {"text_to_video", "image_to_video", "reference_to_video", "edit", "extend"}
+MAX_IMAGES = 6
+MIN_DURATION, MAX_DURATION = 3, 15
 
 API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+# Pin the Interactions API revision so a future breaking change does not
+# silently alter the request or response shape this script relies on.
+API_REVISION = "2026-05-20"
+TERMINAL_STATES = {"completed", "failed", "cancelled", "incomplete"}
 
 
-def api_post(url, body, api_key, timeout=180):
-    """POST JSON to a Gemini endpoint. Returns parsed JSON response."""
-    payload = json.dumps(body).encode("utf-8")
-    req = Request(url, data=payload, method="POST", headers={
+def _headers(api_key):
+    return {
         "Content-Type": "application/json",
         "x-goog-api-key": api_key,
-    })
+        "Api-Revision": API_REVISION,
+    }
+
+
+def api_request(method, url, api_key, body=None, timeout=180):
+    """Send a JSON request to the Gemini API. Returns parsed JSON response."""
+    payload = json.dumps(body).encode("utf-8") if body is not None else None
+    req = Request(url, data=payload, method=method, headers=_headers(api_key))
     try:
         with urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
@@ -164,26 +157,9 @@ def api_post(url, body, api_key, timeout=180):
         sys.exit(23)
 
 
-def api_get(url, api_key, timeout=30):
-    """GET from a Gemini endpoint. Returns parsed JSON response."""
-    req = Request(url, method="GET", headers={
-        "x-goog-api-key": api_key,
-    })
-    try:
-        with urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read())
-    except HTTPError as e:
-        _handle_http_error(e)
-    except URLError as e:
-        log_error(f"Network error: {e.reason}")
-        sys.exit(23)
-
-
-def api_download(url, api_key, dest_path, timeout=120):
+def api_download(url, api_key, dest_path, timeout=300):
     """Download a file from a URI with API key auth."""
-    req = Request(url, method="GET", headers={
-        "x-goog-api-key": api_key,
-    })
+    req = Request(url, method="GET", headers={"x-goog-api-key": api_key})
     try:
         with urlopen(req, timeout=timeout) as resp:
             Path(dest_path).write_bytes(resp.read())
@@ -209,8 +185,8 @@ def _handle_http_error(e):
         error_msg = error_body or str(e)
 
     code = e.code
-    if code == 400:
-        log_error(f"API error (400): {error_msg}")
+    if code in (400, 404):
+        log_error(f"API error ({code}): {error_msg}")
         sys.exit(20)
     elif code in (401, 403):
         log_error(f"API auth error ({code}): {error_msg}")
@@ -227,486 +203,323 @@ def _handle_http_error(e):
         sys.exit(20)
 
 
-def poll_operation(operation_name, api_key, poll_interval=10, timeout=600):
-    """Poll an operation until done or timeout. Returns the final response."""
-    url = f"{API_BASE}/{operation_name}"
-    start = time.monotonic()
-    first = True
+# --- Session: remembers the last interaction so --continue can chain onto it ---
 
+def session_file_path():
+    d = Path(os.environ.get("CLAUDE_VIDEO_SESSION_DIR", Path.home() / ".cache" / "claude-generate-video"))
+    d.mkdir(parents=True, exist_ok=True)
+    return d / ".session.json"
+
+
+def load_session():
+    sf = session_file_path()
+    if not sf.is_file():
+        return None
+    with open(sf) as f:
+        return json.load(f)
+
+
+def save_session(**fields):
+    session = load_session() or {}
+    session.update(fields)
+    session["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    with open(session_file_path(), "w") as f:
+        json.dump(session, f, indent=2)
+
+
+# --- Interaction handling ---
+
+def poll_interaction(interaction_id, api_key, poll_interval=10, timeout=900):
+    """Poll an interaction until it reaches a terminal state. Returns the interaction."""
+    start = time.time()
     while True:
-        elapsed = int(time.monotonic() - start)
+        interaction = api_request("GET", f"{API_BASE}/interactions/{interaction_id}", api_key, timeout=300)
+        status = interaction.get("status", "")
+        elapsed = int(time.time() - start)
+        if status in TERMINAL_STATES:
+            return interaction
         if elapsed >= timeout:
-            break
-
-        if not first:
-            time.sleep(poll_interval)
-            elapsed = int(time.monotonic() - start)
-        first = False
-
-        response = api_get(url, api_key)
-        done = response.get("done", False)
-
-        if done:
-            error = response.get("error")
-            if error:
-                log_error(f"Operation failed: {error.get('message', error)}")
-                sys.exit(20)
-            return response
-
-        log_info(f"Generating video... ({elapsed}s elapsed)")
-
-    log_error(f"Operation timed out after {timeout}s. Operation: {operation_name}")
-    log_error("The video may still be generating. Use the poll command to check:")
-    log_error(f"  python3 generate_video.py poll --operation \"{operation_name}\"")
-    sys.exit(24)
+            log_error(f"Timed out after {elapsed}s waiting for interaction (status: {status}).")
+            log_error(f"Check later with: poll --interaction {interaction_id} --wait")
+            sys.exit(24)
+        log_info(f"Status: {status or 'unknown'} ({elapsed}s elapsed)...")
+        time.sleep(poll_interval)
 
 
-def extract_video_uris(response):
-    """Extract all video download URIs from a completed operation response."""
-    try:
-        resp = response.get("response", {})
-        samples = resp.get("generateVideoResponse", {}).get("generatedSamples", [])
-        if not samples:
-            log_error("No video samples in response.")
-            sys.exit(30)
-        uris = []
-        for sample in samples:
-            uri = sample.get("video", {}).get("uri")
-            if uri:
-                uris.append(uri)
-        if not uris:
-            log_error("No video URIs in response.")
-            sys.exit(30)
-        return uris
-    except (KeyError, IndexError, TypeError) as e:
-        log_error(f"Unexpected response structure: {e}")
-        log_error(json.dumps(response, indent=2))
+def extract_video(interaction):
+    """Return the last video content block of the interaction's model output."""
+    status = interaction.get("status")
+    if status != "completed":
+        log_error(f"Interaction ended with status '{status}'.")
+        err = interaction.get("error")
+        if err:
+            log_error(json.dumps(err))
+        text = extract_text(interaction)
+        if text:
+            log_info(f"Model said: {text}")
         sys.exit(30)
+
+    videos = [
+        block
+        for step in interaction.get("steps", [])
+        if step.get("type") == "model_output"
+        for block in step.get("content", [])
+        if block.get("type") == "video"
+    ]
+    if not videos:
+        log_error("No video in the model output.")
+        text = extract_text(interaction)
+        if text:
+            log_info(f"Model said: {text}")
+        sys.exit(30)
+    return videos[-1]
+
+
+def extract_text(interaction):
+    return "\n".join(
+        block["text"]
+        for step in interaction.get("steps", [])
+        if step.get("type") == "model_output"
+        for block in step.get("content", [])
+        if block.get("type") == "text" and block.get("text")
+    )
+
+
+def save_video(video, api_key, dest_path):
+    if video.get("data"):
+        Path(dest_path).write_bytes(base64.b64decode(video["data"]))
+    elif video.get("uri"):
+        api_download(video["uri"], api_key, dest_path)
+    else:
+        log_error("Video block has neither data nor uri.")
+        sys.exit(30)
+
+
+def finish(interaction, api_key, prompt, output_dir, no_open, elapsed=None):
+    """Save the interaction's video, update the session, print the result JSON."""
+    video = extract_video(interaction)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    video_path = str(Path(output_dir) / slugify(prompt))
+    save_video(video, api_key, video_path)
+    log_success(f"Video saved: {video_path}")
+
+    save_session(
+        interaction_id=interaction["id"],
+        model=interaction.get("model"),
+        last_output=video_path,
+        last_prompt=prompt,
+        pending_interaction_id=None,
+        pending_prompt=None,
+    )
+
+    if not no_open:
+        open_file(video_path)
+
+    result = {
+        "status": "success",
+        "video_path": video_path,
+        "interaction_id": interaction["id"],
+        "model": interaction.get("model"),
+        "text_response": extract_text(interaction),
+    }
+    if elapsed is not None:
+        result["generation_time_seconds"] = elapsed
+    print(json.dumps(result, indent=2))
 
 
 def cmd_generate(args):
-    """Generate a video via the Veo API (text-to-video, image-to-video, or frame interpolation)."""
-    if not args.prompt:
-        log_error("--prompt is required")
-        sys.exit(11)
-
     api_key = load_api_key()
 
-    model = args.model
-    aspect_ratio = args.aspect_ratio or ""
-    resolution = args.resolution or ""
-    duration = args.duration or ""
-    negative_prompt = args.negative_prompt or ""
-    person_generation = args.person_generation or ""
-    generate_audio = args.generate_audio
-    seed = args.seed
-    sample_count = args.sample_count
-    resize_mode = args.resize_mode or ""
-    compression_quality = args.compression_quality or ""
-    image_path = args.image or ""
-    last_frame_path = args.last_frame or ""
-    ref_images = args.reference_image or []
-    output_dir = args.output_dir
-    poll_interval = args.poll_interval
-    timeout = args.timeout
-
-    # --- Validate ---
-
-    if aspect_ratio and aspect_ratio not in VALID_RATIOS:
-        log_error(f"Invalid aspect ratio: {aspect_ratio}")
-        log_error(f"Valid: {' '.join(sorted(VALID_RATIOS))}")
+    images = args.image or []
+    if len(images) > MAX_IMAGES:
+        log_error(f"Too many images: {len(images)} (maximum {MAX_IMAGES})")
+        sys.exit(11)
+    if args.aspect_ratio and args.aspect_ratio not in VALID_RATIOS:
+        log_error(f"Invalid aspect ratio: {args.aspect_ratio} (valid: {', '.join(sorted(VALID_RATIOS))})")
+        sys.exit(11)
+    if args.resolution and args.resolution not in VALID_RESOLUTIONS:
+        log_error(f"Invalid resolution: {args.resolution} (valid: {', '.join(sorted(VALID_RESOLUTIONS))})")
+        sys.exit(11)
+    if args.duration is not None and not (MIN_DURATION <= args.duration <= MAX_DURATION):
+        log_error(f"Invalid duration: {args.duration} (must be {MIN_DURATION}-{MAX_DURATION} seconds)")
+        sys.exit(11)
+    if args.task and args.task not in VALID_TASKS:
+        log_error(f"Invalid task: {args.task} (valid: {', '.join(sorted(VALID_TASKS))})")
         sys.exit(11)
 
-    if resolution and resolution not in VALID_RESOLUTIONS:
-        log_error(f"Invalid resolution: {resolution}")
-        log_error(f"Valid: {' '.join(sorted(VALID_RESOLUTIONS))}")
-        sys.exit(11)
-
-    if duration and duration not in VALID_DURATIONS:
-        log_error(f"Invalid duration: {duration}")
-        log_error(f"Valid: {' '.join(sorted(VALID_DURATIONS))}")
-        sys.exit(11)
-
-    if person_generation and person_generation not in VALID_PERSON_GEN:
-        log_error(f"Invalid person-generation: {person_generation}")
-        log_error(f"Valid: {' '.join(sorted(VALID_PERSON_GEN))}")
-        sys.exit(11)
-
-    if resize_mode and resize_mode not in VALID_RESIZE_MODES:
-        log_error(f"Invalid resize-mode: {resize_mode}")
-        log_error(f"Valid: {' '.join(sorted(VALID_RESIZE_MODES))}")
-        sys.exit(11)
-
-    if compression_quality and compression_quality not in VALID_COMPRESSION:
-        log_error(f"Invalid compression-quality: {compression_quality}")
-        log_error(f"Valid: {' '.join(sorted(VALID_COMPRESSION))}")
-        sys.exit(11)
-
-    if sample_count is not None and (sample_count < 1 or sample_count > 4):
-        log_error(f"Invalid sample-count: {sample_count} (must be 1-4)")
-        sys.exit(11)
-
-    if resize_mode and not image_path:
-        log_error("--resize-mode only applies to image-to-video (requires --image)")
-        sys.exit(11)
-
-    if resolution in ("1080p", "4k") and duration and duration != "8":
-        log_error(f"High resolution ({resolution}) requires duration of 8 seconds.")
-        sys.exit(11)
-
-    if len(ref_images) > 3:
-        log_error(f"Too many reference images: {len(ref_images)} (maximum 3)")
-        sys.exit(11)
-
-    if last_frame_path and not image_path:
-        log_error("--last-frame requires --image (first frame)")
-        sys.exit(11)
-
-    if image_path and not Path(image_path).is_file():
-        log_error(f"Image file not found: {image_path}")
-        sys.exit(11)
-
-    if last_frame_path and not Path(last_frame_path).is_file():
-        log_error(f"Last frame file not found: {last_frame_path}")
-        sys.exit(11)
-
-    for ref in ref_images:
-        if not Path(ref).is_file():
-            log_error(f"Reference image not found: {ref}")
+    previous_id = args.previous_interaction or ""
+    if args.continue_session:
+        if previous_id:
+            log_error("Use either --continue or --previous-interaction, not both.")
             sys.exit(11)
+        session = load_session()
+        if not session or not session.get("interaction_id"):
+            log_error("No previous video to continue from. Generate one first.")
+            sys.exit(11)
+        previous_id = session["interaction_id"]
+        log_info(f"Continuing from interaction {previous_id}")
 
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    # --- Build input ---
 
-    # --- Build request body ---
+    blocks = []
+    if args.video:
+        log_info(f"Encoding video: {args.video}")
+        blocks.append(encode_media(args.video, "video"))
+    for img in images:
+        log_info(f"Encoding image: {img}")
+        blocks.append(encode_media(img, "image"))
 
-    instance = {"prompt": args.prompt}
+    if blocks:
+        blocks.append({"type": "text", "text": args.prompt})
+        input_value = blocks
+    else:
+        input_value = args.prompt
 
-    if image_path:
-        log_info(f"Encoding image: {image_path}")
-        instance["image"] = encode_image(image_path)
+    response_format = {"type": "video"}
+    if args.aspect_ratio:
+        response_format["aspect_ratio"] = args.aspect_ratio
+    if args.resolution:
+        response_format["resolution"] = args.resolution
+    if args.duration is not None:
+        response_format["duration"] = f"{args.duration}s"
 
-    parameters = {}
+    body = {
+        "model": args.model,
+        "input": input_value,
+        "response_format": response_format,
+        "background": True,
+    }
+    if previous_id:
+        body["previous_interaction_id"] = previous_id
+    if args.task:
+        body["generation_config"] = {"video_config": {"task": args.task}}
 
-    if aspect_ratio:
-        parameters["aspectRatio"] = aspect_ratio
-    if resolution:
-        parameters["resolution"] = resolution
-    if duration:
-        parameters["durationSeconds"] = int(duration)
-    if negative_prompt:
-        parameters["negativePrompt"] = negative_prompt
-    if person_generation:
-        parameters["personGeneration"] = person_generation
-    if generate_audio is not None:
-        parameters["generateAudio"] = generate_audio
-    if seed is not None:
-        parameters["seed"] = seed
-    if sample_count is not None:
-        parameters["sampleCount"] = sample_count
-    if resize_mode:
-        parameters["resizeMode"] = resize_mode
-    if compression_quality:
-        parameters["compressionQuality"] = compression_quality
+    # --- Submit ---
 
-    if last_frame_path:
-        log_info(f"Encoding last frame: {last_frame_path}")
-        # lastFrame goes in instances[0] with bytesBase64Encoded format
-        # (parameters placement is rejected by predictLongRunning endpoint)
-        if last_frame_path == image_path and "image" in instance:
-            instance["lastFrame"] = instance["image"]
-            log_info("Reusing first frame data for last frame (same file)")
-        else:
-            instance["lastFrame"] = encode_image(last_frame_path)
-
-    if ref_images:
-        ref_list = []
-        for ref_path in ref_images:
-            log_info(f"Encoding reference image: {ref_path}")
-            ref_list.append({
-                "image": encode_image(ref_path),
-                "referenceType": "asset",
-            })
-        parameters["referenceImages"] = ref_list
-
-    body = {"instances": [instance]}
-    if parameters:
-        body["parameters"] = parameters
-
-    # --- Submit generation ---
-
-    url = f"{API_BASE}/models/{model}:predictLongRunning"
-    log_info(f"Submitting video generation to {model}...")
-    response = api_post(url, body, api_key)
-
-    operation_name = response.get("name")
-    if not operation_name:
-        log_error("No operation name in response.")
-        log_error(json.dumps(response, indent=2))
+    log_info(f"Submitting to {args.model}...")
+    start = time.time()
+    interaction = api_request("POST", f"{API_BASE}/interactions", api_key, body=body)
+    interaction_id = interaction.get("id")
+    if not interaction_id:
+        log_error("API response has no interaction id.")
+        log_error(json.dumps(interaction)[:500])
         sys.exit(30)
+    log_info(f"Interaction: {interaction_id}")
 
-    log_info(f"Operation started: {operation_name}")
+    save_session(pending_interaction_id=interaction_id, pending_prompt=args.prompt)
 
-    # --- Poll for completion ---
-
-    if args.no_wait:
-        result = {
+    if args.no_wait and interaction.get("status") not in TERMINAL_STATES:
+        print(json.dumps({
             "status": "submitted",
-            "operation": operation_name,
-            "model": model,
-            "message": "Use the poll command to check status.",
-        }
-        print(json.dumps(result, indent=2))
+            "interaction_id": interaction_id,
+            "model": args.model,
+        }, indent=2))
         return
 
-    log_info(f"Polling every {poll_interval}s (timeout: {timeout}s)...")
-    final_response = poll_operation(operation_name, api_key, poll_interval, timeout)
+    if interaction.get("status") not in TERMINAL_STATES:
+        log_info("Generating video (typically 15 seconds to a few minutes)...")
+        interaction = poll_interaction(interaction_id, api_key, args.poll_interval, args.timeout)
 
-    # --- Download video(s) ---
-
-    video_uris = extract_video_uris(final_response)
-    video_paths = []
-
-    for i, video_uri in enumerate(video_uris):
-        suffix = f"-{i + 1}" if len(video_uris) > 1 else ""
-        base = slugify(args.prompt)
-        filename = base.replace(".mp4", f"{suffix}.mp4") if suffix else base
-        video_path = str(Path(output_dir) / filename)
-
-        log_info(f"Downloading video{f' {i + 1}/{len(video_uris)}' if len(video_uris) > 1 else ''}...")
-        api_download(video_uri, api_key, video_path)
-        log_success(f"Video saved: {video_path}")
-        video_paths.append(video_path)
-        if not args.no_open:
-            open_file(video_path)
-
-    # --- Output structured result ---
-
-    result = {
-        "status": "success",
-        "video_path": video_paths[0],
-        "video_paths": video_paths,
-        "model": model,
-        "operation": operation_name,
-        "duration_seconds": duration or "8",
-        "sample_count": len(video_paths),
-    }
-    print(json.dumps(result, indent=2))
-
-
-def cmd_extend(args):
-    """Extend a previously generated video."""
-    if not args.prompt:
-        log_error("--prompt is required")
-        sys.exit(11)
-    if not args.video:
-        log_error("--video is required (path to MP4 to extend)")
-        sys.exit(11)
-
-    api_key = load_api_key()
-    model = args.model
-    output_dir = args.output_dir
-    poll_interval = args.poll_interval
-    timeout = args.timeout
-
-    video_path = args.video
-    if not Path(video_path).is_file():
-        log_error(f"Video file not found: {video_path}")
-        sys.exit(11)
-
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-
-    # Extension is locked to 720p
-    log_info(f"Encoding video for extension: {video_path}")
-    instance = {
-        "prompt": args.prompt,
-        "video": encode_video(video_path),
-    }
-
-    parameters = {
-        "numberOfVideos": 1,
-        "resolution": "720p",
-    }
-
-    body = {"instances": [instance], "parameters": parameters}
-
-    url = f"{API_BASE}/models/{model}:predictLongRunning"
-    log_info(f"Submitting video extension to {model}...")
-    response = api_post(url, body, api_key)
-
-    operation_name = response.get("name")
-    if not operation_name:
-        log_error("No operation name in response.")
-        sys.exit(30)
-
-    log_info(f"Operation started: {operation_name}")
-
-    if args.no_wait:
-        result = {
-            "status": "submitted",
-            "operation": operation_name,
-            "model": model,
-            "message": "Use the poll command to check status.",
-        }
-        print(json.dumps(result, indent=2))
-        return
-
-    log_info(f"Polling every {poll_interval}s (timeout: {timeout}s)...")
-    final_response = poll_operation(operation_name, api_key, poll_interval, timeout)
-
-    video_uri = extract_video_uris(final_response)[0]
-    filename = slugify(args.prompt)
-    out_path = str(Path(output_dir) / filename)
-
-    log_info("Downloading extended video...")
-    api_download(video_uri, api_key, out_path)
-    log_success(f"Extended video saved: {out_path}")
-
-    if not args.no_open:
-        open_file(out_path)
-
-    result = {
-        "status": "success",
-        "video_path": out_path,
-        "model": model,
-        "operation": operation_name,
-        "source_video": video_path,
-    }
-    print(json.dumps(result, indent=2))
+    finish(interaction, api_key, args.prompt, args.output_dir, args.no_open,
+           elapsed=int(time.time() - start))
 
 
 def cmd_poll(args):
-    """Check status of a running operation, optionally wait and download."""
-    if not args.operation:
-        log_error("--operation is required")
-        sys.exit(11)
-
     api_key = load_api_key()
-    operation_name = args.operation
-    output_dir = args.output_dir
+    interaction_id = args.interaction
+    session = load_session() or {}
+    if not interaction_id:
+        interaction_id = session.get("pending_interaction_id")
+        if not interaction_id:
+            log_error("No --interaction given and no pending interaction recorded.")
+            sys.exit(11)
 
     if args.wait:
-        poll_interval = args.poll_interval
-        timeout = args.timeout
-        log_info(f"Waiting for operation: {operation_name}")
-        final_response = poll_operation(operation_name, api_key, poll_interval, timeout)
-
-        video_uri = extract_video_uris(final_response)[0]
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        ts = int(datetime.now(timezone.utc).timestamp())
-        filename = f"video-{ts}.mp4"
-        out_path = str(Path(output_dir) / filename)
-
-        log_info("Downloading video...")
-        api_download(video_uri, api_key, out_path)
-        log_success(f"Video saved: {out_path}")
-        if not args.no_open:
-            open_file(out_path)
-
-        result = {
-            "status": "success",
-            "video_path": out_path,
-            "operation": operation_name,
-        }
-        print(json.dumps(result, indent=2))
+        interaction = poll_interaction(interaction_id, api_key, args.poll_interval, args.timeout)
     else:
-        url = f"{API_BASE}/{operation_name}"
-        response = api_get(url, api_key)
-        done = response.get("done", False)
-        error = response.get("error")
+        interaction = api_request("GET", f"{API_BASE}/interactions/{interaction_id}", api_key, timeout=300)
+        if interaction.get("status") not in TERMINAL_STATES:
+            print(json.dumps({
+                "status": interaction.get("status"),
+                "interaction_id": interaction_id,
+            }, indent=2))
+            return
 
-        status_info = {
-            "operation": operation_name,
-            "done": done,
-        }
-        if error:
-            status_info["error"] = error.get("message", str(error))
-        if done and not error:
-            status_info["message"] = "Video is ready. Run with --wait to download."
+    prompt = session.get("pending_prompt") if session.get("pending_interaction_id") == interaction_id else None
+    if not prompt:
+        prompt = next(
+            (block.get("text", "")
+             for step in interaction.get("steps", []) if step.get("type") == "user_input"
+             for block in step.get("content", []) if block.get("type") == "text"),
+            "video",
+        )
+    finish(interaction, api_key, prompt, args.output_dir, args.no_open)
 
-        print(json.dumps(status_info, indent=2))
+
+def cmd_session(args):
+    if args.session_command == "status":
+        session = load_session()
+        print(json.dumps({"exists": True, **session} if session else {"exists": False}, indent=2))
+    elif args.session_command == "reset":
+        sf = session_file_path()
+        if sf.is_file():
+            sf.unlink()
+            log_info(f"Deleted session: {sf}")
+        else:
+            log_info("No active session to reset.")
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="Gemini Veo video generation API client")
+    parser = argparse.ArgumentParser(description="Gemini Omni Flash video generation API client")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # --- generate ---
-    gen = subparsers.add_parser("generate", help="Generate a video (text-to-video, image-to-video, interpolation)")
-    gen.add_argument("--prompt", required=True, help="Video generation prompt")
-    gen.add_argument("--model", default="veo-3.1-fast-generate-preview", help="Model ID")
-    gen.add_argument("--aspect-ratio", dest="aspect_ratio", default="", help="16:9 or 9:16")
-    gen.add_argument("--resolution", default="", help="720p, 1080p, or 4k")
-    gen.add_argument("--duration", default="", help="4, 6, or 8 seconds")
-    gen.add_argument("--negative-prompt", dest="negative_prompt", default="", help="What to exclude")
-    gen.add_argument("--person-generation", dest="person_generation", default="",
-                     help="allow_all, allow_adult, or dont_allow")
-    gen.add_argument("--generate-audio", dest="generate_audio", default=None,
-                     action="store_true",
-                     help="Generate native audio (Veo 3+ models)")
-    gen.add_argument("--no-audio", dest="generate_audio", action="store_false",
-                     help="Disable audio generation")
-    gen.add_argument("--seed", type=int, default=None,
-                     help="Seed for deterministic generation (uint32)")
-    gen.add_argument("--sample-count", dest="sample_count", type=int, default=None,
-                     help="Number of videos to generate (1-4)")
-    gen.add_argument("--resize-mode", dest="resize_mode", default="",
-                     help="Resize mode for image-to-video: pad or crop")
-    gen.add_argument("--compression-quality", dest="compression_quality", default="",
-                     help="Output quality: optimized or lossless")
-    gen.add_argument("--image", default="", help="First frame image for image-to-video")
-    gen.add_argument("--last-frame", dest="last_frame", default="", help="Last frame for interpolation")
-    gen.add_argument("--reference-image", dest="reference_image", action="append",
-                     help="Reference image (repeatable, max 3)")
+    def add_wait_flags(p):
+        p.add_argument("--poll-interval", dest="poll_interval", type=int, default=10,
+                       help="Seconds between polls (default: 10)")
+        p.add_argument("--timeout", type=int, default=900,
+                       help="Max seconds to wait (default: 900)")
+        p.add_argument("--no-open", dest="no_open", action="store_true",
+                       help="Suppress opening the output file")
+        p.add_argument("--output-dir", dest="output_dir", default="./generated-videos",
+                       help="Output directory")
+
+    gen = subparsers.add_parser("generate", help="Generate, edit or extend a video")
+    gen.add_argument("--prompt", required=True, help="Generation, editing or extension prompt")
+    gen.add_argument("--model", default=DEFAULT_MODEL, help=f"Model ID (default: {DEFAULT_MODEL})")
+    gen.add_argument("--aspect-ratio", dest="aspect_ratio", default="", help="16:9 (default) or 9:16")
+    gen.add_argument("--resolution", default="", help="360p, 720p (default), 1080p, or 4k")
+    gen.add_argument("--duration", type=int, default=None,
+                     help="Seconds, 3-15 (default 10; 3-10 for interpolation and extension)")
+    gen.add_argument("--image", action="append",
+                     help="Input image: first frame, last frame or reference (repeatable, max 6)")
+    gen.add_argument("--video", default="", help="Local video to edit or extend (sent inline, max 20 MB)")
+    gen.add_argument("--continue", dest="continue_session", action="store_true",
+                     help="Edit or extend the last generated video")
+    gen.add_argument("--previous-interaction", dest="previous_interaction", default="",
+                     help="Interaction ID to edit or extend")
+    gen.add_argument("--task", default="",
+                     help="Fallback mode hint: " + ", ".join(sorted(VALID_TASKS)))
     gen.add_argument("--no-wait", dest="no_wait", action="store_true",
-                     help="Submit and return immediately without polling")
-    gen.add_argument("--poll-interval", dest="poll_interval", type=int, default=10,
-                     help="Seconds between poll attempts (default: 10)")
-    gen.add_argument("--timeout", type=int, default=600,
-                     help="Max seconds to wait for generation (default: 600)")
-    gen.add_argument("--no-open", dest="no_open", action="store_true",
-                     help="Suppress opening the output file")
-    gen.add_argument("--output-dir", dest="output_dir", default="./generated-videos", help="Output directory")
+                     help="Submit and return immediately")
+    add_wait_flags(gen)
 
-    # --- extend ---
-    ext = subparsers.add_parser("extend", help="Extend a previously generated video")
-    ext.add_argument("--prompt", required=True, help="Continuation prompt")
-    ext.add_argument("--video", required=True, help="Path to MP4 video to extend")
-    ext.add_argument("--model", default="veo-3.1-fast-generate-preview", help="Model ID")
-    ext.add_argument("--no-wait", dest="no_wait", action="store_true",
-                     help="Submit and return immediately without polling")
-    ext.add_argument("--poll-interval", dest="poll_interval", type=int, default=10,
-                     help="Seconds between poll attempts (default: 10)")
-    ext.add_argument("--timeout", type=int, default=600,
-                     help="Max seconds to wait for generation (default: 600)")
-    ext.add_argument("--no-open", dest="no_open", action="store_true",
-                     help="Suppress opening the output file")
-    ext.add_argument("--output-dir", dest="output_dir", default="./generated-videos", help="Output directory")
-
-    # --- poll ---
-    pol = subparsers.add_parser("poll", help="Check or wait on a running operation")
-    pol.add_argument("--operation", required=True, help="Operation name from a previous submission")
+    pol = subparsers.add_parser("poll", help="Check or wait on a background interaction")
+    pol.add_argument("--interaction", default="",
+                     help="Interaction ID (default: the last one submitted)")
     pol.add_argument("--wait", action="store_true", help="Wait for completion and download")
-    pol.add_argument("--poll-interval", dest="poll_interval", type=int, default=10,
-                     help="Seconds between poll attempts (default: 10)")
-    pol.add_argument("--timeout", type=int, default=600,
-                     help="Max seconds to wait (default: 600)")
-    pol.add_argument("--no-open", dest="no_open", action="store_true",
-                     help="Suppress opening the output file")
-    pol.add_argument("--output-dir", dest="output_dir", default="./generated-videos", help="Output directory")
+    add_wait_flags(pol)
+
+    sess = subparsers.add_parser("session", help="Show or reset the --continue session")
+    sess_sub = sess.add_subparsers(dest="session_command", required=True)
+    sess_sub.add_parser("status", help="Show the last interaction")
+    sess_sub.add_parser("reset", help="Forget the last interaction")
 
     return parser
 
 
 def main():
-    parser = build_parser()
-    args = parser.parse_args()
-
-    if args.command == "generate":
-        cmd_generate(args)
-    elif args.command == "extend":
-        cmd_extend(args)
-    elif args.command == "poll":
-        cmd_poll(args)
+    args = build_parser().parse_args()
+    {"generate": cmd_generate, "poll": cmd_poll, "session": cmd_session}[args.command](args)
 
 
 if __name__ == "__main__":

@@ -21,4 +21,4 @@ Output goes to `./generated-images/` and `./generated-videos/` (both gitignored)
 - **Direct REST API calls**: No Gemini SDK — scripts call the REST API directly for fine-grained control.
 - **Exit codes are semantic**: Both scripts use specific exit codes (10=missing key, 11=validation, 20=API 400, 21=auth, 22=rate limit, 23=server error, 24=timeout, 30=no output) so SKILL.md can instruct Claude to retry on codes 22/23.
 - **Image sessions**: The image script supports multi-turn editing via JSON session files (`~/.cache/claude-generate-image/.session.json`) that preserve conversation history and thought signatures.
-- **Async video generation**: Video generation uses long-running operations with client-side polling; `--no-wait` submits without blocking.
+- **Async video generation**: Video generation creates a background interaction on the Gemini Interactions API (`gemini-omni-1.2-flash`) and polls it client-side; `--no-wait` submits without blocking. The last interaction ID is kept in `~/.cache/claude-generate-video/.session.json` so `--continue` can edit or extend that video.

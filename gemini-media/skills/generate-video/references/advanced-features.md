@@ -1,221 +1,129 @@
 # Advanced Features — generate-video Skill
 
-## Available Models
+## Migration from Veo
 
-| Model ID | Speed | Quality | Best For |
-|---|---|---|---|
-| `veo-3.1-generate-preview` | Slower | Highest | Final deliverables, complex scenes, reference images |
-| `veo-3.1-fast-generate-preview` | Fast | High | Iteration, drafts, programmatic generation (default) |
-| `veo-3-generate-preview` | Slower | High | Text-to-video, image-to-video, frame interpolation (no extension or references) |
-| `veo-3-fast-generate-preview` | Fast | Good | Fast generation without Veo 3.1 advanced features |
+The skill used Veo until Google shut down the Veo models in the Gemini API (Veo 3.1 previews on 2026-10-22). Omni Flash replaces them with a different API and different controls:
 
-**Recommendation:** Use `veo-3.1-fast-generate-preview` (default) for iteration. Switch to `veo-3.1-generate-preview` for final quality. Use Veo 3 variants only if you don't need reference images, video extension, or 4K resolution.
-
-## Generation Modes
-
-### Text-to-Video
-The simplest mode. Provide a text prompt describing the desired video. Veo 3.1 generates both visual content and synchronized audio.
-
-**Audio cues in prompts:** Include audio descriptions directly in the prompt for native audio synthesis:
-- "A thunderstorm over a city skyline with rain sounds and distant thunder"
-- "Two people having a conversation in a cafe with ambient background noise"
-- "A guitar being played in a sunlit room"
-
-### Image-to-Video
-Provide a starting frame image via `--image`. The model animates the scene from that frame. Useful for:
-- Animating still photographs
-- Creating motion from concept art or mockups
-- Bringing product shots to life
-
-The prompt should describe the desired motion, not the image content (the model can see the image).
-
-### Frame Interpolation
-Provide both `--image` (first frame) and `--last-frame` (final frame). The model generates a smooth transition between the two images. Use cases:
-- Morphing between two states
-- Creating transitions for presentations
-- Animating before/after comparisons
-
-### Video Extension
-Use the `extend` command with `--video` pointing to a previously generated MP4. Extensions:
-- Add 7 seconds at a time
-- Up to 20 extensions per video chain
-- Locked to 720p resolution
-- The prompt describes what happens next in the video
-- Each extension resets the 2-day retention timer
-
-## Prompt Engineering for Video
-
-### Effective Prompts
-Video prompts benefit from describing:
-1. **Camera movement** — "slow dolly shot", "aerial tracking shot", "handheld closeup"
-2. **Subject action** — what happens over time, not just a static scene
-3. **Lighting/mood** — "golden hour", "neon-lit", "foggy morning"
-4. **Audio** — sound effects, music, dialogue, ambient noise
-5. **Pacing** — "slowly", "sudden", "gradual transition"
-
-### Negative Prompts
-Use `--negative-prompt` to exclude unwanted elements:
-- "blurry, shaky, low quality, text overlays, watermark"
-- "cartoon, animation" (when wanting photorealism)
-- "static, no motion" (when wanting dynamic footage)
-
-### Duration Selection
-
-| Duration | Best For |
+| Veo (old) | Omni Flash (now) |
 |---|---|
-| 4 seconds | Quick clips, GIFs, social media snippets |
-| 6 seconds | Short scenes, product reveals |
-| 8 seconds | Full scenes, dialogue, complex motion (required for 1080p/4k) |
+| `predictLongRunning` + operation polling | Interactions API with `background: true` + `GET /interactions/{id}` |
+| Durations 4, 6, 8 s | Any whole second 3-15 s (default 10) |
+| 720p / 1080p / 4k | 360p / 720p / 1080p / 4k |
+| `--negative-prompt` | Write exclusions into the prompt ("No text overlays") |
+| `--no-audio` | Audio always generated; prompt "No dialogue", "no music" |
+| `--seed`, `--sample-count`, `--person-generation`, `--resize-mode`, `--compression-quality` | Not available |
+| `--last-frame`, `--reference-image` | Pass every image with `--image`; the prompt says how to use each |
+| `extend --video` (~7 s per hop, up to 20 hops) | `--continue` (3-10 s per turn, 30 s total) |
+| — | Conversational editing of the last video with `--continue` |
+| `poll --operation` | `poll --interaction` |
 
-## Resolution Guide
+## Prompt Guide
 
-| Resolution | Pixel Size | Best For | Constraints |
-|---|---|---|---|
-| 720p | 1280x720 | Fast iteration, drafts, extensions | Default; fastest generation |
-| 1080p | 1920x1080 | Final deliverables, social media | Duration must be 8s |
-| 4k | 3840x2160 | Professional production, large displays | Duration must be 8s; slowest |
+### Single scene vs. shots
 
-**Recommendation:** Start with 720p for iteration, then regenerate the final version at higher resolution.
+Omni builds a short narrative with several shots by default. For one shot, say so: "single continuous shot", "one unbroken scene", "no scene cuts".
 
-## Reference Images
+```
+Continuous, unbroken handheld shot of a fluffy tabby cat on a sunny windowsill, looking out into a leafy garden. Its tail twitches slowly. Sunbeams light dust motes. Sound design: gentle breeze, distant birdsong. No dialogue.
+```
 
-Up to 3 reference images can guide the generation. Each reference has a `referenceType`:
+### Removing unwanted elements
 
-| Type | Use Case |
+There is no negative-prompt field. Add plain exclusions: "No dialogue", "No embellishments", "No extra sound effects", "No text on screen".
+
+### Audio
+
+Omni always generates a soundtrack. Describe what you want, especially music: "calm background music", "high-energy techno beat", "a tinny radio playing in the background". Use "No dialogue" or "No music" to suppress.
+
+### Timing
+
+Natural language works: "After 3 seconds, a woman enters", "At 5s the chorus starts", "Every 2 seconds cut to a new location". So does a timecode list:
+
+```
+[0-5s] A person walks down a quiet street
+[5-10s] They stop and turn toward a glowing doorway
+[10-15s] They run into the portal
+```
+
+In an extension prompt, 0 s is the start of the new part.
+
+### Detail
+
+Meta-instructions help: "Be extremely detailed in describing characters and environments; apply costume-design principles", "Include plenty of natural background detail".
+
+### Text in video
+
+Omni renders legible text. Spell out any text that will be visible, including incidental signage: `A street sign that says "Main St"`.
+
+### Editing prompts
+
+Short beats long. End with "Keep everything else the same."
+
+| Avoid | Prefer |
 |---|---|
-| `asset` | Objects, clothing, props — things that appear in the video |
+| "Please remove the cell phone the person is holding and fill in the background so it looks like the hand is empty." | "Make the phone invisible. Keep everything else the same." |
+| "Add a small black cat that runs in from the right, jumps onto his lap, and he strokes its head while looking down." | "Add a cat that jumps onto his lap; he pets it. Keep everything else the same." |
 
-Reference images work best when:
-- The prompt explicitly mentions the referenced objects (e.g., "wearing the red dress from the reference")
-- Images are clear, well-lit, and show the subject prominently
-- You use 1-3 focused references rather than many vague ones
+Other good edits: "Make this video anime", "Put a fashionable hat on this person", "Change the lighting to be more dramatic", `Change the text on the sign to say "Open"`.
 
-## Person Generation
+### Language
 
-| Value | Description | Regional Note |
+English is fully supported; other languages may work but are not evaluated.
+
+## Image Inputs
+
+All images go in with `--image` (max 6). The prompt decides their role:
+
+| Images | Prompt says | Mode |
 |---|---|---|
-| `allow_all` | Adults and children | May require project allowlist; restricted in EU/UK/CH/MENA |
-| `allow_adult` | Adults only (default) | Required in EU/UK/CH/MENA for image-to-video |
-| `dont_allow` | No people | Use when people are not desired |
+| 1 | "bring this to life", "animate", "use as the first frame" | image-to-video |
+| 2 | "transition from the first to the second" | first/last-frame interpolation (3-10 s) |
+| 1-6 | "the character in the first image…", "wearing the dress from…" | reference-to-video (up to 3 images per character, up to 2 characters) |
 
-Omit the parameter to use API defaults (`allow_adult`). Only set it when the user specifically needs people in the video.
+If the model picks the wrong mode, retry with `--task image_to_video` or `--task reference_to_video`. Do not use `<FIRST_FRAME>`, `<LAST_FRAME>`, `<IMAGE_REF_0>` or `<VIDEO_REF_0>` tags; they are deprecated.
 
-## Audio Control
+For image-to-video, use high-resolution images and specific motion: camera movement, subject motion, environmental effects. "Make it move" gives weak results.
 
-Use `--generate-audio` to explicitly enable native audio synthesis, or `--no-audio` to disable it. Veo 3+ models can generate synchronized dialogue, sound effects, ambient noise, and music.
+## Editing and Extension
 
-When audio is enabled, include audio cues in the prompt for best results:
-- "Two people chatting in a busy cafe with clinking glasses"
-- "A thunderstorm with heavy rain and distant thunder"
-- "Upbeat electronic music playing in the background"
+### Multi-turn (`--continue` / `--previous-interaction`)
 
-**Note:** During video extension, audio from the last 1 second of the source video carries forward. If the source has no audio in its final second, the extension may also lack audio continuity.
+The script stores the last interaction ID in `~/.cache/claude-generate-video/.session.json` (override the directory with `CLAUDE_VIDEO_SESSION_DIR`). `--continue` sends the next prompt with `previous_interaction_id`, so the model works on its own last video without a re-upload. The previous interaction must be `completed`.
 
-## Deterministic Generation (Seed)
+- **Edit:** videos up to 15 s. Voice editing is not supported.
+- **Extend:** 3-10 s per turn (`--duration`, default 10), 30 s total. The model uses the last 10 s as context and edits a few final frames for a seamless join. Anything that appeared earlier must be mentioned again or supplied as a reference image. Only appending is possible, never prepending or inserting. Spoken dialogue in extensions works in multi-turn mode.
+- Reference images can be added on edit and extension turns ("the person in the reference image enters the scene").
 
-Use `--seed <number>` to request more deterministic output. Providing the same seed with the same parameters will produce similar (though not guaranteed identical) results. Useful for:
-- Iterating on a prompt while keeping the visual style consistent
-- Reproducing a specific result for comparison
-- A/B testing with controlled variation
+### Uploaded videos (`--video`)
 
-Seed values are unsigned 32-bit integers (0–4,294,967,295).
+A local video (≤15 s, ≤20 MB, mp4/mov/webm) can be edited or extended. Restrictions:
+- **Not available in the EEA, Switzerland and the UK** — uploaded-video editing and extension are blocked there. Generated videos can still be edited and extended via `--continue`.
+- An uploaded video in which someone talks cannot be extended with more dialogue.
+- Reference videos (likeness only, audio ignored, ≤3 s each) work only for new generations: 1 for 11-15 s outputs, up to 3 for 3-10 s outputs. The script sends one `--video`; combining several videos degrades results.
 
-## Multiple Video Outputs
+## Session Schema (`.session.json`)
 
-Use `--sample-count <1-4>` to request multiple video variations in a single API call. All videos use the same prompt and parameters but will differ in their creative interpretation. Useful for:
-- Picking the best take from multiple options
-- Exploring different visual interpretations of a prompt
-- Generating content variations for A/B testing
-
-When multiple videos are requested, all are downloaded and saved with numbered suffixes (e.g., `-1.mp4`, `-2.mp4`).
-
-## Resize Mode (Image-to-Video)
-
-Use `--resize-mode` to control how input images are resized when their aspect ratio doesn't match the output:
-
-| Mode | Behavior |
-|---|---|
-| `pad` (default) | Adds black bars to preserve the full image |
-| `crop` | Crops the image to fill the frame, may lose edges |
-
-Only applies to image-to-video generation on Veo 3+ models.
-
-## Compression Quality
-
-Use `--compression-quality` to control the output video compression:
-
-| Quality | Description |
-|---|---|
-| `optimized` (default) | Balanced quality and file size |
-| `lossless` | Maximum quality, larger file size |
-
-## Async Operation Workflow
-
-Video generation is asynchronous — the API returns an operation immediately, and the video is generated in the background.
-
-### Workflow
-
-```
-1. POST predictLongRunning → returns operation name
-2. GET operation (poll every 10s) → "done": false
-3. GET operation (poll every 10s) → "done": true, response.video.uri
-4. GET video.uri → download MP4 bytes
+```json
+{
+  "interaction_id": "v1_...",
+  "model": "gemini-omni-1.2-flash",
+  "last_output": "/abs/path/generated-videos/a-red-kite-in-a-blue-sky-1793999142.mp4",
+  "last_prompt": "A red kite in a blue sky",
+  "pending_interaction_id": null,
+  "pending_prompt": null,
+  "updated_at": "2026-11-06T21:05:42Z"
+}
 ```
 
-### `--no-wait` Mode
+`pending_*` is set on submission and cleared when a video is saved; `poll` without `--interaction` uses it. `interaction_id` is what `--continue` chains onto.
 
-Use `--no-wait` to submit and return immediately. The script prints the operation name. Check later with:
+## Retention
 
-```bash
-python3 generate_video.py poll --operation "models/veo-3.1-generate-preview/operations/..." --wait
-```
+Interactions are stored for 55 days on the paid tier (configurable to 7, 14 or 28 in AI Studio) and 1 day on the free tier. After that, `--continue` and `poll` on them fail with HTTP 400/404.
 
-This is useful for:
-- Submitting multiple videos in parallel
-- Long-running generations where you don't want to block
-- CI/CD pipelines
+## Other Limits
 
-### Timeout Handling
-
-Default timeout is 600 seconds (10 minutes). If generation times out:
-- The operation is still running server-side
-- Use the `poll` command with the operation name to check later
-- Videos are retained for 2 days once generated
-
-## Error Handling Details
-
-| Exit Code | Meaning | Action |
-|---|---|---|
-| 0 | Success | Report video path |
-| 10 | Missing `$GEMINI_API_KEY` | Tell user what to set |
-| 11 | Invalid input (bad path, unsupported format, constraint violation) | Report the specific validation error |
-| 20 | HTTP 400 — content policy or bad request | Show API error, suggest rephrasing |
-| 21 | HTTP 401/403 — auth failure | "API key is invalid or expired" |
-| 22 | HTTP 429 — rate limited | Wait and retry |
-| 23 | HTTP 500+ — server error | Retry once |
-| 24 | Poll timeout | Report operation name for manual polling |
-| 30 | No video in response | "Model didn't return a video — try rephrasing" |
-
-## Video Extension Chain
-
-Extensions create a chain of video segments. Best practices:
-
-1. **Keep continuity:** Reference what happened in the previous segment in your prompt
-2. **720p only:** Extensions are locked to 720p regardless of the original resolution
-3. **Duration locked to 8s:** Each extension adds ~7 seconds
-4. **20 extension limit:** Plan the narrative arc within this constraint
-5. **Download each segment:** The extension produces a new video, not a concatenated one
-
-To combine extended segments into one video, use an external tool like ffmpeg:
-```bash
-# Create file list
-for f in segment1.mp4 segment2.mp4 segment3.mp4; do
-  echo "file '$f'" >> list.txt
-done
-# Concatenate
-ffmpeg -f concat -safe 0 -i list.txt -c copy combined.mp4
-```
-
-## SynthID Watermark
-
-All Veo-generated videos include an invisible SynthID watermark for AI-generated content identification. This cannot be disabled. It does not affect visual quality.
+- Images of minors cannot be uploaded or edited in the EEA, CH and UK; images of certain recognizable people are refused everywhere.
+- Audio input is not supported.
+- All outputs carry an invisible SynthID watermark.
+- Safety filters apply to prompts and outputs and vary by region.

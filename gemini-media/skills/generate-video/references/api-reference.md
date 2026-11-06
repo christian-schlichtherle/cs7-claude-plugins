@@ -1,287 +1,150 @@
-# Gemini Veo Video Generation — REST API Reference
+# Gemini Omni Flash — Interactions API Reference
 
-## Endpoint
+Checked against the live API on 2026-11-06.
+
+## Models
+
+| Model ID | Status | Notes |
+|---|---|---|
+| `gemini-omni-1.2-flash` | GA (2026-11-05) | **Default.** 3-15 s, native audio, up to 6 reference images, extension to 30 s. |
+| `gemini-omni-1.1-flash` | GA, superseded | 3-10 s. Requests route to 1.2 from 2026-12-03. |
+| `gemini-omni-flash-preview` | Shut down | — |
+
+Shut down: every Veo model in the Gemini API — `veo-2.0-generate-001`, `veo-3.0-generate-001`, `veo-3.0-fast-generate-001` (2026-06-30) and `veo-3.1-generate-preview`, `veo-3.1-fast-generate-preview`, `veo-3.1-lite-generate-preview` (2026-10-22). GA Veo 3.1 remains only on Google's Gemini Enterprise Agent Platform (Vertex), which this plugin does not use.
+
+## Endpoints
 
 ```
-POST https://generativelanguage.googleapis.com/v1beta/models/{model}:predictLongRunning
+POST   https://generativelanguage.googleapis.com/v1beta/interactions          create
+GET    https://generativelanguage.googleapis.com/v1beta/interactions/{id}     poll / fetch
+POST   https://generativelanguage.googleapis.com/v1beta/interactions/{id}/cancel
+DELETE https://generativelanguage.googleapis.com/v1beta/interactions/{id}
 ```
 
 **Headers:**
 - `Content-Type: application/json`
 - `x-goog-api-key: $GEMINI_API_KEY`
+- `Api-Revision: 2026-05-20` — pins the Interactions API revision the script was written against
 
-## Supported Models
+Omni does not support `generateContent` for video output; use the Interactions API.
 
-| Model ID | Status | Notes |
-|---|---|---|
-| `veo-3.1-generate-preview` | Preview | Full-quality. Native audio, reference images, video extension, frame interpolation. |
-| `veo-3.1-fast-generate-preview` | Preview | Faster generation, slightly lower quality. Same feature set as 3.1. |
-| `veo-3-generate-preview` | Stable | Previous generation. Native audio, frame interpolation. No reference images or extension. |
-| `veo-3-fast-generate-preview` | Stable | Fast variant of Veo 3. Same feature set as Veo 3. |
-
-### Model Compatibility Matrix
-
-| Feature | Veo 3 | Veo 3.1 |
-|---|---|---|
-| Text-to-video | Yes | Yes |
-| Image-to-video | Yes | Yes |
-| Frame interpolation (lastFrame) | Yes | Yes |
-| Video extension | No | Yes |
-| Reference images | No | Yes (up to 3 asset) |
-| Native audio (generateAudio) | Yes | Yes |
-| Resolution control | 720p, 1080p | 720p, 1080p, 4k |
-| Duration options | 8s only | 4, 6, 8s |
-| Seed for determinism | Yes | Yes |
-
-## Request Body Schemas
-
-### Text-to-Video
+## Request Body
 
 ```json
 {
-  "instances": [{
-    "prompt": "A slow cinematic drone shot over a misty mountain range at sunrise"
-  }],
-  "parameters": {
-    "aspectRatio": "16:9",
+  "model": "gemini-omni-1.2-flash",
+  "input": [
+    {"type": "image", "mime_type": "image/png", "data": "<base64>"},
+    {"type": "text", "text": "Bring this drawing to life, using it only as a guide for movement."}
+  ],
+  "response_format": {
+    "type": "video",
+    "aspect_ratio": "16:9",
     "resolution": "720p",
-    "durationSeconds": 8,
-    "negativePrompt": "blurry, low quality, text overlays",
-    "personGeneration": "allow_adult",
-    "generateAudio": true,
-    "seed": 42,
-    "sampleCount": 1,
-    "compressionQuality": "optimized"
-  }
+    "duration": "8s"
+  },
+  "previous_interaction_id": "v1_...",
+  "generation_config": {
+    "video_config": {"task": "image_to_video"}
+  },
+  "background": true
 }
 ```
 
-### Image-to-Video (First Frame Animation)
-
-```json
-{
-  "instances": [{
-    "prompt": "The camera slowly zooms into the scene as leaves drift down",
-    "image": {
-      "bytesBase64Encoded": "<base64-encoded-image>",
-      "mimeType": "image/png"
-    }
-  }],
-  "parameters": {
-    "aspectRatio": "16:9",
-    "resolution": "720p",
-    "resizeMode": "pad"
-  }
-}
-```
-
-### Frame Interpolation (First + Last Frame)
-
-**Note:** Despite Google docs showing `lastFrame` in `parameters` with `inlineData`, the
-`predictLongRunning` endpoint only accepts `lastFrame` inside `instances[0]` using
-`bytesBase64Encoded` format. The `parameters` placement is rejected with HTTP 400.
-
-```json
-{
-  "instances": [{
-    "prompt": "Smooth transition between the two scenes",
-    "image": {
-      "bytesBase64Encoded": "<base64-first-frame>",
-      "mimeType": "image/png"
-    },
-    "lastFrame": {
-      "bytesBase64Encoded": "<base64-last-frame>",
-      "mimeType": "image/png"
-    }
-  }]
-}
-```
-
-### Reference Images (Style/Content Guide)
-
-```json
-{
-  "instances": [{
-    "prompt": "A woman walks through a garden wearing the red dress"
-  }],
-  "parameters": {
-    "referenceImages": [
-      {
-        "image": {
-          "bytesBase64Encoded": "<base64-data>",
-          "mimeType": "image/png"
-        },
-        "referenceType": "asset"
-      }
-    ]
-  }
-}
-```
-
-### Video Extension
-
-```json
-{
-  "instances": [{
-    "prompt": "The camera continues to pan right revealing a waterfall",
-    "video": {
-      "bytesBase64Encoded": "<base64-encoded-video>",
-      "mimeType": "video/mp4"
-    }
-  }],
-  "parameters": {
-    "numberOfVideos": 1,
-    "resolution": "720p"
-  }
-}
-```
-
-## Parameters Reference
-
-### `instances[0]`
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `prompt` | string | Yes | Text description of the video to generate |
-| `image` | object | No | Starting frame for image-to-video or interpolation |
-| `lastFrame` | object | No | Final frame for interpolation (Veo 3.1 only) |
-| `video` | object | No | Previous video for extension |
-
-### `parameters`
-
-| Field | Type | Default | Values | Description |
-|---|---|---|---|---|
-| `aspectRatio` | string | `"16:9"` | `"16:9"`, `"9:16"` | Video aspect ratio |
-| `resolution` | string | `"720p"` | `"720p"`, `"1080p"`, `"4k"` | Output resolution (4k on Veo 3.1 only) |
-| `durationSeconds` | int | `8` | `4`, `6`, `8` | Video duration in seconds (Veo 3 supports 8s only; 4/6s on Veo 3.1) |
-| `negativePrompt` | string | — | free text | Content to exclude |
-| `personGeneration` | string | `"allow_adult"` | `"allow_all"`, `"allow_adult"`, `"dont_allow"` | People generation control |
-| `generateAudio` | bool | — | `true`, `false` | Enable/disable native audio synthesis (Veo 3+ only) |
-| `seed` | uint32 | — | `0`–`4294967295` | Seed for more deterministic output |
-| `sampleCount` | int | `1` | `1`–`4` | Number of video variations to generate |
-| `resizeMode` | string | `"pad"` | `"pad"`, `"crop"` | How to resize input image for image-to-video (Veo 3+ only) |
-| `compressionQuality` | string | `"optimized"` | `"optimized"`, `"lossless"` | Output video compression |
-| `referenceImages` | array | — | up to 3 items | Style/content reference images (Veo 3.1 only) |
-| `numberOfVideos` | int | — | `1` | Number of videos (extension only) |
-
-### Parameter Constraints
-
-| Constraint | Rule |
-|---|---|
-| High resolution (1080p/4k) | Duration must be 8 seconds |
-| 4k resolution | Veo 3.1 models only |
-| Video extension | Resolution locked to 720p; duration locked to 8s |
-| Reference images | Maximum 3 asset images; Veo 3.1 only; duration must be 8s |
-| Frame interpolation | Requires both `image` (first frame) and `lastFrame`; Veo 3.1 only |
-| `resizeMode` | Only applies to image-to-video on Veo 3+ models |
-| `generateAudio` | Veo 3+ models only (not supported on Veo 2) |
-| `personGeneration` | `"allow_all"` may require project allowlist; restricted in EU/UK/CH/MENA |
-
-## Polling Endpoint
-
-```
-GET https://generativelanguage.googleapis.com/v1beta/{operation_name}
-```
-
-**Headers:**
-- `x-goog-api-key: $GEMINI_API_KEY`
-
-### Operation Response (In Progress)
-
-```json
-{
-  "name": "models/veo-3.1-generate-preview/operations/abc123...",
-  "done": false
-}
-```
-
-### Operation Response (Completed)
-
-```json
-{
-  "name": "models/veo-3.1-generate-preview/operations/abc123...",
-  "done": true,
-  "response": {
-    "generateVideoResponse": {
-      "generatedSamples": [
-        {
-          "video": {
-            "uri": "https://generativelanguage.googleapis.com/v1beta/files/...",
-            "mimeType": "video/mp4"
-          }
-        }
-      ]
-    }
-  }
-}
-```
-
-### Operation Response (Failed)
-
-```json
-{
-  "name": "models/veo-3.1-generate-preview/operations/abc123...",
-  "done": true,
-  "error": {
-    "code": 400,
-    "message": "Content policy violation",
-    "status": "INVALID_ARGUMENT"
-  }
-}
-```
-
-## Video Download
-
-Download the video from the URI returned in the completed operation:
-
-```
-GET {video.uri}
-Headers: x-goog-api-key: $GEMINI_API_KEY
-```
-
-Returns raw MP4 bytes. Videos are retained for **2 days** — download within this window.
-
-## Supported Input MIME Types
-
-**Images (for image-to-video, interpolation, references):**
-- `image/png`
-- `image/jpeg`
-- `image/webp`
-
-**Video (for extension):**
-- `video/mp4` (1-30 seconds, 24 fps, 720p or 1080p)
-
-## Error Responses
-
-```json
-{
-  "error": {
-    "code": 400,
-    "message": "Request contains an invalid argument.",
-    "status": "INVALID_ARGUMENT"
-  }
-}
-```
-
-| HTTP Code | Status | Common Cause |
+| Field | Values | Notes |
 |---|---|---|
-| 400 | INVALID_ARGUMENT | Malformed request, invalid parameters, content policy violation |
-| 403 | PERMISSION_DENIED | Invalid API key |
-| 429 | RESOURCE_EXHAUSTED | Rate limit exceeded — retry after delay |
-| 500 | INTERNAL | Server error — retry |
-| 503 | UNAVAILABLE | Service temporarily unavailable — retry |
+| `model` | `gemini-omni-1.2-flash` | required |
+| `input` | string, or array of content blocks | A plain string is a text-only prompt. |
+| `response_format.type` | `"video"` | |
+| `response_format.aspect_ratio` | `"16:9"` (default), `"9:16"` | |
+| `response_format.resolution` | `"360p"`, `"720p"` (default), `"1080p"`, `"4k"` | 1080p and 4k are upscaled. |
+| `response_format.duration` | `"3s"` … `"15s"` (default `"10s"`) | Overrides any length in the prompt. Over 15 s → 400. Interpolation and per-turn extension: 3-10 s. |
+| `response_format.delivery` | `"uri"` | Return a Files API URI instead of inline data (for >4 MB). The URI is only in the create response or stream; a later GET returns inline data. |
+| `previous_interaction_id` | interaction ID | Edit or extend the video of that interaction. It must be `completed`. |
+| `generation_config.video_config.task` | `text_to_video`, `image_to_video`, `reference_to_video`, `edit`, `extend` | Fallback only; constrains how inputs combine. Try prompting first. |
+| `background` | `true` | Return immediately with `status: "in_progress"`; poll with GET. Requires `store` true (the default). |
+| `store` | `true` (default) / `false` | `false` makes the result un-editable via `previous_interaction_id` and is incompatible with `background`. |
 
-## Performance Characteristics
+Not supported: system instructions, temperature, `top_p`, stop sequences, negative prompts, seed, sample count, audio input, YouTube input.
 
-| Metric | Value |
+### Content blocks
+
+| Block | Shape |
 |---|---|
-| Minimum latency | ~11 seconds |
-| Maximum latency (peak) | ~6 minutes |
-| Recommended poll interval | 10 seconds |
-| Video retention | 2 days |
-| Extension limit | Up to 20 extensions per video |
-| SynthID watermark | Always applied (invisible) |
+| Text | `{"type": "text", "text": "..."}` |
+| Image (inline) | `{"type": "image", "mime_type": "image/png", "data": "<base64>"}` |
+| Image (file) | `{"type": "image", "uri": "<Files API URI>"}` |
+| Video (inline) | `{"type": "video", "mime_type": "video/mp4", "data": "<base64>"}` |
+| Video (file) | `{"type": "video", "uri": "<Files API URI>"}` |
 
-## Audio
+One image + text → image-to-video. Two images + a transition prompt → first/last-frame interpolation. Images described as characters/objects → reference-to-video. A video + edit prompt → edit; a video + "extend/continue" prompt → extension.
 
-Veo 3+ models generate native audio synchronized with the video content. Audio cues can be included in the prompt (e.g., "birds chirping", "dialogue between two people", "upbeat background music"). Audio is embedded in the MP4 output. Use the `generateAudio` parameter to explicitly enable or disable audio synthesis.
+## Response
+
+Create (background):
+
+```json
+{"id": "v1_...", "status": "in_progress", "object": "interaction", "model": "gemini-omni-1.2-flash", ...}
+```
+
+GET once finished:
+
+```json
+{
+  "id": "v1_...",
+  "status": "completed",
+  "model": "gemini-omni-1.2-flash",
+  "object": "interaction",
+  "steps": [
+    {"type": "user_input", "content": [{"type": "text", "text": "..."}]},
+    {"type": "thought", "signature": "...", "content": []},
+    {"type": "model_output", "content": [
+      {"type": "video", "mime_type": "video/mp4", "data": "<base64 mp4>"}
+    ]}
+  ],
+  "usage": {
+    "total_input_tokens": 17,
+    "total_output_tokens": 5793,
+    "output_tokens_by_modality": [{"modality": "video", "tokens": 5793}],
+    "total_thought_tokens": 422
+  }
+}
+```
+
+The `steps` array holds only the current turn. On an extension turn, the returned video is the whole, longer video, not just the new part. `output_video` is an SDK convenience field and is not in the REST response.
+
+### Status values
+
+| Status | Meaning |
+|---|---|
+| `in_progress` | Still generating — poll again |
+| `requires_action` | Paused for client input (not used by Omni video) |
+| `completed` | Video available in `steps` |
+| `failed` | Error; see `error` |
+| `cancelled` | Stopped via the cancel endpoint |
+
+## Errors
+
+```json
+{"error": {"message": "Requested video duration 20s 0ns exceeds the maximum allowed 15s 0ns", "code": "invalid_request"}}
+```
+
+`code` is a string here, unlike `generateContent`. Map by HTTP status:
+
+| HTTP | Typical cause |
+|---|---|
+| 400 | Invalid argument (duration, too many references, interpolation over 10 s, chaining onto an unfinished interaction), safety block, regional restriction |
+| 401/403 | Invalid key or missing permission |
+| 404 | Unknown or expired interaction ID |
+| 429 | Rate limit |
+| 5xx | Server error — retry |
+
+## Observed timing and cost
+
+| Request | Time | Output tokens |
+|---|---|---|
+| 3 s, 360p, text-to-video | ~15 s | ~5,800 video tokens |
+| 3 s, 360p, two-frame interpolation | ~26 s | — |
+| 3 s, 360p, edit via `previous_interaction_id` | ~37 s | — |
+
+Video output is billed at $12.00 per 1M tokens on `gemini-omni-1.2-flash` (the price at GA). Longer and higher-resolution videos take longer and cost more.

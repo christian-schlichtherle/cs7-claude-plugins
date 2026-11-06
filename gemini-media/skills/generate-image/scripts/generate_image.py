@@ -87,6 +87,15 @@ MIME_MAP = {
     "webp": "image/webp",
     "gif": "image/gif",
 }
+VIDEO_MIME_MAP = {
+    "mp4": "video/mp4",
+    "mov": "video/quicktime",
+    "webm": "video/webm",
+    "mpeg": "video/mpeg",
+    "avi": "video/x-msvideo",
+}
+EXT_FOR_MIME = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
+MAX_INLINE_VIDEO_BYTES = 20 * 1024 * 1024
 
 def detect_mime(filepath):
     """Return the MIME type for an image file based on its extension."""
@@ -109,6 +118,26 @@ def encode_image(filepath):
     return {"inline_data": {"mime_type": mime, "data": data}}
 
 
+def encode_video(source):
+    """Return a Gemini part for a video: a YouTube/HTTP URL or a local file sent inline."""
+    if re.match(r"https?://", source):
+        return {"file_data": {"file_uri": source}}
+    p = Path(source)
+    if not p.is_file():
+        log_error(f"Video file not found: {source}")
+        sys.exit(11)
+    ext = p.suffix.lstrip(".").lower()
+    mime = VIDEO_MIME_MAP.get(ext)
+    if not mime:
+        log_error(f"Unsupported video format: .{ext} (supported: {', '.join(sorted(VIDEO_MIME_MAP))})")
+        sys.exit(11)
+    if p.stat().st_size > MAX_INLINE_VIDEO_BYTES:
+        log_error(f"Video too large to send inline: {p.stat().st_size} bytes (max {MAX_INLINE_VIDEO_BYTES})")
+        sys.exit(11)
+    data = base64.b64encode(p.read_bytes()).decode("ascii")
+    return {"inline_data": {"mime_type": mime, "data": data}}
+
+
 def open_image(filepath):
     """Best-effort open the image in the desktop viewer."""
     try:
@@ -124,11 +153,11 @@ VALID_RATIOS = {
     "1:1", "1:4", "1:8", "2:3", "3:2", "3:4",
     "4:1", "4:3", "4:5", "5:4", "8:1", "9:16", "16:9", "21:9",
 }
-VALID_RESOLUTIONS = {"512px", "1K", "2K", "4K"}
-VALID_PERSON_GEN = {"ALLOW_ALL", "ALLOW_ADULT", "ALLOW_NONE"}
-VALID_OUTPUT_MIME = {"image/png", "image/jpeg"}
+VALID_RESOLUTIONS = {"512", "1K", "2K", "4K"}
+RESOLUTION_ALIASES = {"512px": "512", "0.5K": "512", "1k": "1K", "2k": "2K", "4k": "4K"}
+DEFAULT_MODEL = "gemini-nano-banana-2.1"
 
-API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+API_BASE = "https://generativelanguage.googleapis.com/v1/models"
 
 
 def api_call(model, body, api_key):
@@ -196,7 +225,10 @@ def resolve_refs(contents):
                 ref_mime = ref["mime_type"]
                 if Path(ref_path).is_file():
                     data = base64.b64encode(Path(ref_path).read_bytes()).decode("ascii")
-                    new_parts.append({"inline_data": {"mime_type": ref_mime, "data": data}})
+                    new_part = {"inline_data": {"mime_type": ref_mime, "data": data}}
+                    if part.get("thoughtSignature"):
+                        new_part["thoughtSignature"] = part["thoughtSignature"]
+                    new_parts.append(new_part)
                 else:
                     log_info(f"Reference image missing, skipping: {ref_path}")
             else:
@@ -218,7 +250,7 @@ def cmd_session_create(args):
     if args.aspect_ratio:
         config["aspectRatio"] = args.aspect_ratio
     if args.resolution:
-        config["resolution"] = args.resolution
+        config["resolution"] = RESOLUTION_ALIASES.get(args.resolution, args.resolution)
 
     session = {
         "version": 1,
@@ -353,13 +385,18 @@ def cmd_session_set_last_output(args):
 
 
 def _extract_text(parts):
-    """Join all text fragments from a list of API response parts."""
-    return "\n".join(p["text"] for p in parts if "text" in p)
+    """Join all non-thought text fragments from a list of API response parts."""
+    return "\n".join(p["text"] for p in parts if "text" in p and not p.get("thought"))
 
 
 def _find_image_data(parts):
-    """Return the first image inline_data dict from response parts, or None."""
-    for part in parts:
+    """Return the final image inline_data dict from response parts, or None.
+
+    Interim "thought images" (parts with thought=true) are skipped.
+    """
+    for part in reversed(parts):
+        if part.get("thought"):
+            continue
         inline = part.get("inlineData") or part.get("inline_data")
         if inline:
             mime = inline.get("mimeType") or inline.get("mime_type") or ""
@@ -376,18 +413,23 @@ def cmd_generate(args):
 
     api_key = load_api_key()
 
-    model = args.model
-    aspect_ratio = args.aspect_ratio or ""
-    resolution = args.resolution or ""
+    session_file = args.session_file or ""
+    session = None
+    if session_file and Path(session_file).is_file():
+        session = _load_session(Path(session_file))
+    session_config = (session or {}).get("config", {})
+
+    # Explicit flags win; otherwise inherit from the session; otherwise API defaults.
+    model = args.model or (session or {}).get("model") or DEFAULT_MODEL
+    aspect_ratio = args.aspect_ratio or session_config.get("aspectRatio", "")
+    resolution = args.resolution or session_config.get("resolution", "")
+    resolution = RESOLUTION_ALIASES.get(resolution, resolution)
     thinking_level = args.thinking_level or "none"
     grounding = args.grounding
-    person_generation = args.person_generation or ""
-    output_mime_type = args.output_mime_type or ""
-    compression_quality = args.compression_quality
     seed = args.seed
     temperature = args.temperature
     input_images = args.input_image or []
-    session_file = args.session_file or ""
+    input_videos = args.input_video or []
     output_dir = args.output_dir
 
     # --- Validate ---
@@ -402,31 +444,9 @@ def cmd_generate(args):
         log_error(f"Valid: {' '.join(sorted(VALID_RESOLUTIONS))}")
         sys.exit(11)
 
-    if person_generation and person_generation not in VALID_PERSON_GEN:
-        log_error(f"Invalid person-generation: {person_generation}")
-        log_error(f"Valid: {' '.join(sorted(VALID_PERSON_GEN))}")
-        sys.exit(11)
-
-    if output_mime_type and output_mime_type not in VALID_OUTPUT_MIME:
-        log_error(f"Invalid output-mime-type: {output_mime_type}")
-        log_error(f"Valid: {' '.join(sorted(VALID_OUTPUT_MIME))}")
-        sys.exit(11)
-
-    if compression_quality is not None and (compression_quality < 1 or compression_quality > 100):
-        log_error(f"Invalid compression-quality: {compression_quality} (must be 1-100)")
-        sys.exit(11)
-
-    if compression_quality is not None and output_mime_type != "image/jpeg":
-        log_info("--compression-quality only applies to JPEG output; forcing --output-mime-type image/jpeg")
-        output_mime_type = "image/jpeg"
-
     if temperature is not None and (temperature < 0.0 or temperature > 2.0):
         log_error(f"Invalid temperature: {temperature} (must be 0.0-2.0)")
         sys.exit(11)
-
-    if resolution and thinking_level != "none":
-        log_info(f"Resolution '{resolution}' requested — disabling thinking (thinking causes API to ignore imageSize)")
-        thinking_level = "none"
 
     if len(input_images) > 14:
         log_error(f"Too many input images: {len(input_images)} (maximum 14)")
@@ -443,12 +463,15 @@ def cmd_generate(args):
 
     contents = []
 
-    if session_file and Path(session_file).is_file():
+    if session is not None:
         log_info(f"Loading session from {session_file}")
-        session = _load_session(Path(session_file))
         contents = resolve_refs(session["contents"])
 
-    user_parts = [{"text": args.prompt}]
+    user_parts = []
+    for vid in input_videos:
+        log_info(f"Adding video: {vid}")
+        user_parts.append(encode_video(vid))
+    user_parts.append({"text": args.prompt})
     for img in input_images:
         log_info(f"Encoding image: {img}")
         user_parts.append(encode_image(img))
@@ -464,15 +487,6 @@ def cmd_generate(args):
         image_config["aspectRatio"] = aspect_ratio
     if resolution:
         image_config["imageSize"] = resolution
-    if person_generation:
-        image_config["personGeneration"] = person_generation
-    if output_mime_type or compression_quality is not None:
-        output_options = {}
-        if output_mime_type:
-            output_options["mimeType"] = output_mime_type
-        if compression_quality is not None:
-            output_options["compressionQuality"] = compression_quality
-        image_config["imageOutputOptions"] = output_options
     if image_config:
         gen_config["imageConfig"] = image_config
 
@@ -482,10 +496,7 @@ def cmd_generate(args):
         gen_config["temperature"] = temperature
 
     if thinking_level != "none":
-        gen_config["thinkingConfig"] = {
-            "thinkingLevel": thinking_level,
-            "includeThoughts": True,
-        }
+        gen_config["thinkingConfig"] = {"thinkingLevel": thinking_level}
 
     # --- Build request body ---
 
@@ -520,9 +531,8 @@ def cmd_generate(args):
         sys.exit(30)
 
     # Decode and save image
-    filename = slugify(args.prompt)
-    if output_mime_type == "image/jpeg":
-        filename = filename.replace(".png", ".jpg")
+    img_mime = image_data.get("mimeType") or image_data.get("mime_type") or "image/png"
+    filename = slugify(args.prompt)[:-len(".png")] + EXT_FOR_MIME.get(img_mime, ".png")
     image_path = str(Path(output_dir) / filename)
 
     Path(image_path).write_bytes(base64.b64decode(image_data.get("data")))
@@ -537,24 +547,37 @@ def cmd_generate(args):
 
     if session_file:
         sf = Path(session_file)
-        session = _load_session(sf)
+        session = _load_session(sf) if sf.is_file() else {
+            "version": 1, "model": model, "created_at": None, "turn_count": 0,
+            "config": {}, "last_output": None, "contents": [],
+        }
 
-        # User turn: store refs to input images (not raw base64)
-        user_session_parts = [{"text": args.prompt}]
+        # User turn: store refs to input images (not raw base64). Video URLs are
+        # kept as-is; local videos are not replayed in later turns.
+        user_session_parts = [
+            {"file_data": {"file_uri": v}} for v in input_videos if re.match(r"https?://", v)
+        ]
+        user_session_parts.append({"text": args.prompt})
         for img in input_images:
             user_session_parts.append({"inline_data_ref": {"path": img, "mime_type": detect_mime(img)}})
         _append_turn(session, "user", user_session_parts)
 
-        # Model turn: image as file ref + thought signatures
+        # Model turn: mirror the non-thought parts, keeping each thought
+        # signature on the part it came with, and the image as a file ref.
         model_session_parts = []
-        if text_response:
-            model_session_parts.append({"text": text_response})
-        img_mime = image_data.get("mimeType") or image_data.get("mime_type") or "image/png"
-        model_session_parts.append({"inline_data_ref": {"path": image_path, "mime_type": img_mime}})
         for part in model_parts:
+            if part.get("thought"):
+                continue
             sig = part.get("thoughtSignature") or part.get("thought_signature")
+            if "text" in part:
+                new_part = {"text": part["text"]}
+            elif part is image_data or part.get("inlineData") is image_data or part.get("inline_data") is image_data:
+                new_part = {"inline_data_ref": {"path": image_path, "mime_type": img_mime}}
+            else:
+                continue
             if sig:
-                model_session_parts.append({"thoughtSignature": sig})
+                new_part["thoughtSignature"] = sig
+            model_session_parts.append(new_part)
         _append_turn(session, "model", model_session_parts)
 
         session["last_output"] = filename
@@ -583,23 +606,21 @@ def build_parser():
     # --- generate ---
     gen = subparsers.add_parser("generate", help="Generate or edit an image")
     gen.add_argument("--prompt", required=True, help="Generation or editing prompt")
-    gen.add_argument("--model", default="gemini-3.1-flash-image-preview", help="Model ID")
+    gen.add_argument("--model", default="",
+                     help=f"Model ID (default: the session's model, else {DEFAULT_MODEL})")
     gen.add_argument("--aspect-ratio", dest="aspect_ratio", default="", help="Aspect ratio")
-    gen.add_argument("--resolution", default="", help="Image size: 512px, 1K, 2K, 4K")
+    gen.add_argument("--resolution", default="", help="Image size: 512, 1K, 2K, 4K")
     gen.add_argument("--thinking-level", dest="thinking_level", default="none",
-                     choices=["none", "minimal", "high"], help="Thinking level")
+                     choices=["none", "minimal", "medium", "high"],
+                     help="Thinking level (none = model default)")
     gen.add_argument("--grounding", action="store_true", help="Enable Google Search grounding")
-    gen.add_argument("--person-generation", dest="person_generation", default="",
-                     help="ALLOW_ALL, ALLOW_ADULT, or ALLOW_NONE")
-    gen.add_argument("--output-mime-type", dest="output_mime_type", default="",
-                     help="Output format: image/png (default) or image/jpeg")
-    gen.add_argument("--compression-quality", dest="compression_quality", type=int, default=None,
-                     help="JPEG compression quality (1-100)")
     gen.add_argument("--seed", type=int, default=None,
                      help="Seed for deterministic generation")
     gen.add_argument("--temperature", type=float, default=None,
                      help="Temperature (0.0-2.0)")
     gen.add_argument("--input-image", dest="input_image", action="append", help="Input image (repeatable)")
+    gen.add_argument("--input-video", dest="input_video", action="append",
+                     help="Input video: YouTube URL or local file up to 20 MB (repeatable)")
     gen.add_argument("--session-file", dest="session_file", default="", help="Session file for multi-turn")
     gen.add_argument("--no-open", dest="no_open", action="store_true", help="Suppress opening the output file")
     gen.add_argument("--output-dir", dest="output_dir", default="./generated-images", help="Output directory")
@@ -612,7 +633,7 @@ def build_parser():
     sc = sess_sub.add_parser("create", help="Create a new session")
     sc.add_argument("--model", required=True, help="Model ID")
     sc.add_argument("--aspect-ratio", dest="aspect_ratio", default="", help="Aspect ratio")
-    sc.add_argument("--resolution", default="", help="Resolution")
+    sc.add_argument("--resolution", default="", help="Resolution: 512, 1K, 2K, 4K")
 
     # session append
     sa = sess_sub.add_parser("append", help="Append a turn to the session")

@@ -38,35 +38,35 @@ The plan file is the only interface between the phases, which is why the skill p
 
 ### gemini-media
 
-Generate and edit images and videos directly from Claude Code using Google's Gemini models — commonly known as **Nano Banana** (image generation) and **Veo** (video generation).
+Generate and edit images and videos directly from Claude Code using Google's Gemini models — commonly known as **Nano Banana** (image generation) and **Gemini Omni** (video generation).
 
 **Skills:**
 
 | Skill | Trigger | Models |
 |---|---|---|
-| `generate-image` | "generate an image", "edit this image", "refine the image" | Nano Banana (Gemini 3.1 Flash, Gemini 3 Pro, Gemini 2.5 Flash) |
-| `generate-video` | "generate a video", "animate this image", "extend the video" | Veo 3.1, Veo 3 |
+| `generate-image` | "generate an image", "edit this image", "refine the image" | Nano Banana 2.1 (default), Nano Banana 2 Lite, Nano Banana Pro, Nano Banana 2, Nano Banana |
+| `generate-video` | "generate a video", "animate this image", "edit the video", "extend the video" | Gemini Omni 1.2 Flash |
 
 #### Image Generation
 
 - Text-to-image generation
 - Image editing with up to 14 reference images
+- Video-to-image (thumbnails, posters) from a YouTube URL or local clip
 - Multi-turn conversational editing with session persistence
-- Google Search grounding for real-world subjects
-- Automatic thinking mode for complex prompts
-- Aspect ratios from 1:1 to 21:9, resolutions up to 4K
-- PNG or JPEG output with configurable compression
+- Google Search grounding (web and image search) for real-world subjects
+- Thinking level chosen by prompt complexity
+- Aspect ratios from 1:8 to 8:1, resolutions from 512 to 4K depending on the model
 
 #### Video Generation
 
-- Text-to-video generation
+- Text-to-video generation with native audio
 - Image-to-video animation
 - Frame interpolation between two images
-- Video extension (up to 20 extensions per chain)
-- Reference images for style/content guidance (up to 3)
-- Native audio synthesis
-- 720p to 4K, 4-8 second clips
-- Async generation with background submission and polling
+- Reference images for character and object consistency (up to 6)
+- Conversational editing of the last video
+- Video extension, 3-10 seconds per turn up to 30 seconds
+- 360p to 4K, 3-15 second clips, 16:9 or 9:16
+- Background generation with submission and polling
 
 ## Installation
 

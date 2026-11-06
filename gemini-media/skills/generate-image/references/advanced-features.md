@@ -1,25 +1,24 @@
 # Advanced Features — generate-image Skill
 
-## Thinking Mode Auto-Detection
+## Thinking Level Selection
 
-The thinking level controls how much internal reasoning the model does before generating an image. Higher thinking = better quality for complex prompts, but slower and more expensive.
+The Gemini 3 image models always think before they draw; the thinking level only tunes how much. More thinking helps complex prompts but is slower, and thinking tokens are billed.
 
-**Model support:** Thinking is supported on Flash 3.1 and Pro 3. It is **NOT supported** on Flash 2.5 — omit `thinkingConfig` entirely for that model.
+**Model support:**
 
-The API accepts two `thinkingLevel` values: `"minimal"` and `"high"`. The `--thinking-level` flag on `generate_image.py` maps: `none` → omitted, `minimal` → `"minimal"`, `high` → `"high"`.
+| Model | Levels | Default (when `thinkingConfig` is omitted) |
+|---|---|---|
+| `gemini-nano-banana-2.1` | `minimal`, `medium`, `high` | `medium` |
+| `gemini-3.1-flash-lite-image` | `minimal`, `high` | `minimal` |
+| `gemini-3-pro-image` | `minimal`, `high` | model-chosen |
+| `gemini-3.1-flash-image` | `minimal`, `high` | `minimal` |
+| `gemini-2.5-flash-image` | not supported — always pass `none` | — |
 
-### CRITICAL: Thinking and Resolution Are Mutually Exclusive
+An unsupported level fails with HTTP 400 ("Thinking level MEDIUM is not supported for this model").
 
-When `thinkingConfig` is included in the API request (any level — `"minimal"` or `"high"`), the Gemini API **silently ignores** the `imageSize` parameter in `imageConfig`. The output falls back to a lower default resolution (observed: ~1376x768 for 16:9 aspect ratio) regardless of the requested `imageSize`.
+The `--thinking-level` flag on `generate_image.py` maps: `none` → `thinkingConfig` omitted (model default), otherwise the value is passed as `thinkingLevel`. The script does not request thought output (`includeThoughts`), and it never saves an interim "thought image" as the result.
 
-**Workaround:** When a specific resolution is requested (2K, 4K, or user asks for "Full HD", "4K", etc.), **omit `thinkingConfig` entirely**. The `generate_image.py` script enforces this — if both `--resolution` and a non-none `--thinking-level` are passed, it automatically forces thinking to `none` and logs a warning.
-
-| User Request | `--resolution` | `--thinking-level` | Effective Behavior |
-|---|---|---|---|
-| "Generate a complex scene" | _(omitted)_ | `high` | Thinking enabled, API-default resolution (1K) |
-| "Generate in 4K" | `4K` | _(any)_ | Thinking forced to `none`, 4K resolution respected |
-| "Full HD steampunk scene" | `2K` or `4K` | _(any)_ | Thinking forced to `none`, resolution respected |
-| Simple prompt, no size request | _(omitted)_ | `none` | No thinking, API-default resolution |
+**Thinking and resolution combine freely.** Earlier preview models ignored `imageSize` when thinking was configured; the GA models do not (checked 2026-11-06: NB 2.1 at `high` with `2K` and 16:9 returns 2752×1536). The script no longer drops thinking when a resolution is set.
 
 ### Complexity Scoring Rubric
 
@@ -39,38 +38,27 @@ Evaluate the prompt against these signal categories. Each category scores 1 poin
 
 | Score | Thinking Level | Flag Value | API Value |
 |---|---|---|---|
-| 0-1 | None | `--thinking-level none` | omitted |
-| 2-3 | Minimal | `--thinking-level minimal` | `"minimal"` |
+| 0-3 | Model default | `--thinking-level none` | omitted |
 | 4+ | High | `--thinking-level high` | `"high"` |
+
+Use `--thinking-level minimal` only when the user asks for speed over quality. Use `medium` only on NB 2.1, and only when the user asks for it, since it is that model's default anyway.
 
 This rubric is applied by Claude (the AI) before calling `generate_image.py`. It is a heuristic — Claude uses judgment and may adjust based on the full context of the request.
 
 ## Thought Signatures
 
-When thinking mode is enabled, the API response includes encrypted `thoughtSignature` parts alongside text and image parts. These are opaque base64 strings that encode the model's reasoning chain.
+Every Gemini 3 image response carries encrypted `thoughtSignature` fields. They sit on the response parts themselves (the final image part and any non-thought text part), not in parts of their own. They are opaque base64 strings that encode the model's reasoning chain.
 
-**Critical for multi-turn**: Thought signatures MUST be preserved in the session and passed back in subsequent turns. The Gemini API requires them for reasoning continuity. Without them, the model loses context about its previous generation decisions.
+**Critical for multi-turn**: send each signature back, exactly as received, on the same part in the conversation history. Without them, the model loses context about its earlier decisions and the request may fail.
 
-The `generate_image.py` script automatically preserves thought signatures in the session file when using `--session-file`.
-
-Thought signatures appear in model response parts as:
-```json
-{ "thoughtSignature": "abc123..." }
-```
-
-Or in snake_case:
-```json
-{ "thought_signature": "abc123..." }
-```
-
-Both formats are handled by the scripts.
+The `generate_image.py` script keeps each signature on its part in the session file when `--session-file` is used. Both `thoughtSignature` and `thought_signature` spellings are read.
 
 ## Session File Schema (`.session.json`)
 
 ```json
 {
   "version": 1,
-  "model": "gemini-3.1-flash-image-preview",
+  "model": "gemini-nano-banana-2.1",
   "created_at": "2026-02-28T12:00:00Z",
   "updated_at": "2026-02-28T12:05:00Z",
   "turn_count": 4,
@@ -78,7 +66,7 @@ Both formats are handled by the scripts.
     "aspectRatio": "16:9",
     "resolution": "2K"
   },
-  "last_output": "cosmic-garden-brighter-1709145900.png",
+  "last_output": "cosmic-garden-brighter-1709145900.jpg",
   "contents": [
     {
       "role": "user",
@@ -90,8 +78,10 @@ Both formats are handled by the scripts.
       "role": "model",
       "parts": [
         { "text": "Here is your cosmic garden..." },
-        { "inline_data_ref": { "path": "generated-images/cosmic-garden-1709145600.png", "mime_type": "image/png" } },
-        { "thoughtSignature": "encrypted-base64-string..." }
+        {
+          "inline_data_ref": { "path": "generated-images/cosmic-garden-1709145600.jpg", "mime_type": "image/jpeg" },
+          "thoughtSignature": "encrypted-base64-string..."
+        }
       ]
     },
     {
@@ -104,7 +94,10 @@ Both formats are handled by the scripts.
       "role": "model",
       "parts": [
         { "text": "I've brightened the flowers and added a crescent moon..." },
-        { "inline_data_ref": { "path": "generated-images/cosmic-garden-brighter-1709145900.png", "mime_type": "image/png" } }
+        {
+          "inline_data_ref": { "path": "generated-images/cosmic-garden-brighter-1709145900.jpg", "mime_type": "image/jpeg" },
+          "thoughtSignature": "encrypted-base64-string..."
+        }
       ]
     }
   ]
@@ -114,6 +107,10 @@ Both formats are handled by the scripts.
 ### Key Design Decisions
 
 **`inline_data_ref` instead of raw base64**: The session stores file paths to generated images rather than full base64 blobs. This keeps the session file at a manageable size (kilobytes, not megabytes). When `generate_image.py session read` is called, it re-encodes images from disk to produce the base64 `inline_data` the API expects.
+
+**Session settings are inherited**: `generate` uses the session's `model`, `config.aspectRatio` and `config.resolution` unless a flag overrides them, so later turns need only `--prompt` and `--session-file`.
+
+**Videos in sessions**: a YouTube URL passed with `--input-video` is replayed in later turns as `file_data`; a local video file is sent only on the turn it was given.
 
 **Global session**: The session file lives at `~/.cache/claude-generate-image/.session.json`, outside the repo. Override the directory with the `CLAUDE_IMAGE_SESSION_DIR` env var.
 
@@ -146,35 +143,25 @@ Image Search grounding adds visual reference from the web. Useful for:
 - Style reference from existing artwork
 - Accurate depictions of specific items
 
-**Flash models only** — the Pro model does not support Image Search grounding.
+**NB 2.1 and NB 2 only** — Pro supports web search but not Image Search, NB 2 Lite supports no grounding at all, and Image Search cannot be used to find people.
 
 Enabled via the combined tool config:
 ```json
 {"google_search": {"searchTypes": {"webSearch": {}, "imageSearch": {}}}}
 ```
 
-## Person Generation
+## Output Format
 
-Use `--person-generation` to control whether the model generates images of people:
+The API decides the output format; it can no longer be requested. The Gemini 3 models return JPEG, `gemini-2.5-flash-image` returns PNG. The script names the file after the returned MIME type (`.jpg` or `.png`). The former `personGeneration` and `imageOutputOptions` request fields now fail with HTTP 400, so the `--person-generation`, `--output-mime-type` and `--compression-quality` flags were removed. If the user needs a PNG, convert afterwards (`sips -s format png in.jpg --out out.png` on macOS).
 
-| Value | Description | Notes |
-|---|---|---|
-| `ALLOW_ALL` | Adults and children | May require project allowlist; restricted in EU/UK/CH/MENA |
-| `ALLOW_ADULT` | Adults only (default) | Use for most requests involving people |
-| `ALLOW_NONE` | No people | Use when people are not desired |
+## Video-to-Image
 
-Only set this when the user specifically needs (or wants to avoid) people in the image.
+NB 2.1, NB 2 Lite and NB 2 accept a video as context: a public YouTube URL or a local file (up to 20 MB, sent inline). Typical uses are thumbnails, posters, summary infographics, or new artwork inspired by a scene.
 
-## Output Format Control
-
-Use `--output-mime-type` to control the output image format:
-
-| Format | Flag | Best For |
-|---|---|---|
-| PNG (default) | `--output-mime-type image/png` | Transparency, lossless quality, editing workflows |
-| JPEG | `--output-mime-type image/jpeg` | Smaller files, photographs, web content |
-
-When using JPEG, add `--compression-quality <1-100>` to control quality (higher = better quality, larger file). If `--compression-quality` is set without `--output-mime-type`, the script automatically sets the format to JPEG.
+```
+--input-video "https://www.youtube.com/watch?v=..." --prompt "A poster capturing the key themes of this video"
+--input-video clip.mp4 --aspect-ratio 4:1 --prompt "A panoramic banner in the mood of this clip"
+```
 
 ## Deterministic Generation (Seed)
 
@@ -210,7 +197,7 @@ One input image + style description.
 ```
 
 ### Multi-Reference Composition
-Multiple input images + composition instruction. Up to 14 images.
+Multiple input images + composition instruction. Up to 14 images on NB 2.1, NB 2 and Pro (NB 2.1 keeps up to 4 characters and 10 objects faithful). NB 2 Lite is not built for multi-reference work.
 ```
 --input-image person1.jpg --input-image person2.jpg --prompt "Group photo of these people in a park"
 ```
@@ -226,28 +213,37 @@ Each turn builds on the previous, maintaining visual consistency.
 
 ## Model-Specific Behaviors
 
-### gemini-3.1-flash-image-preview (default)
-- Fastest generation time (4-6s)
-- Supports all features: Image Search grounding, thinking, extreme ratios, 512px
-- Up to 10 reference images (objects), 4 (characters)
+### gemini-nano-banana-2.1 (default, Nano Banana 2.1)
+- GA since 2026-10-06; Google's recommended model for new work
+- Better visual quality, prompt adherence, text rendering and multi-turn character consistency than NB 2
+- 1K (default), 2K, 4K; no `512`
+- All 14 aspect ratios, with the tiling artifacts of NB 2 on panoramic ratios at 2K/4K fixed
+- Thinking `minimal` / `medium` (default) / `high`
+- Web and Image Search grounding; video input
 - Input token limit: 131,072
-- Good for iterative workflows where speed matters
 
-### gemini-3-pro-image-preview
-- Highest quality output — best for final deliverables
-- Slower generation (8-12s)
-- Supports thinking (`minimal`, `high`)
-- Does NOT support Google Image Search grounding (web search only)
-- Up to 6 reference images (objects), 5 (characters)
-- Input token limit: 65,536
-- No extreme aspect ratios (1:4, 4:1, 1:8, 8:1), no 512px resolution
+### gemini-3.1-flash-lite-image (Nano Banana 2 Lite)
+- Fastest and cheapest (sub-2-second target); good for drafts and quick local edits
+- 1K only; all 14 aspect ratios
+- Thinking `minimal` (default) / `high`
+- No grounding; not optimized for multiple references or long multi-turn edits
 
-### gemini-2.5-flash-image
-- GA / production-ready — most stable
-- Does NOT support `thinkingConfig` — omit entirely
-- Fewer aspect ratios (no extreme ratios: 1:4, 4:1, 1:8, 8:1)
-- No 512px resolution
-- Good balance of speed and quality
+### gemini-3-pro-image (Nano Banana Pro)
+- Premium reasoning model: complex instructions, brand consistency, dense or exact text, factual visuals
+- 1K, 2K, 4K; no panoramic ratios, no `512`
+- Thinking `minimal` / `high`
+- Web search grounding only (no Image Search); no video input
+- Up to 14 reference images, 5 at high fidelity; input token limit 65,536
+
+### gemini-3.1-flash-image (Nano Banana 2, deprecated)
+- Deprecated 2026-10-06 in favor of NB 2.1; no shutdown date yet
+- The only model with `512` output
+- Thinking `minimal` (default) / `high`
+
+### gemini-2.5-flash-image (Nano Banana, legacy)
+- API access limited to existing users; Google recommends NB 2 Lite instead
+- No `thinkingConfig` — always pass `--thinking-level none`
+- 1K only; no panoramic ratios; returns PNG
 
 ## Session Edge Cases
 
